@@ -1,0 +1,50 @@
+# Baseline project rules (CLAUDE.md). Run: semgrep scan --config .semgrep.yml --error
+rules:
+  - id: no-sql-raw
+    languages: [typescript]
+    severity: ERROR
+    message: sql.raw() requires explicit approval in the task (rule 5).
+    pattern: sql.raw(...)
+
+  - id: no-sql-string-building
+    languages: [typescript]
+    severity: ERROR
+    message: No string concatenation/interpolation in SQL — use parameters or the Drizzle builder (rule 5).
+    pattern-either:
+      - pattern: $DB.query("..." + $X, ...)
+      - pattern: $DB.query($X + "...", ...)
+      - pattern: $DB.query(`...${$X}...`, ...)
+
+  - id: no-web-storage
+    languages: [typescript]
+    severity: ERROR
+    message: Session and data never go to Web Storage (rule 16).
+    pattern-either:
+      - pattern: localStorage.$M(...)
+      - pattern: sessionStorage.$M(...)
+      - pattern: window.localStorage
+      - pattern: window.sessionStorage
+
+  - id: no-hex-color-in-components
+    languages: [generic]
+    severity: ERROR
+    message: Use a semantic token from tailwind.config.ts, never a hex color.
+    paths:
+      include: [src/app/, src/components/]
+    pattern-regex: '#[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3}(?:[0-9a-fA-F]{2})?)?\b'
+
+  - id: no-product-name-in-code
+    languages: [generic]
+    severity: ERROR
+    message: The product name comes from config (rule 21); only vigor_app / vigor_migrate are allowed.
+    paths:
+      include: [src/, messages/, tests/, scripts/]
+    pattern-regex: '(?i)vigor(?!_app|_migrate)'
+
+  - id: no-drizzle-kit-push
+    languages: [generic]
+    severity: ERROR
+    message: drizzle-kit push is forbidden — migrations are hand-written SQL (rule 4).
+    paths:
+      include: [package.json, scripts/, lefthook.yml]
+    pattern-regex: '(?m)^(?![ \t]*#).*drizzle-kit\s+push'

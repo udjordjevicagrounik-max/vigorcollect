@@ -1,0 +1,37 @@
+{
+  "app": {
+    "skipToContent": "Skip to content",
+    "description": "Receivables risk and resolution"
+  },
+  "nav": {
+    "label": "Main navigation",
+    "groups": {
+      "work": "Work",
+      "resolution": "Resolution",
+      "intelligence": "Intelligence",
+      "admin": "Admin"
+    },
+    "items": {
+      "home": "Home"
+    }
+  },
+  "empty": {
+    "home": {
+      "title": "Your work queue will appear here",
+      "description": "Once you connect a data source and import invoices, you will see the customers and items that need your attention here, ordered by priority.",
+      "action": "Check system status"
+    }
+  },
+  "error": {
+    "title": "Something went wrong",
+    "description": "We could not display this page. Please try again; if the error persists, send the request ID below to support.",
+    "retry": "Try again",
+    "home": "Back to home",
+    "requestId": "Request ID: {requestId}"
+  },
+  "notFound": {
+    "title": "Page not found",
+    "description": "The address may be wrong, or this feature is not enabled for your organization.",
+    "action": "Back to home"
+  }
+}

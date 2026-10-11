@@ -1,0 +1,32 @@
+/*
+ * Design tokens — "Wimbledon" palette (CLAUDE.md, section "Design tokeni").
+ * This is the ONLY place where raw color values live. Components use the
+ * semantic Tailwind names from tailwind.config.ts, never hex.
+ * Tokens are semantic so a dark theme can later override this block only.
+ */
+:root {
+  /* Brand */
+  --color-brand-green: #006633;
+  --color-brand-green-deep: #004d26;
+  --color-brand-purple: #4e2683;
+  --color-brand-purple-soft: #eee8f5;
+  /* Accent only: logo, section underline >= 3px, AI icon, premium badge. Never text on light. */
+  --color-brand-gold: #c9a227;
+
+  /* Neutrals */
+  --color-surface: #ffffff;
+  --color-background: #f7f8f5;
+  --color-text: #14261c;
+  --color-text-muted: #5f6b64;
+  --color-border: #e3e8e4;
+
+  /* Status — severity only, always with text + icon */
+  --color-status-success-fg: #1b7f4c;
+  --color-status-success-bg: #e6f2ec;
+  --color-status-warning-fg: #c2410c;
+  --color-status-warning-bg: #fdece3;
+  --color-status-danger-fg: #b42318;
+  --color-status-danger-bg: #fce8e6;
+  --color-status-info-fg: #4e2683;
+  --color-status-info-bg: #eee8f5;
+}

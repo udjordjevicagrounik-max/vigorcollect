@@ -1,0 +1,37 @@
+{
+  "app": {
+    "skipToContent": "Preskoči na sadržaj",
+    "description": "Upravljanje rizikom i naplatom potraživanja"
+  },
+  "nav": {
+    "label": "Glavna navigacija",
+    "groups": {
+      "work": "Rad",
+      "resolution": "Rešavanje",
+      "intelligence": "Analitika",
+      "admin": "Administracija"
+    },
+    "items": {
+      "home": "Početna"
+    }
+  },
+  "empty": {
+    "home": {
+      "title": "Ovde će biti vaš radni red",
+      "description": "Kada povežete izvor podataka i uvezete fakture, ovde ćete videti kupce i stavke koje traže vašu pažnju, poređane po prioritetu.",
+      "action": "Proveri status sistema"
+    }
+  },
+  "error": {
+    "title": "Nešto nije u redu",
+    "description": "Nismo uspeli da prikažemo ovu stranu. Pokušajte ponovo; ako se greška ponovi, pošaljite podršci ID zahteva ispod.",
+    "retry": "Pokušaj ponovo",
+    "home": "Nazad na početnu",
+    "requestId": "ID zahteva: {requestId}"
+  },
+  "notFound": {
+    "title": "Strana ne postoji",
+    "description": "Adresa je možda pogrešna ili ova funkcija nije uključena za vašu organizaciju.",
+    "action": "Nazad na početnu"
+  }
+}

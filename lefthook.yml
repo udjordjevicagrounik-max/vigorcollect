@@ -1,0 +1,26 @@
+# Git hooks (CLAUDE.md "Radni proces"). If a hook fails: do not commit — fix it.
+# Never bypass with --no-verify. gitleaks, semgrep and psql are system tools (see README).
+pre-commit:
+  piped: true # stop at the first failure, cheapest checks first
+  commands:
+    1_lint:
+      run: npm run lint
+    2_typecheck:
+      run: npm run typecheck
+    3_gitleaks:
+      run: gitleaks git --pre-commit --staged --redact --no-banner
+    4_semgrep:
+      run: env -u PYTHONPATH semgrep scan --config .semgrep.yml --error --metrics=off --disable-version-check --quiet
+    5_verify_tenant:
+      run: ./scripts/verify-tenant.sh
+    6_rls_drift:
+      run: ./scripts/rls-drift-check.sh
+    7_unit_tests:
+      run: npm test
+    8_audit:
+      run: npm audit --audit-level=high
+
+commit-msg:
+  commands:
+    commitlint:
+      run: npx --no -- commitlint --edit {1}
