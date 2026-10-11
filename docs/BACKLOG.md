@@ -12,7 +12,7 @@ Ideje i tehnički dug zapisani usred zadatka (protokol: ne predlaže se usred za
 - [ ] Prebacivanje jezika u UI (cookie `locale`) — posle 1.3, kad postoji `users.locale`.
 - [ ] Mobilna navigacija: na 375 px nav je iznad sadržaja; kad grupa bude imala više stavki → meni/drawer.
 - [ ] CI (GitHub Actions ili Elestio pipeline): isti koraci kao pre-commit + Playwright.
-- [ ] CODEOWNERS: upisati pravi GitHub handle umesto `@OWNER`.
+- [x] CODEOWNERS: vlasnik upisan (email format).
 
 ## Funkcije
 

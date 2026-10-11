@@ -1,0 +1,9 @@
+# Protected paths (CLAUDE.md rule 13): changes require the owner's review and signature.
+/CLAUDE.md               udjordjevic.agrounik@gmail.com
+/CODEOWNERS              udjordjevic.agrounik@gmail.com
+/docker-compose.yml      udjordjevic.agrounik@gmail.com
+/db/migrations/          udjordjevic.agrounik@gmail.com
+/db/init/                udjordjevic.agrounik@gmail.com
+/db/Dockerfile           udjordjevic.agrounik@gmail.com
+/src/server/auth/        udjordjevic.agrounik@gmail.com
+/src/server/tenant/      udjordjevic.agrounik@gmail.com

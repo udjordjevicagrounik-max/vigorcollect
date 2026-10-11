@@ -69,9 +69,9 @@ nije obavezan — ali **jeste obavezan `REVOKE` tamo gde app ne sme da piše**: 
 ## Rizik
 
 - **Dev kontejner postavlja `PIP_TARGET=/opt/app/data/.python-deps` i `PYTHONPATH` na isto.**
-  Prvi pokušaj instalacije semgrep-a je zbog toga upisao Python pakete u `/opt/app/data/`
-  (direktorijum nije postojao pre toga). Bezbednosna provera nije dozvolila Claude-u brisanje
-  u `/opt/app` — Uroš briše ručno: `rm -rf /opt/app/data`. Na `/opt/app` ništa drugo nije menjano.
+  Svaka `pip install` bez očišćenog okruženja piše u `/opt/app/data/`. Tako je nastao i
+  zalutali direktorijum u 0.1; Uroš ga je obrisao 2026-10-11, pa je `/opt/app` ponovo netaknut.
+  `setup-tools.sh` zato instalira semgrep kroz pipx sa očišćenim pip okruženjem.
 
 - **Docker daemon ≠ ovaj kontejner.** Bind mount-ovi iz `/srv/vigor-collect` na serveru ne rade
   (daemon vidi drugi fajl sistem). Sve što ide u kontejner mora kroz build context.
