@@ -15,6 +15,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest run",
+    "test:db": "./scripts/test-db.sh",
     "test:e2e": "playwright test",
     "migrate": "./scripts/migrate.sh",
     "seed": "tsx scripts/seed-demo.ts",

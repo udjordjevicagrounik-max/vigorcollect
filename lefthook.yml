@@ -17,7 +17,10 @@ pre-commit:
       run: ./scripts/rls-drift-check.sh
     7_unit_tests:
       run: npm test
-    8_audit:
+    8_test_db:
+      # Golden DB tests on collect_test; fails fast with "pokreni db (runbook korak 2)" if down.
+      run: npm run -s test:db
+    9_audit:
       run: npm audit --audit-level=high
 
 commit-msg:

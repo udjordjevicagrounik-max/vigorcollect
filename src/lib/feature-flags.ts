@@ -11,7 +11,8 @@ export const SETTLEMENT_FLAGS = [
 
 export type SettlementFlag = (typeof SETTLEMENT_FLAGS)[number];
 
-// TODO(0.2): read platform + tenant flags from `feature_flags`. Until then everything is off.
+// Tables exist since 0.2a (`platform_feature_flags` + `feature_flags`, effective = platform AND
+// tenant). TODO(1.3): read them through withTenant() once it exists. Until then everything is off.
 export async function isFlagEnabled(_flag: SettlementFlag): Promise<boolean> {
   return false;
 }

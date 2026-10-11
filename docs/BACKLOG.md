@@ -14,6 +14,14 @@ Ideje i tehnički dug zapisani usred zadatka (protokol: ne predlaže se usred za
 - [ ] CI (GitHub Actions ili Elestio pipeline): isti koraci kao pre-commit + Playwright.
 - [x] CODEOWNERS: vlasnik upisan (email format).
 
+## Iz 0.2a
+
+- [ ] Drizzle definicije (`src/db/schema`) za tabele iz 001 — read-only ogledalo SQL-a, pre prvog ekrana sa podacima.
+- [ ] `seed-demo.ts` zaštita od pokretanja na staging/prod bazi (npr. odbij ako postoje ne-demo tenanti).
+- [ ] `verify-tenant.sh` / `rls-drift-check.sh` (1.6): iskoristiti upite iz `tests/golden/db/rls.test.ts`.
+- [ ] Resource-scoped permisije (otvoreno pitanje u NEXT.md).
+- [ ] Maker-checker za izmene `role_permissions` (otvoreno pitanje u NEXT.md).
+
 ## Funkcije
 
 _(prazno)_

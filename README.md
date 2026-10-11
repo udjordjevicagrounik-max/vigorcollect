@@ -33,14 +33,15 @@ docker compose up -d db      # prvi start kreira vigor_app i vigor_migrate (db/i
 npm run migrate              # = ./scripts/migrate.sh up
 ./scripts/migrate.sh status
 
-# 5. demo podaci (deterministički, samo generisani — pravilo 24)
+# 5. demo podaci (deterministički, samo generisani — pravilo 24): tenant #0 + demo tenant
 npm run seed
 
 # 6. razvoj
 npm run dev                  # http://localhost:3000, /health
 
 # 7. testovi
-npm test                     # Vitest: smoke, golden, unit
+npm test                     # Vitest: smoke, golden (statički), unit
+npm run test:db              # golden testovi na živoj test bazi collect_test
 npx playwright install chromium   # jednom
 npm run test:e2e             # Playwright: 375 px + desktop, na production build-u
 ```
@@ -61,7 +62,7 @@ npm run test:e2e             # Playwright: 375 px + desktop, na production build
 
 ## Git hook-ovi (lefthook)
 
-`pre-commit`: lint → typecheck → gitleaks → semgrep → verify-tenant → rls-drift → vitest → npm audit.
+`pre-commit`: lint → typecheck → gitleaks → semgrep → verify-tenant → rls-drift → vitest → test:db → npm audit.
 `commit-msg`: commitlint (conventional commits — CHANGELOG se generiše iz njih).
 Ako hook padne: ne commit-uj, popravi. `--no-verify` se ne koristi.
 
@@ -74,6 +75,10 @@ Ako hook padne: ne commit-uj, popravi. `--no-verify` se ne koristi.
   sa `env -u PYTHONPATH`.
 - Na Elestio dev serveru postavi `DB_BIND_HOST=172.17.0.1` i `POSTGRES_PORT=15432` u `.env`
   (dev kontejner ne vidi host-ov `127.0.0.1`). Nikad `0.0.0.0`.
+
+## `!` komande u Claude Code
+
+Izvršavaju se iz `/opt/app`; uvek počni sa `cd /srv/vigor-collect &&` (vidi `docs/runbook.md`).
 
 ## Zaštićeni fajlovi (pravilo 13)
 

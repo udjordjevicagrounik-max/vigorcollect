@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Installs the system tools the git hooks and scripts need: gitleaks, semgrep, psql 16.
+# Installs the system tools the git hooks and scripts need: gitleaks, semgrep, psql 16,
+# then ensures the golden-test database exists (scripts/setup-test-db.sh).
 # Idempotent: installs only what is missing. Run at the start of EVERY session — the dev
 # container is ephemeral and tools installed outside the repo can disappear.
 # Debian/Ubuntu, x86_64/arm64, run as root.
@@ -73,3 +74,6 @@ else
 fi
 
 log "all tools present."
+
+# --- golden-test database (collect_test) --------------------------------------------------------
+"$(dirname "${BASH_SOURCE[0]}")/setup-test-db.sh"
