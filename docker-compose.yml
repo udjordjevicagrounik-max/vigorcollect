@@ -29,6 +29,7 @@ services:
   app:
     build:
       context: .
+      target: app
       args:
         APP_VERSION: ${APP_VERSION:-dev}
     restart: unless-stopped
@@ -68,14 +69,18 @@ services:
       retries: 5
 
   # Job runner (ADR 0005): same image, other command. Not published; /health on 3001 inside.
-  # Needs the role vigor_worker (scripts/create-worker-role.sh) before migration 007.
+  # Needs the role vigor_worker (scripts/create-service-roles.sh) before migration 007.
   worker:
     build:
       context: .
+      # Worker stage = app image + pg_dump/pg_restore 16 + rclone (backup, restore test).
+      target: worker
       args:
         APP_VERSION: ${APP_VERSION:-dev}
     restart: unless-stopped
     command: ['node', 'worker.mjs']
+    volumes:
+      - backups:/srv/backups
     depends_on:
       db:
         condition: service_healthy
@@ -95,9 +100,11 @@ services:
       ALERT_TELEGRAM_BOT_TOKEN: ${ALERT_TELEGRAM_BOT_TOKEN:-}
       ALERT_TELEGRAM_CHAT_ID: ${ALERT_TELEGRAM_CHAT_ID:-}
       ALERT_SLACK_WEBHOOK_URL: ${ALERT_SLACK_WEBHOOK_URL:-}
-      # Backup by the worker needs pg_dump in the image (not there yet — BACKLOG); until then the
-      # host cron runs scripts/backup.sh. Superuser URL: pg_dump must read past FORCE RLS.
+      # Backup 02:00 UTC / restore test Sunday 03:00 UTC run in this container (worker stage has
+      # pg_dump + rclone). Service roles, never the superuser (scripts/create-service-roles.sh):
+      # vigor_backup reads only, vigor_restore owns its scratch database. Empty = jobs log why.
       BACKUP_DATABASE_URL: ${BACKUP_DATABASE_URL:-}
+      RESTORE_DATABASE_URL: ${RESTORE_DATABASE_URL:-}
       BACKUP_DIR: ${BACKUP_DIR:-/srv/backups}
       BACKUP_S3_BUCKET: ${BACKUP_S3_BUCKET:-}
       BACKUP_S3_PREFIX: ${BACKUP_S3_PREFIX:-}
@@ -119,3 +126,5 @@ services:
 
 volumes:
   pgdata:
+  # Local backup copies (30 daily + 12 monthly); the off-site copy goes through rclone.
+  backups:
