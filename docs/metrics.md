@@ -18,6 +18,11 @@ definicija menja, menjaju se oba u istom commit-u.
 - **Dospela (overdue)**: otvorena faktura čiji je kraj dana dospeća prošao u zoni kompanije, tj.
   `due_date < danas`. Na sam dan dospeća faktura još nije dospela.
 - **Dana kašnjenja** = `danas − due_date` (najmanje 0).
+- **Uplata vs. korekcija** (migracija 015): `payments.payment_kind` = `payment` (novac primljen od
+  kupca) ili `adjustment` (dug smanjen bez novca: knjižno odobrenje, otpis, ispravka u izvoru,
+  nepoznat razlog — code lista `adjustment_reason`). Kad izvor u uvozu javi niži saldo, nastaje
+  korekcija sa razlogom `unknown`. **Korekcija nikad nije naplata**: ne ulazi u „Naplaćeno",
+  stopu naplate ni DSO; smanjuje otvoreni iznos fakture (dug više ne postoji).
 - **Scope**: svaka brojka je ograničena na kupce koje korisnik vidi (OWN / TEAM / ORGANIZATION,
   `scopeFilter()`); fakture, uplate, obećanja, aktivnosti i case-ovi prate svog kupca.
 
@@ -27,7 +32,7 @@ definicija menja, menjaju se oba u istom commit-u.
 | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Dospelo ukupno** (`overdue_total`)       | Zbir otvorenih iznosa dospelih faktura, u izveštajnoj valuti.                                                                                                                                                                                                                                                               |
 | **Otvoreno ukupno** (`open_total`)         | Zbir otvorenih iznosa svih otvorenih faktura (dospelih i nedospelih).                                                                                                                                                                                                                                                       |
-| **DSO** (`dso`)                            | Otvoreno ukupno ÷ prosečan dnevni fakturisani iznos poslednjih N dana, gde je N = `tenant_settings.dso_window_days` (podrazumevano 90). Prosečan dnevni iznos = zbir `amount_total` faktura izdatih u poslednjih N dana (bez `cancelled`) ÷ N. Zaokruženo na 0,1 dan. Bez fakturisanja u prozoru DSO se ne prikazuje („—"). |
+| **DSO** (`dso`) | (Otvoreno ukupno + iznosi zatvoreni korekcijama na tim fakturama) ÷ prosečan dnevni fakturisani iznos poslednjih N dana, gde je N = `tenant_settings.dso_window_days` (podrazumevano 90). Korekcije se vraćaju u brojilac jer nisu naplata; fakture `credited` / `cancelled` ne ulaze. Prosečan dnevni iznos = zbir `amount_total` faktura izdatih u poslednjih N dana (bez `cancelled`) ÷ N. Zaokruženo na 0,1 dan. Bez fakturisanja u prozoru DSO se ne prikazuje („—"). |
 | **Obećanja danas** (`promises_today`)      | Broj i zbir obećanja u statusu `pending` čiji je datum obećanja danas (u zoni kompanije obećanja).                                                                                                                                                                                                                          |
 | **Prekršena obećanja** (`promises_broken`) | Broj obećanja u statusu `broken` čiji je datum obećanja u poslednjih 30 dana. Obećanje postaje prekršeno dan posle datuma obećanja (D+`promise_grace_days`, podrazumevano D+1) ako do tada nije uplaćeno ≥ obećanog iznosa (dnevni posao, 2.4).                                                                             |
 | **Otvoreni case-ovi** (`open_cases`)       | Broj case-ova naplate u statusu `open`.                                                                                                                                                                                                                                                                                     |

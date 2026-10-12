@@ -181,6 +181,6 @@ describe('imports: demo file (scripts/demo-import)', () => {
     };
     const results = validateRows(grid, mapping, { currency: 'EUR', country: 'RS' });
     expect(results.filter((r) => !r.ok)).toEqual([]);
-    expect(results).toHaveLength(22);
+    expect(results).toHaveLength(40);
   });
 });

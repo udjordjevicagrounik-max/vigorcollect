@@ -141,7 +141,10 @@ Ideje i tehnički dug zapisani usred zadatka (protokol: ne predlaže se usred za
 
 - [ ] Retencija `import_runs.payload_enc` za napuštene uvoze (status `uploaded` / `validated` duže
       od N dana) — sada se payload briše tek na kraju, otkazivanju ili obradi.
-- [ ] Posebna dozvola za rollback uvoza (`import.rollback`) — sada ga pokriva `import.create`.
+- [ ] **`import.rollback` kao poseban ključ** u sledećoj migraciji kataloga permisija (+ matrica u
+  `docs/permissions.md`, ruta `/api/imports/[id]/rollback`) — do tada ga pokriva `import.create`.
+- [ ] Klasifikacija razloga korekcije (`adjustment_reason`) iz Customer 360 / reconciliation ekrana;
+  otpis (`write_off`) samo kroz maker-checker (pravilo 11). Contract: ukloniti `payments.kind`.
 - [ ] Rollback ne vraća kupce koje je uvoz napravio ni izmene metapodataka (dospeće, reference).
 - [ ] Obećanja istog kupca se ocenjuju nezavisno (ista uplata može pokriti više obećanja);
       raspodela uplata po obećanjima kad se pojavi realan slučaj.

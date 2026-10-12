@@ -196,7 +196,7 @@
       },
       "dso": {
         "label": "DSO",
-        "definition": "Otvoreno ukupno ÷ prosečan dnevni fakturisani iznos poslednjih {window} dana."
+        "definition": "Otvoreno ukupno (korekcije se vraćaju — nisu naplata) ÷ prosečan dnevni fakturisani iznos poslednjih {window} dana."
       },
       "promises_today": {
         "label": "Obećanja danas",
@@ -209,6 +209,14 @@
       "open_cases": {
         "label": "Otvoreni case-ovi",
         "definition": "Broj otvorenih case-ova naplate."
+      },
+      "collected_30": {
+        "label": "Naplaćeno (30 dana)",
+        "definition": "Zbir uplata primljenih u poslednjih 30 dana. Korekcije (knjižno odobrenje, otpis, ispravka u izvoru) nisu naplata i ne ulaze."
+      },
+      "collection_rate": {
+        "label": "Stopa naplate",
+        "definition": "Naplaćeno (30 dana) ÷ (naplaćeno + dospelo ukupno), u procentima. Korekcije ne ulaze."
       }
     },
     "aging": {
@@ -231,7 +239,8 @@
       "title": "Još nema faktura",
       "description": "Kada uvezete fakture iz knjigovodstva, ovde vidite kupce i stavke koje traže pažnju, poređane po prioritetu. Prvi korak je uvoz.",
       "action": "Uvezi fakture"
-    }
+    },
+    "percent": "{n} %"
   },
   "importPage": {
     "title": "Uvoz faktura",
@@ -594,8 +603,8 @@
       "cancelled": "stornirana"
     },
     "paymentKind": {
-      "received": "uplata",
-      "source_settlement": "zatvoreno u ERP-u"
+      "payment": "uplata",
+      "adjustment": "korekcija — nije naplata"
     },
     "allocated": "povezano {amount}",
     "promiseStatus": {

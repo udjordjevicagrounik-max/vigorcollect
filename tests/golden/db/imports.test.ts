@@ -6,6 +6,7 @@ import type { TenantContext } from '@/server/auth/with-tenant';
 import { parseMasterKeyring } from '@/server/crypto/keyring';
 import { applyImport, rollbackImport } from '@/server/imports/process';
 import { confirmImport, getImport, uploadImport, validateImport } from '@/server/imports/service';
+import { customerPayments, getDashboard } from '@/server/receivables/service';
 import { ensureFixtures, FX } from './fixtures';
 import { appPool, closePools, inTenant, inTenantCommit, migratePool } from './helpers';
 
@@ -178,6 +179,30 @@ describe('golden/db: invoice import', () => {
         currency: 'EUR',
       }),
     ]);
+  });
+
+  it('a lower open amount is an ADJUSTMENT (reason unknown): never "collected", added back for DSO', async () => {
+    const out = await inTenant(appPool, FX.tenantA, async (db) => {
+      const ctx = ctxFor(db);
+      const before = await getDashboard(ctx);
+      await runImport(ctx, [HEADER, `${TAX}-11;F-11;01.09.2026;30.09.2026;100,00;100,00;${TAX}A;Alfa`]);
+      const mid = await getDashboard(ctx);
+      await runImport(ctx, [HEADER, `${TAX}-11;F-11;01.09.2026;30.09.2026;100,00;25,00;${TAX}A;Alfa`]);
+      const after = await getDashboard(ctx);
+      const customer = await db.query<{ customer_id: string }>(
+        'SELECT customer_id FROM invoices WHERE external_id = $1',
+        [`${TAX}-11`],
+      );
+      const payments = await customerPayments(ctx, customer.rows[0]?.customer_id ?? '');
+      return { before, mid, after, payments };
+    });
+    expect(out.after.collected30).toBe(out.before.collected30);
+    expect(out.after.collected30).toBe(out.mid.collected30);
+    expect(out.payments).toEqual([
+      expect.objectContaining({ kind: 'adjustment', reason: 'unknown', amount: '75.00' }),
+    ]);
+    // The open total drops by 75, the DSO numerator does not (adjustment added back).
+    expect(out.after.dso).toBe(out.mid.dso);
   });
 
   it('a higher open amount on an unpaid invoice is an exception, not a rewrite', async () => {

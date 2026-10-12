@@ -93,6 +93,7 @@ export default async function Customer360Page({
         stages: await codeLabels(ctx, 'case_stage', locale),
         outcomes: await codeLabels(ctx, 'activity_outcome', locale),
         nextActions: await codeLabels(ctx, 'next_action', locale),
+        reasons: await codeLabels(ctx, 'adjustment_reason', locale),
       };
     });
   } catch (error) {
@@ -222,7 +223,7 @@ export default async function Customer360Page({
               key: p.id,
               attr: p.kind,
               title: `${p.paidOn} · ${money(p.amount, p.currency)}`,
-              line: `${t(`paymentKind.${p.kind as 'received'}`)} · ${t('allocated', { amount: money(p.allocated, p.currency) })}${p.reference ? ` · ${p.reference}` : ''}`,
+              line: `${t(`paymentKind.${p.kind}`)}${p.reason ? ` (${data.reasons[p.reason] ?? p.reason})` : ''} · ${t('allocated', { amount: money(p.allocated, p.currency) })}${p.reference ? ` · ${p.reference}` : ''}`,
             }))}
           />
         ) : null}

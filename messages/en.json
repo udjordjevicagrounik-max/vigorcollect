@@ -196,7 +196,7 @@
       },
       "dso": {
         "label": "DSO",
-        "definition": "Open total ÷ average daily invoiced amount of the last {window} days."
+        "definition": "Open total (adjustments added back — they are not collections) ÷ average daily invoiced amount of the last {window} days."
       },
       "promises_today": {
         "label": "Promises today",
@@ -209,6 +209,14 @@
       "open_cases": {
         "label": "Open cases",
         "definition": "Number of open collection cases."
+      },
+      "collected_30": {
+        "label": "Collected (30 days)",
+        "definition": "Sum of payments received in the last 30 days. Adjustments (credit note, write-off, source correction) are not collections and are excluded."
+      },
+      "collection_rate": {
+        "label": "Collection rate",
+        "definition": "Collected (30 days) ÷ (collected + overdue total), in percent. Adjustments are excluded."
       }
     },
     "aging": {
@@ -231,7 +239,8 @@
       "title": "No invoices yet",
       "description": "Once you import invoices from your accounting system, the customers and items that need attention appear here, ordered by priority. The first step is the import.",
       "action": "Import invoices"
-    }
+    },
+    "percent": "{n} %"
   },
   "importPage": {
     "title": "Invoice import",
@@ -594,8 +603,8 @@
       "cancelled": "cancelled"
     },
     "paymentKind": {
-      "received": "payment",
-      "source_settlement": "settled in ERP"
+      "payment": "payment",
+      "adjustment": "adjustment — not a collection"
     },
     "allocated": "allocated {amount}",
     "promiseStatus": {

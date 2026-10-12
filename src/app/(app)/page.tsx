@@ -121,6 +121,20 @@ export default async function HomePage({
           definition={t('kpi.open_cases.definition')}
           definitionLabel={t('definition')}
         />
+        <KpiCard
+          id="collected_30"
+          label={t('kpi.collected_30.label')}
+          value={money(d.collected30)}
+          definition={t('kpi.collected_30.definition')}
+          definitionLabel={t('definition')}
+        />
+        <KpiCard
+          id="collection_rate"
+          label={t('kpi.collection_rate.label')}
+          value={d.collectionRate ? t('percent', { n: d.collectionRate }) : '—'}
+          definition={t('kpi.collection_rate.definition')}
+          definitionLabel={t('definition')}
+        />
       </section>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">

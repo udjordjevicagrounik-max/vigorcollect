@@ -335,7 +335,10 @@ export type PaymentRow = {
   paidOn: string;
   amount: string;
   currency: string;
-  kind: string;
+  /** 'payment' = money received; 'adjustment' = lowered without money (never "collected"). */
+  kind: 'payment' | 'adjustment';
+  /** Adjustment reason code (code list 'adjustment_reason'); null for payments. */
+  reason: string | null;
   reference: string | null;
   allocated: string;
 };
@@ -350,11 +353,14 @@ export async function customerPayments(
     paid_on: string;
     amount: string;
     currency: string;
-    kind: string;
+    kind: 'payment' | 'adjustment';
+    reason: string | null;
     reference: string | null;
     allocated: string;
   }>(
-    `SELECT p.id, p.paid_on::text, p.amount, p.currency, p.kind, p.reference,
+    `SELECT p.id, p.paid_on::text, p.amount, p.currency, p.payment_kind AS kind,
+            CASE WHEN p.payment_kind = 'adjustment' THEN coalesce(p.adjustment_reason_code, 'unknown') END AS reason,
+            p.reference,
             coalesce((SELECT sum(a.amount) FROM payment_allocations a WHERE a.payment_id = p.id), 0)::numeric(18,2)::text AS allocated
      FROM payments p WHERE p.customer_id = $1 ORDER BY p.paid_on DESC, p.created_at DESC`,
     [customerId],
@@ -365,6 +371,7 @@ export async function customerPayments(
     amount: r.amount,
     currency: r.currency,
     kind: r.kind,
+    reason: r.reason,
     reference: r.reference,
     allocated: r.allocated,
   }));
@@ -529,6 +536,10 @@ export type Dashboard = {
   overdueTotal: string;
   dso: string | null;
   dsoWindowDays: number;
+  /** Money received in the last 30 days (payments only — adjustments never count). */
+  collected30: string;
+  /** collected30 ÷ (collected30 + overdue total) in %, one decimal; null without both. */
+  collectionRate: string | null;
   promisesToday: { count: number; amount: string };
   promisesBroken: number;
   openCases: number;
@@ -551,11 +562,13 @@ export async function getDashboard(ctx: TenantContext): Promise<Dashboard> {
     open_total: string | null;
     overdue_total: string | null;
     billed: string | null;
+    dso_open: string | null;
     window_days: number;
     missing_fx: number;
   }>(
     `SELECT ts.default_currency AS currency, ts.dso_window_days AS window_days,
             sum(p.open_reporting) FILTER (WHERE p.is_open) AS open_total,
+            sum(p.dso_open_reporting) AS dso_open,
             sum(p.open_reporting) FILTER (WHERE p.is_overdue) AS overdue_total,
             sum(p.total_reporting) FILTER (WHERE p.issue_date > p.local_today - ts.dso_window_days
                                              AND p.accounting_status <> 'cancelled') AS billed,
@@ -566,10 +579,26 @@ export async function getDashboard(ctx: TenantContext): Promise<Dashboard> {
     filter.params,
   );
   const t = totals.rows[0];
-  // DSO = open / (billed in the window / window days), in numeric — never a float.
+  // DSO = open (adjustments added back — they are not collection) / (billed in the window /
+  // window days), in numeric — never a float.
   const dso = await ctx.db.query<{ dso: string | null }>(
     `SELECT CASE WHEN $2::numeric > 0 THEN round($1::numeric / ($2::numeric / $3::int), 1)::text END AS dso`,
-    [t?.open_total ?? '0', t?.billed ?? '0', t?.window_days ?? 90],
+    [t?.dso_open ?? '0', t?.billed ?? '0', t?.window_days ?? 90],
+  );
+  const collected = await ctx.db.query<{ collected: string | null; rate: string | null }>(
+    `WITH c30 AS (
+       SELECT sum(fx_convert(py.amount, py.currency, ts.default_currency, py.paid_on)) AS amount
+       FROM payments py
+       JOIN customers c ON c.id = py.customer_id AND ${filter.sql}
+       CROSS JOIN tenant_settings ts
+       WHERE py.payment_kind = 'payment'
+         AND py.paid_on > (now() AT TIME ZONE ts.timezone)::date - 30)
+     SELECT coalesce(amount, 0)::numeric(18,2)::text AS collected,
+            CASE WHEN coalesce(amount, 0) + $${filter.params.length + 1}::numeric > 0
+                 THEN round(coalesce(amount, 0) * 100 / (coalesce(amount, 0) + $${filter.params.length + 1}::numeric), 1)::text
+            END AS rate
+     FROM c30`,
+    [...filter.params, t?.overdue_total ?? '0'],
   );
   const aging = await ctx.db.query<{ bucket: string; amount: string | null; n: number }>(
     `SELECT b.code AS bucket, sum(x.open_reporting) AS amount, count(x.invoice_id)::int AS n
@@ -618,6 +647,8 @@ export async function getDashboard(ctx: TenantContext): Promise<Dashboard> {
     overdueTotal: t?.overdue_total ?? '0.00',
     dso: dso.rows[0]?.dso ?? null,
     dsoWindowDays: t?.window_days ?? 90,
+    collected30: collected.rows[0]?.collected ?? '0.00',
+    collectionRate: collected.rows[0]?.rate ?? null,
     promisesToday: { count: pr?.today_n ?? 0, amount: pr?.today_amount ?? '0.00' },
     promisesBroken: pr?.broken ?? 0,
     openCases: cases.rows[0]?.n ?? 0,

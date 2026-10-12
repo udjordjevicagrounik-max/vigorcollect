@@ -782,7 +782,7 @@ export async function recordPayment(
 
 /** Paid toward a promise: money received from the customer since the promise was made. */
 const PAID_SINCE_MADE = `coalesce((SELECT sum(py.amount) FROM payments py
-   WHERE py.customer_id = pr.customer_id AND py.currency = pr.currency AND py.kind = 'received'
+   WHERE py.customer_id = pr.customer_id AND py.currency = pr.currency AND py.payment_kind = 'payment'
      AND py.paid_on >= pr.made_on AND py.paid_on <= $2::date), 0)`;
 
 /** Pending promises already covered by payments become fulfilled right away. */
@@ -853,7 +853,7 @@ export async function runDailyCollections(
        WHERE pr.status = 'pending')
      SELECT d.id, d.amount, d.case_id,
             coalesce((SELECT sum(py.amount) FROM payments py
-                      WHERE py.customer_id = d.customer_id AND py.currency = d.currency AND py.kind = 'received'
+                      WHERE py.customer_id = d.customer_id AND py.currency = d.currency AND py.payment_kind = 'payment'
                         AND py.paid_on >= d.made_on AND py.paid_on < d.promised_on + d.grace), 0)::numeric(18,2)::text AS paid
      FROM due d WHERE d.today >= d.promised_on + d.grace`,
   );
