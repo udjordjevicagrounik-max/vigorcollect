@@ -106,10 +106,14 @@ Izvoz (`*.export`) ide samo kroz `exportService` koji piše `export_log` (pravil
 
 ## Javne rute (bez `requirePermission`)
 
-Izuzeci od pravila 7. Svaki izuzetak mora biti ovde, sa razlogom.
+Izuzeci od pravila 7. Svaki izuzetak mora biti ovde, sa razlogom. Ekrani i rute tenanta (sve ostalo) traže punu sesiju (lozinka + TOTP + aktivno članstvo) i `requirePermission` (1.2).
 
-| ruta                    | metoda    | razlog                                                              | zaštita                                                                                                            |
-| ----------------------- | --------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `/health`               | GET       | liveness probe za Docker/Elestio i post-deploy smoke                | ne vraća podatke, samo `{status:"ok"}`                                                                             |
-| `/manifest.webmanifest` | GET       | PWA manifest                                                        | samo `productName` i boje                                                                                          |
-| `/api/auth/*`           | GET, POST | Better Auth: prijava, MFA, reset lozinke (pre sesije po definiciji) | rate limit po IP-u, zaključavanje 5 / 15 min, isti odgovor za nepostojeći nalog, bez javne registracije (ADR 0004) |
+| ruta                                    | metoda    | razlog                                                              | zaštita                                                                                                                                       |
+| --------------------------------------- | --------- | ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/health`                               | GET       | liveness probe za Docker/Elestio i post-deploy smoke                | ne vraća podatke, samo `{status:"ok"}`                                                                                                        |
+| `/manifest.webmanifest`                 | GET       | PWA manifest                                                        | samo `productName` i boje                                                                                                                     |
+| `/api/auth/*`                           | GET, POST | Better Auth: prijava, MFA, reset lozinke (pre sesije po definiciji) | rate limit po IP-u, zaključavanje 5 / 15 min, isti odgovor za nepostojeći nalog, bez javne registracije (ADR 0004)                            |
+| `/api/invitations/accept`               | POST      | prihvatanje pozivnice (osoba još nema tenant sesiju)                | token 256 bita, jednokratan, 72 h, u bazi samo heš; honeypot; postojeći nalog samo iz verifikovane sesije; odgovor samo kod greške (ADR 0004) |
+| `/login`, `/login/mfa`                  | GET       | ekrani prijave (lozinka, TOTP kod)                                  | isti tekst za pogrešnu lozinku, nepostojeći i zaključan nalog; honeypot; rate limit i zaključavanje kroz `/api/auth/*`                        |
+| `/invite/[token]`                       | GET       | ekran pozivnice                                                     | iskorišćen, opozvan i nepostojeći token izgledaju isto; podaci samo za važeći token                                                           |
+| `/settings/mfa-setup`, `/select-tenant` | GET       | koraci pre tenant sesije (obavezan TOTP, izbor organizacije)        | zahtevaju Better Auth sesiju; bez nje → `/login`; nema podataka tenanta                                                                       |

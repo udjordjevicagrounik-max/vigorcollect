@@ -4,7 +4,6 @@ import { Inter } from 'next/font/google';
 import { headers } from 'next/headers';
 import { NextIntlClientProvider } from 'next-intl';
 import { getLocale, getTranslations } from 'next-intl/server';
-import { AppNav } from '@/components/shell/app-nav';
 import { getProductConfig } from '@/config/product';
 import { REQUEST_ID_HEADER } from '@/lib/request-id';
 import { themeColors } from '@/styles/theme-colors';
@@ -49,14 +48,9 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
           <header className="border-b-[3px] border-brand-gold bg-brand-green-deep px-4 py-3 text-surface">
             <span className="font-semibold">{productName}</span>
           </header>
-          <div className="flex flex-col md:flex-row">
-            <aside className="border-b border-border bg-surface p-3 md:min-h-[calc(100dvh-3.25rem)] md:w-60 md:border-b-0 md:border-r">
-              <AppNav />
-            </aside>
-            <main id="main" className="flex-1">
-              {children}
-            </main>
-          </div>
+          {/* Route groups: (app) = tenant shell with navigation (signed in), (auth) = sign-in
+              screens. Each renders <main id="main">. */}
+          {children}
         </NextIntlClientProvider>
       </body>
     </html>

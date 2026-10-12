@@ -233,6 +233,27 @@ describe('golden/db: no account enumeration (rule 27)', () => {
   });
 });
 
+describe('golden/db: honeypot on the login form (rule 27)', () => {
+  it('a filled hidden field gets the wrong-password answer even with the right password', async () => {
+    const filled = await newClient().call('/sign-in/email', {
+      email: people.c.email,
+      password: PASSWORD,
+      website: 'https://spam.example',
+    });
+    const wrong = await newClient().call('/sign-in/email', {
+      email: `nobody-${RUN}@auth-golden.example.test`,
+      password: PASSWORD,
+    });
+    expect(filled).toEqual(wrong);
+    const empty = await newClient().call('/sign-in/email', {
+      email: people.c.email,
+      password: PASSWORD,
+      website: '',
+    });
+    expect(empty.json).toMatchObject({ twoFactorRedirect: true });
+  });
+});
+
 describe('golden/db: lockout after 5 wrong passwords (15 min, never permanent)', () => {
   it('locks for 15 min with the same answer as a wrong password; expiry unlocks and resets', async () => {
     const person = people.cd;

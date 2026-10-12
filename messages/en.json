@@ -12,7 +12,8 @@
       "admin": "Admin"
     },
     "items": {
-      "home": "Home"
+      "home": "Home",
+      "settingsPassword": "Password"
     }
   },
   "empty": {
@@ -43,5 +44,105 @@
       "subject": "Password reset",
       "text": "A password reset was requested for your account.\n\nOpen the link to set a new password. The link is valid for 1 hour and can be used once:\n{url}\n\nIf you did not request this, ignore this message — your password stays the same."
     }
+  },
+  "auth": {
+    "common": {
+      "requestId": "Request ID: {requestId}",
+      "unexpected": "Something went wrong on our side. Please try again; if it persists, send the request ID below to support.",
+      "rateLimited": "Too many attempts from this network. Wait a minute and try again.",
+      "honeypot": "Leave this field empty",
+      "backToLogin": "Back to sign in",
+      "signOut": "Sign out",
+      "passwordHint": "At least {min} characters. A long phrase beats a complicated word.",
+      "passwordMismatch": "The passwords do not match.",
+      "passwordTooShort": "The password must have at least {min} characters."
+    },
+    "login": {
+      "title": "Sign in",
+      "description": "Enter your email and password. Next we ask for a code from your authenticator app.",
+      "firstTime": "First time here? Accounts are created only by an invitation from your organization’s administrator — open the link in the invitation.",
+      "email": "Email",
+      "password": "Password",
+      "submit": "Sign in",
+      "submitting": "Signing in…",
+      "invalid": "The email or password is incorrect, or access is temporarily blocked after several failed attempts. Check your details and try again in 15 minutes; if you forgot your password, contact your administrator."
+    },
+    "mfa": {
+      "title": "Verification code",
+      "description": "Open your authenticator app and enter the six-digit code for this account.",
+      "code": "Code",
+      "submit": "Verify",
+      "invalid": "The code is incorrect or has expired. Enter a new code from the app; after 5 wrong codes verification is blocked for 15 minutes.",
+      "expired": "Your sign-in has expired. Sign in again with your password."
+    },
+    "mfaSetup": {
+      "title": "Set up your authenticator app",
+      "intro": "Every sign-in asks, in addition to your password, for a code from an app on your phone (e.g. Google Authenticator, Microsoft Authenticator, 1Password). Setup takes a minute and is done once.",
+      "passwordLabel": "Confirm with your password",
+      "start": "Continue",
+      "scanTitle": "1. Scan the QR code",
+      "qrLabel": "QR code for the authenticator app",
+      "manualTitle": "Can’t scan? Enter the key manually",
+      "manualHint": "In the app choose “enter a setup key”, type “time based”.",
+      "openApp": "Open in an app on this device",
+      "backupTitle": "2. Save your backup codes",
+      "backupHint": "Each code works once, if you lose your phone. Keep them off this device — we will not show them again.",
+      "codeTitle": "3. Enter the code from the app",
+      "code": "Code",
+      "verify": "Verify and finish",
+      "passwordInvalid": "The password is incorrect.",
+      "codeInvalid": "The code is incorrect. Check that the time on your phone is correct and enter a new code."
+    },
+    "invite": {
+      "title": "Invitation",
+      "valid": "{tenant} invites you to join as: {role}.",
+      "account": "Account: {email}",
+      "setPassword": "Set a password for signing in. After that you set up your authenticator app.",
+      "password": "New password",
+      "confirm": "Repeat the password",
+      "submit": "Accept invitation",
+      "invalidTitle": "This link is not valid",
+      "invalidDescription": "The invitation was already used, was revoked, or the link is incomplete. Ask your organization’s administrator for a new invitation.",
+      "expiredTitle": "The invitation has expired",
+      "expiredDescription": "Invitations to {tenant} are valid for 72 hours. Ask your organization’s administrator for a new one.",
+      "existingTitle": "You already have an account",
+      "existingDescription": "This email already has an account. Sign in, then open the invitation link again to accept it.",
+      "existingAccept": "Accept as the signed-in user",
+      "wrongAccount": "You are signed in with a different account. Sign out and sign in with the account from the invitation.",
+      "doneTitle": "Invitation accepted",
+      "doneDescription": "Sign in with the password you just set.",
+      "doneAction": "Go to sign in"
+    },
+    "password": {
+      "title": "Change password",
+      "description": "After the change, every other device where you are signed in will be signed out.",
+      "current": "Current password",
+      "next": "New password",
+      "confirm": "Repeat the new password",
+      "submit": "Change password",
+      "done": "Your password was changed. Other devices were signed out.",
+      "invalid": "The current password is incorrect."
+    },
+    "tenants": {
+      "title": "Choose an organization",
+      "description": "You are a member of several organizations. Their data is fully separated; you can switch later.",
+      "choose": "Open",
+      "emptyTitle": "No active membership",
+      "emptyDescription": "Your account is not active in any organization right now. Ask your organization’s administrator to invite or reactivate you.",
+      "forbidden": "This organization is no longer available to you. Refresh the page."
+    }
+  },
+  "roles": {
+    "owner": "Owner",
+    "admin": "Administrator",
+    "cfo": "CFO",
+    "finance_manager": "Finance manager",
+    "collection_manager": "Collection manager",
+    "collector": "Collector",
+    "sales_manager": "Sales manager",
+    "sales_rep": "Sales representative",
+    "legal_manager": "Legal manager",
+    "auditor": "Auditor",
+    "read_only": "Read only"
   }
 }

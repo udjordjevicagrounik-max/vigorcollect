@@ -152,6 +152,7 @@ Posle deploya: smoke (`/health` 200 + `X-App-Version` = očekivani tag).
 - [ ] **Pre prvog staging deploya:** `ALTER TABLE users VALIDATE CONSTRAINT users_auth_user;`
       (kao `vigor_migrate`). Ako padne — postoje viseći `auth_user_id`: očistiti, pa ponoviti.
 - [ ] `BETTER_AUTH_URL` je `https://…`; Secure kolačić se ne isključuje nikakvim env flagom.
+- [ ] **Turnstile** na login/reset/pozivnici (pravilo 27, BACKLOG „Iz 1.1c”) — bez toga nema staging-a.
 - [ ] Release notes + rollback korak zapisani.
 
 ## Backup / restore

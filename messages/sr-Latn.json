@@ -12,7 +12,8 @@
       "admin": "Administracija"
     },
     "items": {
-      "home": "Početna"
+      "home": "Početna",
+      "settingsPassword": "Lozinka"
     }
   },
   "empty": {
@@ -43,5 +44,105 @@
       "subject": "Promena lozinke",
       "text": "Zatražena je promena lozinke za vaš nalog.\n\nOtvorite link da postavite novu lozinku. Link važi 1 sat i može se iskoristiti samo jednom:\n{url}\n\nAko niste vi tražili promenu, zanemarite poruku — lozinka ostaje ista."
     }
+  },
+  "auth": {
+    "common": {
+      "requestId": "ID zahteva: {requestId}",
+      "unexpected": "Nešto nije u redu sa naše strane. Pokušajte ponovo; ako se ponovi, pošaljte podršci ID zahteva ispod.",
+      "rateLimited": "Previše pokušaja sa ove mreže. Sačekajte minut pa pokušajte ponovo.",
+      "honeypot": "Ostavite ovo polje prazno",
+      "backToLogin": "Nazad na prijavu",
+      "signOut": "Odjava",
+      "passwordHint": "Najmanje {min} znakova. Duža fraza je bolja od komplikovane reči.",
+      "passwordMismatch": "Lozinke se ne poklapaju.",
+      "passwordTooShort": "Lozinka mora imati najmanje {min} znakova."
+    },
+    "login": {
+      "title": "Prijava",
+      "description": "Unesite email i lozinku. Posle toga tražimo kod iz aplikacije za autentifikaciju.",
+      "firstTime": "Prvi put ovde? Nalog se dobija isključivo pozivnicom administratora vaše organizacije — otvorite link iz pozivnice.",
+      "email": "Email",
+      "password": "Lozinka",
+      "submit": "Prijavi se",
+      "submitting": "Prijavljivanje…",
+      "invalid": "Email ili lozinka nisu ispravni, ili je pristup privremeno blokiran posle više pogrešnih pokušaja. Proverite podatke i pokušajte ponovo za 15 minuta; ako ste zaboravili lozinku, obratite se administratoru."
+    },
+    "mfa": {
+      "title": "Kod za potvrdu",
+      "description": "Otvorite aplikaciju za autentifikaciju i unesite šestocifreni kod za ovaj nalog.",
+      "code": "Kod",
+      "submit": "Potvrdi",
+      "invalid": "Kod nije ispravan ili je istekao. Unesite novi kod iz aplikacije; posle 5 pogrešnih kodova potvrda je blokirana 15 minuta.",
+      "expired": "Prijava je istekla. Prijavite se ponovo lozinkom."
+    },
+    "mfaSetup": {
+      "title": "Podešavanje aplikacije za autentifikaciju",
+      "intro": "Za svaku prijavu, pored lozinke, tražimo kod iz aplikacije na telefonu (npr. Google Authenticator, Microsoft Authenticator, 1Password). Podešavanje traje jedan minut i radi se jednom.",
+      "passwordLabel": "Potvrdite lozinkom",
+      "start": "Nastavi",
+      "scanTitle": "1. Skenirajte QR kod",
+      "qrLabel": "QR kod za aplikaciju za autentifikaciju",
+      "manualTitle": "Ne možete da skenirate? Unesite ključ ručno",
+      "manualHint": "U aplikaciji izaberite „unesi ključ”, tip „po vremenu”.",
+      "openApp": "Otvori u aplikaciji na ovom uređaju",
+      "backupTitle": "2. Sačuvajte rezervne kodove",
+      "backupHint": "Svaki kod važi jednom, ako izgubite telefon. Sačuvajte ih van ovog uređaja — ne prikazujemo ih ponovo.",
+      "codeTitle": "3. Unesite kod iz aplikacije",
+      "code": "Kod",
+      "verify": "Potvrdi i završi",
+      "passwordInvalid": "Lozinka nije ispravna.",
+      "codeInvalid": "Kod nije ispravan. Proverite da je vreme na telefonu tačno i unesite novi kod."
+    },
+    "invite": {
+      "title": "Pozivnica",
+      "valid": "{tenant} vas poziva da se pridružite kao: {role}.",
+      "account": "Nalog: {email}",
+      "setPassword": "Postavite lozinku za prijavu. Posle toga podešavate aplikaciju za autentifikaciju.",
+      "password": "Nova lozinka",
+      "confirm": "Ponovite lozinku",
+      "submit": "Prihvati pozivnicu",
+      "invalidTitle": "Link nije važeći",
+      "invalidDescription": "Pozivnica je već iskorišćena, opozvana ili link nije potpun. Zatražite novu pozivnicu od administratora organizacije.",
+      "expiredTitle": "Pozivnica je istekla",
+      "expiredDescription": "Pozivnica za {tenant} važi 72 sata. Zatražite novu od administratora organizacije.",
+      "existingTitle": "Već imate nalog",
+      "existingDescription": "Ovaj email već ima nalog. Prijavite se, pa ponovo otvorite link iz pozivnice da je prihvatite.",
+      "existingAccept": "Prihvati kao prijavljeni korisnik",
+      "wrongAccount": "Prijavljeni ste drugim nalogom. Odjavite se i prijavite nalogom iz pozivnice.",
+      "doneTitle": "Pozivnica je prihvaćena",
+      "doneDescription": "Prijavite se lozinkom koju ste upravo postavili.",
+      "doneAction": "Idi na prijavu"
+    },
+    "password": {
+      "title": "Promena lozinke",
+      "description": "Posle promene, svi drugi uređaji na kojima ste prijavljeni biće odjavljeni.",
+      "current": "Trenutna lozinka",
+      "next": "Nova lozinka",
+      "confirm": "Ponovite novu lozinku",
+      "submit": "Promeni lozinku",
+      "done": "Lozinka je promenjena. Ostali uređaji su odjavljeni.",
+      "invalid": "Trenutna lozinka nije ispravna."
+    },
+    "tenants": {
+      "title": "Izaberite organizaciju",
+      "description": "Član ste više organizacija. Podaci svake su potpuno odvojeni; organizaciju možete promeniti kasnije.",
+      "choose": "Otvori",
+      "emptyTitle": "Nemate aktivno članstvo",
+      "emptyDescription": "Vaš nalog trenutno nije aktivan ni u jednoj organizaciji. Obratite se administratoru organizacije da vas ponovo pozove ili aktivira.",
+      "forbidden": "Ova organizacija vam više nije dostupna. Osvežite stranicu."
+    }
+  },
+  "roles": {
+    "owner": "Vlasnik",
+    "admin": "Administrator",
+    "cfo": "Finansijski direktor",
+    "finance_manager": "Menadžer finansija",
+    "collection_manager": "Menadžer naplate",
+    "collector": "Referent naplate",
+    "sales_manager": "Menadžer prodaje",
+    "sales_rep": "Komercijalista",
+    "legal_manager": "Pravnik",
+    "auditor": "Revizor",
+    "read_only": "Samo čitanje"
   }
 }

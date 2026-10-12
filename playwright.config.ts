@@ -1,40 +1,65 @@
 import { defineConfig, devices } from '@playwright/test';
+import { e2eDatabaseUrls, loadDotEnv, STORAGE_STATE } from './tests/e2e/e2e-env';
 
 const PORT = Number(process.env.E2E_PORT ?? 3100);
+const BASE_URL = `http://127.0.0.1:${PORT}`;
 
-// E2E runs against a production build. From 1.x these flows run on the demo tenant only.
+loadDotEnv();
+const db = e2eDatabaseUrls();
+
+// E2E runs against a production build and the TEST database (collect_test). The `setup`
+// project signs in through the real screens (login → MFA setup → MFA → shell, 375 px) and
+// stores the session for the other projects (rule 16: every screen is tested at 375 px).
 export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
   reporter: [['list']],
+  globalSetup: './tests/e2e/global-setup.ts',
   use: {
-    baseURL: `http://127.0.0.1:${PORT}`,
+    baseURL: BASE_URL,
     trace: 'retain-on-failure',
     timezoneId: 'UTC',
   },
   projects: [
-    // Rule 16: every screen is tested at 375 px.
     {
-      name: 'mobile-375',
+      name: 'setup',
+      testMatch: /.*\.setup\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 375, height: 812 } },
     },
     {
+      name: 'mobile-375',
+      dependencies: ['setup'],
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 375, height: 812 },
+        storageState: STORAGE_STATE,
+      },
+    },
+    {
       name: 'desktop',
-      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } },
+      dependencies: ['setup'],
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 1280, height: 800 },
+        storageState: STORAGE_STATE,
+      },
     },
   ],
   webServer: {
     // Same standalone server as the Docker image.
     command: 'npm run build && npm run start',
-    url: `http://127.0.0.1:${PORT}/health`,
+    url: `${BASE_URL}/health`,
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,
     env: {
       PORT: String(PORT),
       HOSTNAME: '127.0.0.1',
       PRODUCT_NAME: process.env.PRODUCT_NAME ?? 'E2E Product',
+      DATABASE_URL: db.app,
+      MIGRATE_DATABASE_URL: db.migrate,
+      BETTER_AUTH_URL: BASE_URL,
     },
   },
 });

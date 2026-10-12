@@ -64,6 +64,14 @@ Ideje i tehnički dug zapisani usred zadatka (protokol: ne predlaže se usred za
 - [ ] Proširenje scope-a pozvanog korisnika (`OWN` → `TEAM`/`ORGANIZATION`) kroz `user.assign` (maker-checker, 1.4).
 - [ ] Rate limit po IP-u za prihvatanje pozivnice (token je 256-bitni, pa nije hitno) — uz rate limit po email-u.
 
+## Iz 1.1c
+
+- [ ] **Cloudflare Turnstile (pravilo 27) na login, reset i pozivnici — BLOKADA pre staging-a** (release checklist). Traži Turnstile ključeve (tajna → vault, van chata). Do tada: honeypot + rate limit po IP-u + zaključavanje.
+- [ ] Ekrani za reset lozinke (zahtev + nova lozinka); API i mail (sink) postoje od 1.1a/1.1b.
+- [ ] Unos rezervnog koda na `/login/mfa` (Better Auth `/two-factor/verify-backup-code` postoji).
+- [ ] `qrcode` (1.5.4) — poslednje izdanje 2024-08 (izuzetak od pravila 14 odobren u 3b): pratiti; zamena = sopstveni QR enkoder ili ručni unos ključa.
+- [ ] Posle prihvatanja pozivnice postojećim nalogom: povratak na pozivnicu posle prijave (`?next=`), umesto „otvorite link ponovo".
+
 ## Roadmap
 
 ### Marketing sajt — paralelan tok uz Sprint 1
