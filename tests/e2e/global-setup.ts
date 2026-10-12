@@ -49,6 +49,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
        VALUES ($1, 'UTC', 'EUR', 'XX') ON CONFLICT (tenant_id) DO NOTHING`,
       [E2E.tenantId],
     );
+    await client.query('SELECT provision_receivables_defaults()');
     await client.query(
       `INSERT INTO users (id, tenant_id, email, display_name, timezone, status)
        VALUES ($1, $2, 'owner@golden-e2e.example.test', 'E2E Owner', 'UTC', 'active')

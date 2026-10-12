@@ -126,6 +126,15 @@ Ideje i tehnički dug zapisani usred zadatka (protokol: ne predlaže se usred za
 - [ ] Šifrovanje backup-a pre off-site slanja (npr. `age`) — dump sadrži P1 kolone sa izuzetkom (`users.email`).
 - [ ] Alarmi u bazi umesto u memoriji worker-a (dedupe preživljava restart).
 
+## Iz 2.1
+
+- [ ] NBS adapter u `fxRatesJob` (srednji kurs, baza RSD) — sada skelet koji samo loguje. ECB ne
+  objavljuje RSD; dok adapter ne postoji, profil RS ostaje `fx_source = ECB`, a dev ima DEMO kurseve.
+- [ ] exceljs 4.4.0: poslednje izdanje 2023-10; 2 moderate nalaza (uuid < 11.1.1, tranzitivno).
+  Ponovo proceniti pre staging-a (fork / zamena / override uuid).
+- [ ] Valute sa 0 ili 3 decimale (JPY, KWD): `numeric(18,2)` i `SCALE = 2` u `money.ts` važe za
+  sve valute; uvesti minor units po ISO 4217 kad prvi takav klijent bude realan.
+
 ## Roadmap
 
 ### Marketing sajt — paralelan tok uz Sprint 1
