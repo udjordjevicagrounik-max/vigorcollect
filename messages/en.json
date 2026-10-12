@@ -144,5 +144,26 @@
     "legal_manager": "Legal manager",
     "auditor": "Auditor",
     "read_only": "Read only"
+  },
+  "errors": {
+    "unauthorized": "Your sign-in has expired or is incomplete. Please sign in again.",
+    "forbidden": "You do not have permission for this action.",
+    "forbidden_origin": "The request did not come from the application and was rejected.",
+    "not_found": "The requested item does not exist or is not available to you.",
+    "invalid_request": "The request contains invalid data. Check the fields and try again.",
+    "conflict": "The item was changed in the meantime. Refresh the page and try again.",
+    "not_pending": "This invitation is no longer pending.",
+    "already_member": "This person is already an active member of the organization.",
+    "user_disabled": "This user is deactivated. Reactivate them instead of sending a new invitation.",
+    "unknown_role": "The selected role does not exist in the organization.",
+    "invalid": "This link is not valid. Ask your administrator for a new invitation.",
+    "expired": "The invitation has expired. Ask your administrator for a new one.",
+    "sign_in_required": "This email already has an account. Sign in, then open the link again.",
+    "wrong_account": "You are signed in with a different account than the invitation’s.",
+    "weak_password": "The password is too short.",
+    "captcha_failed": "The check that you are not a robot failed. Please try again.",
+    "rate_limited": "Too many requests from this network. Wait a minute and try again.",
+    "approval_required": "The change was sent for approval by another person (four eyes).",
+    "internal": "Something went wrong on our side. Please try again; if it persists, send the request ID to support."
   }
 }

@@ -60,6 +60,10 @@ export default defineConfig({
       DATABASE_URL: db.app,
       MIGRATE_DATABASE_URL: db.migrate,
       BETTER_AUTH_URL: BASE_URL,
+      // Cloudflare's PUBLIC Turnstile test keys ("always passes", documented by Cloudflare) —
+      // not secrets. Production refuses to start without real keys (rule 27).
+      TURNSTILE_SITE_KEY: '1x00000000000000000000AA',
+      TURNSTILE_SECRET: '1x0000000000000000000000000000000AA',
     },
   },
 });

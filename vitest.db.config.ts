@@ -10,7 +10,7 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['tests/golden/db/**/*.test.ts'],
-    env: { TZ: 'UTC' },
+    env: { TZ: 'UTC', NODE_ENV: 'test' },
     // Files share one database; run them one after another.
     fileParallelism: false,
   },

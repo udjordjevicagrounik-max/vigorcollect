@@ -1,6 +1,6 @@
 import { expect, test as setup } from '@playwright/test';
 import { totp } from '../golden/db/auth-client';
-import { STORAGE_STATE } from './e2e-env';
+import { cspViolations, STORAGE_STATE, waitForCaptcha } from './e2e-env';
 
 // Rule 16 + task 1.1c: the whole sign-in path on a 375 px screen, through the real screens:
 // login → MFA setup (QR + manual key) → first code → shell → sign out → login → MFA code →
@@ -18,6 +18,7 @@ async function noHorizontalOverflow(page: import('@playwright/test').Page) {
 
 setup('login → MFA setup → MFA → shell at 375 px', async ({ page }) => {
   expect(email()).not.toBe('');
+  const violations = cspViolations(page);
 
   // Anonymous → the shell sends you to /login.
   await page.goto('/');
@@ -27,6 +28,7 @@ setup('login → MFA setup → MFA → shell at 375 px', async ({ page }) => {
 
   await page.locator('#email').fill(email());
   await page.locator('#password').fill(password());
+  await waitForCaptcha(page);
   await page.locator('form button[type="submit"]').click();
 
   // No authenticator yet → mandatory setup.
@@ -51,6 +53,7 @@ setup('login → MFA setup → MFA → shell at 375 px', async ({ page }) => {
   await expect(page).toHaveURL(/\/login$/);
   await page.locator('#email').fill(email());
   await page.locator('#password').fill(password());
+  await waitForCaptcha(page);
   await page.locator('form button[type="submit"]').click();
   await expect(page).toHaveURL(/\/login\/mfa$/);
   await noHorizontalOverflow(page);
@@ -69,6 +72,9 @@ setup('login → MFA setup → MFA → shell at 375 px', async ({ page }) => {
   const session = cookies.find((c) => c.name.includes('session_token'));
   expect(session?.httpOnly).toBe(true);
   expect(await page.evaluate(() => document.cookie)).not.toContain('session_token');
+
+  // Nonce-based CSP: the whole flow (incl. the Turnstile widget) ran without a violation.
+  expect(violations).toEqual([]);
 
   await page.context().storageState({ path: STORAGE_STATE });
 });

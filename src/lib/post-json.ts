@@ -4,11 +4,15 @@ import { REQUEST_ID_HEADER } from './request-id';
 // parsed body and the X-Request-Id, so an error message can show the id for support (rule 29).
 export type PostResult = { status: number; json: unknown; requestId: string | null };
 
-export async function postJSON(path: string, body: unknown): Promise<PostResult> {
+export async function postJSON(
+  path: string,
+  body: unknown,
+  headers: Record<string, string> = {},
+): Promise<PostResult> {
   try {
     const res = await fetch(path, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', ...headers },
       credentials: 'same-origin',
       body: JSON.stringify(body),
     });
@@ -23,6 +27,11 @@ export async function postJSON(path: string, body: unknown): Promise<PostResult>
   } catch {
     return { status: 0, json: null, requestId: null };
   }
+}
+
+/** Better Auth's captcha plugin codes (x-captcha-response missing or rejected). */
+export function isCaptchaError(json: unknown): boolean {
+  return ['MISSING_RESPONSE', 'VERIFICATION_FAILED', 'captcha_failed'].includes(errorCode(json));
 }
 
 /** Better Auth / our routes put a machine-readable code in `code` or `error`. */

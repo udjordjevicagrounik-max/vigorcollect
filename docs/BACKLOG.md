@@ -66,7 +66,7 @@ Ideje i tehnički dug zapisani usred zadatka (protokol: ne predlaže se usred za
 
 ## Iz 1.1c
 
-- [ ] **Cloudflare Turnstile (pravilo 27) na login, reset i pozivnici — BLOKADA pre staging-a** (release checklist). Traži Turnstile ključeve (tajna → vault, van chata). Do tada: honeypot + rate limit po IP-u + zaključavanje.
+- [x] Cloudflare Turnstile (pravilo 27) na login, reset i pozivnici — urađeno u 1.4 (ADR 0006); ključevi u vault pre staging-a.
 - [ ] Ekrani za reset lozinke (zahtev + nova lozinka); API i mail (sink) postoje od 1.1a/1.1b.
 - [ ] Unos rezervnog koda na `/login/mfa` (Better Auth `/two-factor/verify-backup-code` postoji).
 - [ ] `qrcode` (1.5.4) — poslednje izdanje 2024-08 (izuzetak od pravila 14 odobren u 3b). **Zameniti kad postoji održavana alternativa** (Uroš, 2026-10-12); do tada ručni unos ključa ostaje na ekranu.
@@ -89,6 +89,13 @@ Ideje i tehnički dug zapisani usred zadatka (protokol: ne predlaže se usred za
 - [ ] SMTP slanje u `mail-dispatch` kad se odobri `nodemailer` (dešifrovanje kroz keyring tenanta u worker-u).
 - [ ] pg-boss tabele su van RLS konvencije (šema `pgboss`, bez tenant podataka) — pregledati pri nadogradnji pg-boss-a.
 - [ ] Dnevni posao tenanta (`tenant-daily`) još nema poslovne korake — podsetnici i aging u Sprintu 2; poslovi po kompaniji (ključ tenant + kompanija + lokalni datum) kad prvi zatreba.
+
+## Iz 1.4
+
+- [ ] `X-Forwarded-For` se veruje za rate limit / Turnstile `remoteip` — ograničiti na poznati proksi (Elestio nginx) ili čitati samo poslednji hop.
+- [ ] CSP `report-to` endpoint (prijava prekršaja u log) — uz Sentry (1.7).
+- [ ] `style-src-attr 'unsafe-inline'` — ukloniti kad Next i Turnstile prestanu da koriste style atribute (hash-evi).
+- [ ] Rate limit po email-u (već u „Iz 1.1a") i po tenantu za skupe rute (izvoz, uvoz).
 
 ## Roadmap
 

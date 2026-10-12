@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAuthBaseURL } from '@/server/auth/better-auth';
-import { createInvitation, InvitationError } from '@/server/auth/invitations';
+import { createInvitation, InvitationError, newInvitationSchema } from '@/server/auth/invitations';
+import { PermissionDeniedError } from '@/server/auth/permissions';
 import { ConflictError, withTenant } from '@/server/auth/with-tenant';
 import { getMasterKeyring } from '@/server/crypto/keyring';
 
@@ -10,19 +11,25 @@ export const dynamic = 'force-dynamic';
 // admin → any role but owner (ADR 0004). The token goes only into the e-mail (sink).
 export const POST = withTenant(async (request, ctx) => {
   await ctx.requirePermission('user.create');
+  const input = newInvitationSchema.parse(await request.json());
   try {
     const created = await createInvitation(
       ctx,
       { keyring: getMasterKeyring(), baseURL: getAuthBaseURL() },
-      await request.json(),
+      input,
     );
     return NextResponse.json(created, { status: 201 });
   } catch (error) {
     if (error instanceof InvitationError) {
-      if (error.code === 'forbidden_role') {
-        return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+      if (error.code === 'forbidden_role') throw new PermissionDeniedError();
+      if (
+        error.code === 'already_member' ||
+        error.code === 'user_disabled' ||
+        error.code === 'unknown_role'
+      ) {
+        throw new ConflictError(error.code);
       }
-      throw new ConflictError(error.code);
+      throw new ConflictError('conflict');
     }
     throw error;
   }

@@ -58,6 +58,58 @@ export function routeViolations(source: string): string[] {
   return problems;
 }
 
+/**
+ * Zod at the edge (task 1.4): request input reaches code only through a schema. Body:
+ * `Schema.parse(await request.json())` (or safeParse); route params: `schema.safeParse(params)`;
+ * query: `schema.parse(Object.fromEntries(request.nextUrl.searchParams))`. Better Auth's own
+ * catch-all route validates with its own schemas.
+ */
+export function zodViolations(source: string): string[] {
+  const problems: string[] = [];
+  const bodies = (source.match(/request\.json\(\)/g) ?? []).length;
+  const parsedBodies = (source.match(/[pP]arse\(\s*await\s+request\.json\(\)/g) ?? []).length;
+  if (bodies > parsedBodies) problems.push('request body not parsed by a Zod schema');
+  if (/\bparams\b/.test(source.replace(/searchParams/g, '')) && /withTenant<\{/.test(source)) {
+    if (!/[pP]arse\(\s*params\s*\)/.test(source))
+      problems.push('route params not parsed by a Zod schema');
+  }
+  if (
+    /searchParams/.test(source) &&
+    !/[pP]arse\(\s*Object\.fromEntries\([^)]*searchParams/.test(source)
+  ) {
+    problems.push('query not parsed by a Zod schema');
+  }
+  if (/request\.(formData|text)\(\)/.test(source)) problems.push('non-JSON body is not allowed');
+  return problems;
+}
+
+describe('golden: every API route parses its input with Zod (1.4)', () => {
+  const files = routeFiles(API_DIR).filter((f) => !routePath(f).startsWith('/api/auth'));
+
+  it('body, params and query of every route go through a schema', () => {
+    const violations = files
+      .map((f) => ({ route: routePath(f), problems: zodViolations(readFileSync(f, 'utf8')) }))
+      .filter((v) => v.problems.length > 0);
+    expect(files.length).toBeGreaterThanOrEqual(4);
+    expect(violations).toEqual([]);
+  });
+
+  it('the checker catches raw input', () => {
+    expect(zodViolations('const b = await request.json(); use(b.email);')).toContain(
+      'request body not parsed by a Zod schema',
+    );
+    expect(
+      zodViolations(
+        'export const GET = withTenant<{ id: string }>(async (r, ctx, params) => db(params.id));',
+      ),
+    ).toContain('route params not parsed by a Zod schema');
+    expect(zodViolations("const q = request.nextUrl.searchParams.get('x');")).toContain(
+      'query not parsed by a Zod schema',
+    );
+    expect(zodViolations('const input = schema.parse(await request.json());')).toEqual([]);
+  });
+});
+
 describe('golden: every API route is public-by-document or permission-checked', () => {
   const publicRoutes = publicApiRoutes(
     readFileSync(join(process.cwd(), 'docs', 'permissions.md'), 'utf8'),

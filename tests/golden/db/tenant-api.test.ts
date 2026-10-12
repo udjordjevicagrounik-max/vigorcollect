@@ -14,6 +14,7 @@ process.env.PII_MASTER_KEYS = `1:${randomBytes(32).toString('base64')}`;
 import { POST as revokeInvitation } from '@/app/api/invitations/[id]/revoke/route';
 import { POST as createInvitationRoute } from '@/app/api/invitations/route';
 import { GET as getUser } from '@/app/api/users/[id]/route';
+import { apiErrorBody } from '@/lib/api-error';
 import { REDACTED, writeAudit } from '@/server/auth/audit';
 import { getAuth } from '@/server/auth/better-auth';
 import { withTenant } from '@/server/auth/with-tenant';
@@ -97,6 +98,8 @@ function request(
   const requestId = randomUUID();
   const headers = new Headers(client ? client.headers() : undefined);
   headers.set('x-request-id', requestId);
+  // Browsers send Origin on every fetch POST; withTenant() rejects mutations without our origin.
+  headers.set('origin', BASE_URL);
   for (const [k, v] of Object.entries(init.headers ?? {})) headers.set(k, v);
   if (init.body !== undefined) headers.set('content-type', 'application/json');
   const req = new NextRequest(`${BASE_URL}${path}`, {
@@ -270,6 +273,7 @@ describe('golden/db: withTenant() — the tenant comes only from the session', (
         },
         {
           appPool: () => single,
+          allowedOrigin: () => BASE_URL,
           resolveIdentity: async () => ({
             tenantId: T.tenantH,
             userId: T.ownerH,
@@ -286,12 +290,34 @@ describe('golden/db: withTenant() — the tenant comes only from the session', (
   });
 });
 
+describe('golden/db: CSRF — mutations only from our own origin (1.4)', () => {
+  it('POST from another origin or without Origin → 403 forbidden_origin, nothing written', async () => {
+    for (const origin of ['https://evil.example', null]) {
+      const r = request(people.ownerH.client ?? null, 'POST', '/api/invitations', {
+        body: invitePayload(`csrf-${origin ? 'evil' : 'none'}`),
+      });
+      if (origin) r.req.headers.set('origin', origin);
+      else r.req.headers.delete('origin');
+      const res = await createInvitationRoute(r.req, params({}));
+      expect(res.status).toBe(403);
+      expect(await body(res)).toEqual(apiErrorBody('forbidden_origin', r.requestId));
+      expect(await auditRows(T.tenantH, r.requestId)).toEqual([]);
+    }
+  });
+
+  it('a GET is not a mutation: no Origin needed', async () => {
+    const r = request(people.ownerH.client ?? null, 'GET', `/api/users/${T.ownerH}`);
+    r.req.headers.delete('origin');
+    expect((await getUser(r.req, params({ id: T.ownerH }))).status).toBe(200);
+  });
+});
+
 describe('golden/db: requirePermission() — 403 without detail', () => {
-  it('a collector (no user.read) gets exactly {"error":"forbidden"}', async () => {
+  it('a collector (no user.read) gets exactly {code, message_key, request_id} — no detail', async () => {
     const r = request(people.collectorH.client ?? null, 'GET', `/api/users/${T.collectorH}`);
     const res = await getUser(r.req, params({ id: T.collectorH }));
     expect(res.status).toBe(403);
-    expect(await body(res)).toEqual({ error: 'forbidden' });
+    expect(await body(res)).toEqual(apiErrorBody('forbidden', r.requestId));
     expectHeaders(res, r.requestId);
   });
 
@@ -315,7 +341,7 @@ describe('golden/db: requirePermission() — 403 without detail', () => {
     const logged = write.mock.calls.map((call) => String(call[0])).join('');
     write.mockRestore();
     expect(res.status).toBe(500);
-    expect(await body(res)).toEqual({ error: 'internal' });
+    expect(await body(res)).toEqual(apiErrorBody('internal', r.requestId));
     expect(logged).toContain('"event":"error.unknown_permission"');
     expect(logged).toContain(r.requestId);
   });
@@ -365,7 +391,8 @@ describe('golden/db: IDOR — another tenant’s id is 404, never 403', () => {
     const unknown = request(client, 'GET', `/api/users/${randomUUID()}`);
     const unknownRes = await getUser(unknown.req, params({ id: randomUUID() }));
     expect([foreignRes.status, unknownRes.status]).toEqual([404, 404]);
-    expect(await body(foreignRes)).toEqual(await body(unknownRes));
+    expect(await body(foreignRes)).toEqual(apiErrorBody('not_found', foreign.requestId));
+    expect(await body(unknownRes)).toEqual(apiErrorBody('not_found', unknown.requestId));
     expectHeaders(foreignRes, foreign.requestId);
   });
 
@@ -439,7 +466,7 @@ describe('golden/db: every mutation writes an audit row with the request id', ()
     const again = request(c, 'POST', `/api/invitations/${invitationId}/revoke`);
     const againRes = await revokeInvitation(again.req, params({ id: invitationId }));
     expect(againRes.status).toBe(409);
-    expect(await body(againRes)).toEqual({ error: 'not_pending' });
+    expect(await body(againRes)).toEqual(apiErrorBody('not_pending', again.requestId));
   });
 });
 

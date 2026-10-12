@@ -5,6 +5,7 @@ import { AuthCard } from '@/components/auth/auth-card';
 import { InviteAccept } from '@/components/auth/invite-accept';
 import { getAuth, getAuthAppPool } from '@/server/auth/better-auth';
 import { previewInvitation } from '@/server/auth/invitations';
+import { turnstileFromEnv } from '@/server/security/turnstile';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,6 +32,8 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
   const auth = getAuth();
   const preview = await previewInvitation(getAuthAppPool(), auth, token);
   const t = await getTranslations('auth');
+  const siteKey = turnstileFromEnv()?.siteKey ?? null;
+  const nonce = (await headers()).get('x-nonce') ?? undefined;
   const tRoles = await getTranslations('roles');
   const loginLink = (
     <Link
@@ -71,7 +74,7 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
     return (
       <AuthCard title={t('invite.title')} description={t('invite.setPassword')}>
         {intro}
-        <InviteAccept token={token} existingAccount={false} />
+        <InviteAccept token={token} existingAccount={false} siteKey={siteKey} nonce={nonce} />
       </AuthCard>
     );
   }
@@ -81,7 +84,11 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
   return (
     <AuthCard title={t('invite.existingTitle')} description={t('invite.existingDescription')}>
       {intro}
-      {signedInAsInvitee ? <InviteAccept token={token} existingAccount /> : loginLink}
+      {signedInAsInvitee ? (
+        <InviteAccept token={token} existingAccount siteKey={siteKey} nonce={nonce} />
+      ) : (
+        loginLink
+      )}
     </AuthCard>
   );
 }

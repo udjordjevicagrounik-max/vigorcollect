@@ -10,6 +10,6 @@ export default defineConfig({
     include: ['tests/{smoke,golden,unit}/**/*.test.ts'],
     // Live-DB golden tests run separately against collect_test (npm run test:db).
     exclude: ['tests/golden/db/**', 'node_modules/**'],
-    env: { TZ: 'UTC' },
+    env: { TZ: 'UTC', NODE_ENV: 'test' },
   },
 });

@@ -144,5 +144,26 @@
     "legal_manager": "Pravnik",
     "auditor": "Revizor",
     "read_only": "Samo čitanje"
+  },
+  "errors": {
+    "unauthorized": "Prijava je istekla ili nije potpuna. Prijavite se ponovo.",
+    "forbidden": "Nemate dozvolu za ovu radnju.",
+    "forbidden_origin": "Zahtev nije poslat iz aplikacije i odbijen je.",
+    "not_found": "Traženi podatak ne postoji ili vam nije dostupan.",
+    "invalid_request": "Podaci u zahtevu nisu ispravni. Proverite polja i pokušajte ponovo.",
+    "conflict": "Podatak je u međuvremenu promenjen. Osvežite stranicu i pokušajte ponovo.",
+    "not_pending": "Ova pozivnica više nije na čekanju.",
+    "already_member": "Ova osoba je već aktivan član organizacije.",
+    "user_disabled": "Ovaj korisnik je deaktiviran. Aktivirajte ga umesto nove pozivnice.",
+    "unknown_role": "Izabrana rola ne postoji u organizaciji.",
+    "invalid": "Link nije važeći. Zatražite novu pozivnicu od administratora.",
+    "expired": "Pozivnica je istekla. Zatražite novu od administratora.",
+    "sign_in_required": "Ovaj email već ima nalog. Prijavite se, pa ponovo otvorite link.",
+    "wrong_account": "Prijavljeni ste drugim nalogom od onog iz pozivnice.",
+    "weak_password": "Lozinka je prekratka.",
+    "captcha_failed": "Provera da niste robot nije uspela. Pokušajte ponovo.",
+    "rate_limited": "Previše zahteva sa ove mreže. Sačekajte minut pa pokušajte ponovo.",
+    "approval_required": "Promena je poslata na odobrenje drugoj osobi (četiri oka).",
+    "internal": "Nešto nije u redu sa naše strane. Pokušajte ponovo; ako se ponovi, pošaljte podršci ID zahteva."
   }
 }

@@ -165,6 +165,16 @@ COMMIT;
 `/health` → `jobs.failed` > 0 ili `jobs.oldestPendingSeconds` > 300 = proveriti worker log
 (`outbox.failed`, `worker.error`). `jobs` = `null` → worker još nije startovao na toj bazi.
 
+## Security middleware (ADR 0006)
+
+- **Turnstile:** `TURNSTILE_SITE_KEY` + `TURNSTILE_SECRET` iz Cloudflare panela (Turnstile →
+  widget za domen) — vault, van chata. Production bez njih **ne startuje** (log: „Turnstile keys
+  are missing"). Dev bez njih: provera se preskače (`turnstile.skipped` u logu).
+- **CSP prekršaj** u browseru (konzola „Refused to …") = nova skripta/stil bez nonce-a ili novi
+  spoljni domen → izmena u `src/server/security/headers.ts` uz review, nikad `unsafe-inline`.
+- **429 `rate_limited`** na `/api/*`: 120 zahteva/min po IP-u (`api_rate_limit`). Iza proksija
+  mora stizati pravi `X-Forwarded-For` (nginx `proxy_set_header X-Forwarded-For …`).
+
 ## DB uloge na Elestio (staging/prod)
 
 Lokalno ih kreira `db/init/01-roles.sh`. Na Elestio instanci izvršiti iste naredbe ručno kao
@@ -183,7 +193,7 @@ Posle deploya: smoke (`/health` 200 + `X-App-Version` = očekivani tag).
 - [ ] **Pre prvog staging deploya:** `ALTER TABLE users VALIDATE CONSTRAINT users_auth_user;`
       (kao `vigor_migrate`). Ako padne — postoje viseći `auth_user_id`: očistiti, pa ponoviti.
 - [ ] `BETTER_AUTH_URL` je `https://…`; Secure kolačić se ne isključuje nikakvim env flagom.
-- [ ] **Turnstile** na login/reset/pozivnici (pravilo 27, BACKLOG „Iz 1.1c”) — bez toga nema staging-a.
+- [ ] **Turnstile ključevi** (`TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET`) u vault-u i env-u — bez njih production ne startuje (ADR 0006).
 - [ ] Release notes + rollback korak zapisani.
 
 ## Backup / restore

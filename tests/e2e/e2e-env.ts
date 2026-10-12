@@ -26,3 +26,32 @@ export function e2eDatabaseUrls(): { app: string; migrate: string } {
   }
   return { app, migrate };
 }
+
+/** Waits until the Turnstile widget has produced a token (test keys solve automatically). */
+export async function waitForCaptcha(page: import('@playwright/test').Page): Promise<void> {
+  await page
+    .locator('[data-testid="turnstile"] input[name="cf-turnstile-response"]')
+    .first()
+    .evaluate(
+      (el) =>
+        new Promise<void>((resolve) => {
+          const input = el as HTMLInputElement;
+          const check = () => (input.value ? resolve() : setTimeout(check, 100));
+          check();
+        }),
+    );
+}
+
+/** Collects CSP violations reported by the browser on this page. */
+export function cspViolations(page: import('@playwright/test').Page): string[] {
+  const found: string[] = [];
+  page.on('console', (msg) => {
+    if (
+      msg.type() === 'error' &&
+      /Content Security Policy|Content-Security-Policy/i.test(msg.text())
+    ) {
+      found.push(msg.text());
+    }
+  });
+  return found;
+}

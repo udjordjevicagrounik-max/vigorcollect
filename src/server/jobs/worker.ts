@@ -35,7 +35,11 @@ export async function startWorker(
   const workerPool = new Pool({ connectionString: env.workerUrl, max: 4 });
   const appPool = new Pool({ connectionString: env.appUrl, max: 4 });
   // The schema exists (migration 007); vigor_worker may create tables in it, not schemas.
-  const boss = new PgBoss({ connectionString: env.workerUrl, schema: 'pgboss', createSchema: false });
+  const boss = new PgBoss({
+    connectionString: env.workerUrl,
+    schema: 'pgboss',
+    createSchema: false,
+  });
   boss.on('error', (error: Error) =>
     logEvent('worker.error', { level: 'error', name: error.name }),
   );

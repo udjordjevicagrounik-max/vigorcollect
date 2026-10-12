@@ -4,9 +4,10 @@ import { useState, type FormEvent } from 'react';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { HONEYPOT_FIELD, MIN_PASSWORD_LENGTH } from '@/lib/auth-policy';
-import { errorCode, postJSON } from '@/lib/post-json';
+import { errorCode, isCaptchaError, postJSON } from '@/lib/post-json';
 import { Field, SubmitButton } from './field';
 import { FormError, FormSuccess, Honeypot, type FormProblem } from './form-message';
+import { TurnstileWidget } from './turnstile-widget';
 
 type Mode = 'new' | 'existing';
 
@@ -15,15 +16,22 @@ type Mode = 'new' | 'existing';
 export function InviteAccept({
   token,
   existingAccount,
+  siteKey,
+  nonce,
 }: {
   token: string;
   existingAccount: boolean;
+  siteKey: string | null;
+  nonce?: string | undefined;
 }) {
   const mode: Mode = existingAccount ? 'existing' : 'new';
   const t = useTranslations('auth');
   const [problem, setProblem] = useState<FormProblem | null>(null);
   const [done, setDone] = useState(false);
   const [pending, setPending] = useState(false);
+  const [captcha, setCaptcha] = useState<string | null>(null);
+  const [resetSignal, setResetSignal] = useState(0);
+  const tErrors = useTranslations('errors');
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -44,16 +52,25 @@ export function InviteAccept({
       }
       body.password = password;
     }
+    if (siteKey && !captcha) {
+      setProblem({ message: tErrors('captcha_failed') });
+      return;
+    }
+    if (captcha) body.turnstileToken = captcha;
     setPending(true);
     setProblem(null);
     const res = await postJSON('/api/invitations/accept', body);
     setPending(false);
+    setCaptcha(null);
+    setResetSignal((n) => n + 1);
     if (res.status === 200) {
       setDone(true);
       return;
     }
     const code = errorCode(res.json);
-    if (code === 'weak_password') {
+    if (isCaptchaError(res.json)) {
+      setProblem({ message: tErrors('captcha_failed') });
+    } else if (code === 'weak_password') {
       setProblem({ message: t('common.passwordTooShort', { min: MIN_PASSWORD_LENGTH }) });
     } else if (code === 'expired') setProblem({ message: t('invite.expiredTitle') });
     else if (code === 'wrong_account') setProblem({ message: t('invite.wrongAccount') });
@@ -103,6 +120,12 @@ export function InviteAccept({
         </>
       ) : null}
       <Honeypot name={HONEYPOT_FIELD} />
+      <TurnstileWidget
+        siteKey={siteKey}
+        nonce={nonce}
+        onToken={setCaptcha}
+        resetSignal={resetSignal}
+      />
       <FormError problem={problem} />
       <SubmitButton
         label={mode === 'new' ? t('invite.submit') : t('invite.existingAccept')}
