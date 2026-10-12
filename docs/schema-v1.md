@@ -1,9 +1,9 @@
 # Schema v1 — rečnik tabela
 
 Izvor istine je SQL u `db/migrations/` (pravilo 4). Ovaj dokument objašnjava **zašto** tabela
-postoji i ko sme šta. Stanje: **0.2a** (`001_identity_tenant_governance`). 0.2b dodaje
-customers, customer_contacts, external_parties, access_grants, approval_requests, decisions,
-export_log, translations, code_lists, subject_keys, data_sources.
+postoji i ko sme šta. Stanje: **0.2b** (`001_identity_tenant_governance`,
+`002_customers_subject_keys`). 0.2c dodaje external_parties, access_grants, data_sources,
+approval_requests, decisions, export_log, translations, code_lists.
 
 ## Zajednička pravila
 
@@ -22,7 +22,9 @@ export_log, translations, code_lists, subject_keys, data_sources.
 
 PII klase: **P0** nije lični podatak · **P1** direktan identifikator (ime, email, telefon) ·
 **P2** osetljiv identifikator (JMBG, broj LK, adresa i račun fizičkog lica) · **P3** posebna
-kategorija GDPR čl. 9. P1–P3 se šifruju kroz `subject_keys` — **od 0.2b**; u 0.2a `encrypted=false`.
+kategorija GDPR čl. 9. P1–P3 se šifruju kroz `subject_keys` (ADR 0003): `<polje>_enc` +
+`<polje>_key_version`; tačna pretraga kroz `<polje>_bidx` (HMAC ključem tenanta). P1–P3 kolona
+bez šifrovanja mora imati `exception_reason` (golden test) — npr. `users.email` = `auth identity`.
 
 ## Platformske tabele (bez `tenant_id`; app = samo SELECT)
 
@@ -37,16 +39,20 @@ kategorija GDPR čl. 9. P1–P3 se šifruju kroz `subject_keys` — **od 0.2b**;
 
 ## Tenant tabele (`tenant_id NOT NULL`, `tenant_isolation`)
 
-| Tabela             | Svrha                                                                                                                                                            | Ko piše (vigor_app)                                            | Izvor istine                                                     | PII                                  | Audit implikacije                                                           |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- | ---------------------------------------------------------------- | ------------------------------------ | --------------------------------------------------------------------------- |
-| `tenants`          | tenant; `is_platform_operator` = tenant #0 (najviše jedan)                                                                                                       | **niko** iz app-a (SELECT svog reda); provisioning = platforma | ova tabela                                                       | P0                                   | provisioning/suspenzija → `audit_log` pod tenantom #0                       |
-| `tenant_settings`  | jezik (default `en`), zona (poslovni dan), valuta, zemlja tenanta                                                                                                | UPDATE (tenant admin); INSERT/DELETE samo platforma            | ova tabela                                                       | P0                                   | svaka izmena → `audit()` (before/after)                                     |
-| `tenant_companies` | tenantove sopstvene kompanije → `legal_entity_id`                                                                                                                | INSERT/UPDATE; bez DELETE (status)                             | ova tabela + `legal_entities`                                    | P0; P1 ako je kompanija fizičko lice | `audit()`; deaktivacija kroz `status`                                       |
-| `users`            | članstvo osobe u tenantu; `auth_user_id` = most ka Better Auth (`auth` šema, 1.3)                                                                                | INSERT/UPDATE; bez DELETE (status)                             | Better Auth za kredencijale; ova tabela za članstvo, jezik, zonu | email P1, display_name P1            | `audit()` za poziv, aktivaciju, deaktivaciju                                |
-| `roles`            | uloge tenanta (`key`; naziv kroz `translations`, 0.2b)                                                                                                           | DML                                                            | ova tabela                                                       | P0                                   | `audit()`                                                                   |
-| `role_permissions` | uloga → permisija (kompozitni FK na `roles`)                                                                                                                     | DML                                                            | ova tabela + `permissions`                                       | P0                                   | `audit()`; promena prava je osetljiva — kandidat za maker-checker (backlog) |
-| `user_roles`       | korisnik → uloga (kompozitni FK na `users` i `roles`)                                                                                                            | DML                                                            | ova tabela                                                       | P0                                   | `audit()`                                                                   |
-| `feature_flags`    | tenant nivo flagova; efektivno = platforma **AND** tenant. Trigger odbija `enabled` dok je platformski off; settlement traži pravni osnov + jurisdikciju (CHECK) | INSERT/UPDATE; bez DELETE                                      | ova tabela                                                       | P0                                   | uključivanje/isključivanje → `audit_log` + `domain_event` (pravilo 31)      |
+| Tabela             | Svrha                                                                                                                                                            | Ko piše (vigor_app)                                            | Izvor istine                                                     | PII                                  | Audit implikacije                                                      |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- | ---------------------------------------------------------------- | ------------------------------------ | ---------------------------------------------------------------------- |
+| `tenants`          | tenant; `is_platform_operator` = tenant #0 (najviše jedan)                                                                                                       | **niko** iz app-a (SELECT svog reda); provisioning = platforma | ova tabela                                                       | P0                                   | provisioning/suspenzija → `audit_log` pod tenantom #0                  |
+| `tenant_settings`  | jezik (default `en`), zona (poslovni dan), valuta, zemlja tenanta                                                                                                | UPDATE (tenant admin); INSERT/DELETE samo platforma            | ova tabela                                                       | P0                                   | svaka izmena → `audit()` (before/after)                                |
+| `tenant_companies` | tenantove sopstvene kompanije → `legal_entity_id`                                                                                                                | INSERT/UPDATE; bez DELETE (status)                             | ova tabela + `legal_entities`                                    | P0; P1 ako je kompanija fizičko lice | `audit()`; deaktivacija kroz `status`                                  |
+| `users`            | članstvo osobe u tenantu; `auth_user_id` = most ka Better Auth (`auth` šema, 1.3)                                                                                | INSERT/UPDATE; bez DELETE (status)                             | Better Auth za kredencijale; ova tabela za članstvo, jezik, zonu | email P1, display_name P1            | `audit()` za poziv, aktivaciju, deaktivaciju                           |
+| `roles`            | uloge tenanta (`key`; naziv kroz `translations`, 0.2b)                                                                                                           | DML                                                            | ova tabela                                                       | P0                                   | `audit()`                                                              |
+| `role_permissions` | uloga → permisija (kompozitni FK na `roles`)                                                                                                                     | DML                                                            | ova tabela + `permissions`                                       | P0                                   | `audit()`; za admin role maker-checker od 1.4 (ADR 0002, odluka 2)     |
+| `user_roles`       | korisnik → uloga + `scope` (`OWN`/`TEAM`/`ORGANIZATION`, default `OWN`; `TEAM` = `OWN` do 1.4)                                                                   | DML                                                            | ova tabela                                                       | P0                                   | `audit()`; za admin role maker-checker od 1.4 (ADR 0002, odluka 2)     |
+| `feature_flags`    | tenant nivo flagova; efektivno = platforma **AND** tenant. Trigger odbija `enabled` dok je platformski off; settlement traži pravni osnov + jurisdikciju (CHECK) | INSERT/UPDATE; bez DELETE                                      | ova tabela                                                       | P0                                   | uključivanje/isključivanje → `audit_log` + `domain_event` (pravilo 31) |
+
+| `customers` | **TenantPartyRelationship** (pravilo 30): `legal_entity_id` + tip veze + tenantovi atributi (vlasnik, status, kreditni status, jezik, segment, `external_id`) | INSERT/UPDATE; bez DELETE (status) | ova tabela; identitet u `legal_entities` | `display_name` P0 / fizičko lice: samo `display_name_enc` (P1, CHECK) | `audit()`; blokada i kreditni limit kroz maker-checker (pravilo 11); fizičko lice → `decisions` (pravilo 19) |
+| `customer_contacts` | osobe kod kupca; ime, email, telefon **samo šifrovano**; `email_bidx` za tačnu pretragu | INSERT/UPDATE; bez DELETE (brisanje = crypto-shredding) | ova tabela | P1 šifrovano; `email_bidx` P1 (HMAC po tenantu) | `audit()` bez PII u snapshot-u (samo id-jevi) |
+| `subject_keys` | ključ podataka po subjektu + blind index ključ tenanta, šifrovani master ključem (ADR 0003) | INSERT/SELECT; rotacija i uništavanje = poseban job | ova tabela + `PII_MASTER_KEYS` (okruženje) | P0 (ključni materijal, ne PII) | uništavanje ključa = brisanje subjekta → `audit_log` |
 
 ## Governance
 
@@ -62,3 +68,8 @@ kategorija GDPR čl. 9. P1–P3 se šifruju kroz `subject_keys` — **od 0.2b**;
 - `tenant_companies_single_default` — najviše jedna podrazumevana kompanija po tenantu.
 - `users UNIQUE (tenant_id, email)` (citext) i `UNIQUE (tenant_id, auth_user_id)` — ista osoba može biti član više tenanta (po jedan red).
 - `domain_events_pending` — parcijalni indeks za dispatcher.
+- `customers UNIQUE (tenant_id, legal_entity_id)` — jedno pravno lice je jednom u portfoliju tenanta (`relationship_type = both` za kupca i dobavljača).
+- `customers_name_protection` — fizičko lice nikad nema čist `display_name`.
+- `subject_keys_single_active` — tačno jedan aktivan ključ po subjektu i svrsi; `subject_keys_purpose_subject` — blind index ključ pripada samo tenantu.
+- `find_or_create_legal_entity()` — jedini put upisa u `legal_entities` iz app-a: SECURITY DEFINER, `search_path=''`, traži tenant kontekst, tačno `(country_code, tax_id)`, vraća samo `id`, ne menja postojeći red.
+- `app_read_linked` na `legal_entities` — vidljivo samo preko sopstvenih `tenant_companies` **ili** `customers`.

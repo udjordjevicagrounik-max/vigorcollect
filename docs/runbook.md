@@ -35,6 +35,23 @@ u test bazi trajno — `audit_log` je INSERT-only.
 
 Reset test baze: `MIGRATE_DATABASE_URL=<test url> ./scripts/migrate.sh down NNN` pa `up`.
 
+## PII master ključ (`PII_MASTER_KEYS`)
+
+Šifruje ključeve podataka u `subject_keys` (ADR 0003). Bez njega seed i svaki rad sa
+kontaktima padaju. **Nikad u repo, bazu, backup, log ili chat** (pravila 9, 28).
+
+Generisanje (jednom po okruženju — dev, staging, prod imaju RAZLIČITE ključeve):
+
+```bash
+! cd /srv/vigor-collect && grep -q '^PII_MASTER_KEYS=.' .env || echo "PII_MASTER_KEYS=1:$(openssl rand -base64 32)" >> .env
+```
+
+- Format: `verzija:base64(32 bajta)`, više verzija odvojeno zarezom; najviša šifruje nove ključeve.
+- Staging/prod: vrednost ide u vault (dve nezavisne kopije), pa u okruženje instance — **ne** u
+  backup baze. Restore baze bez ovog ključa = nečitljiv PII.
+- Rotacija: dodati `N+1:<novi>`; stari ostaje dok re-wrap job ne prijavi 0 redova (ADR 0003).
+- Gubitak ključa je nepovratan za sve P1–P3 podatke.
+
 ## DB uloge na Elestio (staging/prod)
 
 Lokalno ih kreira `db/init/01-roles.sh`. Na Elestio instanci izvršiti iste naredbe ručno kao
@@ -49,4 +66,5 @@ Posle deploya: smoke (`/health` 200 + `X-App-Version` = očekivani tag).
 
 ## Backup / restore
 
-TODO(1.6): `scripts/backup.sh`, restore test (baza + fajlovi).
+TODO(1.6): `scripts/backup.sh`, restore test (baza + fajlovi + `PII_MASTER_KEYS` iz vault-a,
+nikad iz backup-a).

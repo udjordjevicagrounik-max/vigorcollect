@@ -32,9 +32,9 @@ describe('golden/db: pii_field_registry', () => {
     expect(rows.map((r) => r.column)).toEqual([]);
   });
 
-  it('natural-person identity fields are conditionally P1/P2; P1+ fields are not yet encrypted (0.2b)', async () => {
+  it('natural-person identity fields are conditionally P1/P2; users.email is an auth-identity exception', async () => {
     const { rows } = await migratePool.query(
-      `SELECT table_name, column_name, pii_class, conditional_pii_class, encrypted
+      `SELECT table_name, column_name, pii_class, conditional_pii_class, encrypted, exception_reason
        FROM pii_field_registry
        WHERE (table_name, column_name) IN (('users','email'), ('legal_entities','registration_number'),
                                            ('legal_entities','legal_name'))
@@ -47,6 +47,7 @@ describe('golden/db: pii_field_registry', () => {
         pii_class: 'P0',
         conditional_pii_class: 'P1',
         encrypted: false,
+        exception_reason: null,
       },
       {
         table_name: 'legal_entities',
@@ -54,6 +55,7 @@ describe('golden/db: pii_field_registry', () => {
         pii_class: 'P0',
         conditional_pii_class: 'P2',
         encrypted: false,
+        exception_reason: null,
       },
       {
         table_name: 'users',
@@ -61,7 +63,38 @@ describe('golden/db: pii_field_registry', () => {
         pii_class: 'P1',
         conditional_pii_class: null,
         encrypted: false,
+        exception_reason: 'auth identity',
       },
     ]);
+  });
+
+  it('every P1–P3 column is encrypted or carries a documented exception_reason (rule 20)', async () => {
+    const { rows } = await migratePool.query<{ column: string }>(
+      `SELECT table_name || '.' || column_name AS column
+       FROM pii_field_registry
+       WHERE pii_class IN ('P1', 'P2', 'P3') AND NOT encrypted AND exception_reason IS NULL
+       ORDER BY 1`,
+    );
+    expect(rows.map((r) => r.column)).toEqual([]);
+  });
+
+  it('every *_enc column is registered as encrypted and has a *_key_version column', async () => {
+    const { rows } = await migratePool.query<{
+      column: string;
+      encrypted: boolean;
+      versioned: boolean;
+    }>(
+      `SELECT c.table_name || '.' || c.column_name AS column,
+              coalesce(r.encrypted, false) AS encrypted,
+              EXISTS (SELECT 1 FROM information_schema.columns v
+                      WHERE v.table_schema = 'public' AND v.table_name = c.table_name
+                        AND v.column_name = regexp_replace(c.column_name, '_enc$', '_key_version')) AS versioned
+       FROM information_schema.columns c
+       LEFT JOIN pii_field_registry r ON r.table_name = c.table_name AND r.column_name = c.column_name
+       WHERE c.table_schema = 'public' AND right(c.column_name, 4) = '_enc'
+       ORDER BY 1`,
+    );
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows.filter((r) => !r.encrypted || !r.versioned)).toEqual([]);
   });
 });

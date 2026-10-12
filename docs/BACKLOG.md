@@ -19,8 +19,16 @@ Ideje i tehnički dug zapisani usred zadatka (protokol: ne predlaže se usred za
 - [ ] Drizzle definicije (`src/db/schema`) za tabele iz 001 — read-only ogledalo SQL-a, pre prvog ekrana sa podacima.
 - [ ] `seed-demo.ts` zaštita od pokretanja na staging/prod bazi (npr. odbij ako postoje ne-demo tenanti).
 - [ ] `verify-tenant.sh` / `rls-drift-check.sh` (1.6): iskoristiti upite iz `tests/golden/db/rls.test.ts`.
-- [ ] Resource-scoped permisije (otvoreno pitanje u NEXT.md).
-- [ ] Maker-checker za izmene `role_permissions` (otvoreno pitanje u NEXT.md).
+- [ ] Maker-checker (1.4) za izmene `role_permissions` i `user_roles` admin rola kroz `approval_requests` (ADR 0002, odluka 2).
+- [ ] `legal_entities.tax_id`: DROP NOT NULL za fizička lica bez PIB-a (+ parcijalni unique) — ADR 0002, odluka 3.
+
+## Iz 0.2b
+
+- [ ] Re-wrap job (rotacija `PII_MASTER_KEYS`) i re-encrypt job (rotacija ključa subjekta / blind index ključa tenanta) — ADR 0003.
+- [ ] Erasure tok (GDPR čl. 17): crypto-shredding `subject_keys` + audit, sa maker-checker-om.
+- [ ] `docker-compose.yml`: `PII_MASTER_KEYS` za app servis (zaštićen fajl — Uroš) pre prve rute sa kontaktima.
+- [ ] `customers.tenant_company_id` („kompanija koja vodi kupca", pravilo 26) kad prvi job računa dospeće po zoni kompanije.
+- [ ] Pretraga kontakata po telefonu (blind index za `phone`, E.164 normalizacija) — ako zatreba.
 
 ## Funkcije
 

@@ -16,6 +16,9 @@ const TENANT_TABLE_COUNTS: Record<string, string> = {
   feature_flags: 'SELECT count(*)::int AS n FROM feature_flags',
   audit_log: 'SELECT count(*)::int AS n FROM audit_log',
   domain_events: 'SELECT count(*)::int AS n FROM domain_events',
+  subject_keys: 'SELECT count(*)::int AS n FROM subject_keys',
+  customers: 'SELECT count(*)::int AS n FROM customers',
+  customer_contacts: 'SELECT count(*)::int AS n FROM customer_contacts',
 };
 
 beforeAll(ensureFixtures);

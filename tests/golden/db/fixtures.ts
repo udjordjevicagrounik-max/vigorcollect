@@ -15,6 +15,10 @@ export const FX = {
   roleA: '4a000000-0000-4000-8000-00000000000a',
   roleB: '4b000000-0000-4000-8000-00000000000b',
   auditA: '5a000000-0000-4000-8000-00000000000a',
+  // One canonical legal entity in BOTH portfolios (rule 30): a customer of A and of B.
+  entityShared: '1c000000-0000-4000-8000-00000000000c',
+  customerA: '6a000000-0000-4000-8000-00000000000a',
+  customerB: '6b000000-0000-4000-8000-00000000000b',
 } as const;
 
 type TenantFixture = {
@@ -26,6 +30,7 @@ type TenantFixture = {
   userId: string;
   email: string;
   roleId: string;
+  customerId: string;
 };
 
 const TENANTS: TenantFixture[] = [
@@ -38,6 +43,7 @@ const TENANTS: TenantFixture[] = [
     userId: FX.userA,
     email: 'user-a@golden.example.test',
     roleId: FX.roleA,
+    customerId: FX.customerA,
   },
   {
     tenantId: FX.tenantB,
@@ -48,6 +54,7 @@ const TENANTS: TenantFixture[] = [
     userId: FX.userB,
     email: 'user-b@golden.example.test',
     roleId: FX.roleB,
+    customerId: FX.customerB,
   },
 ];
 
@@ -71,6 +78,12 @@ async function createFixtures(): Promise<void> {
         [t.entityId, t.taxId, `Golden ${t.slug}`, `golden ${t.slug}`],
       );
     }
+    await c.query(
+      `INSERT INTO legal_entities (id, country_code, tax_id, legal_name, normalized_name, timezone)
+       VALUES ($1, 'XX', 'GOLDEN-SHARED', 'Golden Shared', 'golden shared', 'UTC')
+       ON CONFLICT (id) DO NOTHING`,
+      [FX.entityShared],
+    );
   });
 
   for (const t of TENANTS) {
@@ -98,6 +111,11 @@ async function createFixtures(): Promise<void> {
         `INSERT INTO roles (id, tenant_id, key, is_system) VALUES ($1, $2, 'golden_role', true)
          ON CONFLICT (id) DO NOTHING`,
         [t.roleId, t.tenantId],
+      );
+      await c.query(
+        `INSERT INTO customers (id, tenant_id, legal_entity_id, display_name)
+         VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO NOTHING`,
+        [t.customerId, t.tenantId, FX.entityShared, `Shared customer of ${t.slug}`],
       );
     });
   }

@@ -79,3 +79,16 @@ klijentske arhitekture — **test prolazi**.
    to (ispravno) blokira. **Pravac:** zasebna rola `vigor_worker` sa eksplicitnom politikom
    **samo na `domain_events`** (SELECT/UPDATE statusnih kolona), bez pristupa ostalim tabelama i
    **nikad `BYPASSRLS`**. Obrada svakog događaja ide u `withTenant(event.tenant_id)` kao `vigor_app`.
+
+## Odluke posle 0.2a (Uroš, 2026-10-12)
+
+1. **Resource-scoped permisije** su kolona `scope` na `user_roles` (`OWN` / `TEAM` /
+   `ORGANIZATION`), bez zasebne tabele opsega. Interni korisnik nikad ne dobija pristup
+   pojedinačnom resursu; pristup pojedinačnom resursu postoji **samo** kroz `access_grants` i
+   **samo** za spoljne strane (pravilo 34).
+2. **Maker-checker za dodelu moći:** izmene `role_permissions` i `user_roles` za admin role idu
+   kroz maker-checker (pravilo 11). Implementacija u 1.4 kroz `approval_requests`; do tada (0.2b)
+   svaka izmena samo prolazi kroz `audit()`.
+3. **`legal_entities.tax_id` ostaje `NOT NULL`.** Fizička lica bez poreskog broja su BACKLOG
+   stavka; rešenje bi bilo `DROP NOT NULL` + parcijalni unique, što je aditivno (nije DROP/RENAME
+   kolone).

@@ -2,92 +2,102 @@
 
 ## Aktivan zadatak
 
-**0.2b Schema v1 — stranke, deljenje, odluke** (migracija `002_*`): customers, customer_contacts,
-external_parties, access_grants, approval_requests, decisions, export_log, translations,
-code_lists, subject_keys, data_sources.
+**0.2c Schema v1 — deljenje i governance** (migracija `003_*`): `external_parties` i
+`access_grants` (pravilo 34), `data_sources` (prava iz pravila 35), `approval_requests`,
+`decisions` (pravilo 19), `export_log`, `translations`, `code_lists`.
 
-Uslov za početak: Uroš je commit-ovao `db/migrations/001_*` i primenio 001 na dev bazu `collect`.
+Uslov za početak: Uroš je commit-ovao `db/migrations/002_*`, generisao `PII_MASTER_KEYS` u
+`.env`, primenio 002 na `collect` i pokrenuo seed (komande u izveštaju 0.2b / runbook).
 
-Obavezno u 0.2b:
+Obavezno u 0.2c:
 
-- **`legal_entities` upis ide isključivo kroz `SECURITY DEFINER` funkciju
-  `find_or_create_legal_entity(country_code, tax_id, …)`** koja vraća **samo `id`** po
-  **tačnom** poklapanju `(country_code, tax_id)` — nikad listu, nikad `LIKE`/fuzzy, nikad
-  ostale kolone. Funkcija ima `SET search_path`, `REVOKE ALL … FROM PUBLIC` + `GRANT EXECUTE`
-  samo `vigor_app`, i zahteva tenant kontekst (`app_tenant_id() IS NOT NULL`).
-- Proširiti `legal_entities` politiku `app_read_linked` na `customers` (izmena RLS politike →
-  potpis, pravilo 13).
-- `subject_keys` + šifrovanje P1–P3 (`users.email`, `users.display_name`, uslovno
-  `legal_entities`) + **blind index** za pretragu/login po email-u; `encrypted=true` u registru.
-- `customers.is_natural_person` — na nju se već pozivaju `pii_field_registry.conditional_on` redovi.
-- Svaka nova tabela: ENABLE + FORCE + politika, kompozitni FK, PII red za svaku kolonu
-  (golden testovi to već proveravaju — padaju ako se zaboravi).
+- `access_grants` je jedini put do pojedinačnog resursa, i to samo za spoljne strane (ADR 0002,
+  odluka 1); grant je vremenski ograničen, opoziv, vezan za svrhu i auditiran.
+- `code_lists` + FK sa `customers.segment_code` (aditivno).
+- `translations` za nazive uloga (`roles.key`) i tenantove code liste (pravilo 17).
+- Svaka nova tabela: ENABLE + FORCE + politika, kompozitni FK, PII red za svaku kolonu; P1+
+  bez šifrovanja samo uz `exception_reason` (golden test).
+- Odgovor na otvoreno pitanje „fizičko lice u `legal_entities`" (ispod) pre bilo kog uvoza kupaca.
 
-## Poslednja sesija — 0.2a Schema v1: identitet, tenant, governance (2026-10-11, noćni režim)
+## Poslednja sesija — 0.2b stranke i šifrovanje (2026-10-12)
 
 ### Urađeno
 
-- **Migracija 001 (predlog, NIJE commit-ovana, NIJE primenjena na `collect`):**
-  `db/migrations/001_identity_tenant_governance_{up,down}.sql` — 16 tabela (15 iz plana
-  (+ `platform_feature_flags`), funkcije `app_tenant_id()`, `set_updated_at()`,
-  `feature_flags_require_platform()`, `audit_log_block_mutation()`; ENABLE + FORCE RLS na svakoj
-  tabeli; kompozitni FK; `REVOKE` po tabeli; seed 7 × `settlement.*` = off; 175 redova u
-  `pii_field_registry` (svaka kolona). Na `collect_test`: up → down → up bez greške.
-- **Test baza `collect_test`**: `scripts/setup-test-db.sh` (poziva ga `setup-tools.sh`),
-  idempotentno, ista prava kao dev baza. `scripts/lib/env.sh` izvodi `TEST_*` URL-ove.
-- **`npm run test:db`** (`scripts/test-db.sh`): `pg_isready` → jasna poruka „pokreni db (runbook
-  korak 2)" bez stack trace-a → migracije na test bazu → Vitest (`vitest.db.config.ts`).
-  Dodat u pre-commit kao korak `8_test_db`.
-- **Golden testovi**: statički `rls-coverage` sada traži ENABLE + FORCE + politiku za **svaku**
-  tabelu (izuzetak: ledger iz 000). Na živoj bazi (39 testova): pg_class provera RLS/FORCE/politika,
-  0 redova bez tenant konteksta (app i vlasnik), A ne vidi B, WITH CHECK, kompozitni FK,
-  `legal_entity_id` bez konteksta ne otkriva ništa, app ne piše platformske tabele, audit_log
-  (prava, RLS, trigger za UPDATE/DELETE/TRUNCATE), flagovi (trigger + CHECK), PII registar
-  (svaka kolona, bez viška). Mutacioni test: 5 namerno pokvarenih zaštita → 5 testova pada.
-- **`scripts/seed-demo.ts`**: tenant #0 Sinergista + demo tenant, po 1 legal entity, company,
-  user, rola, dodela; audit (provisioning pod tenantom #0); idempotentno, kao `vigor_migrate`
-  sa `SET LOCAL app.tenant_id`. Provereno na `collect_test` (2× pokretanje, bez duplikata), pa
-  vraćeno na fixture-only stanje.
-- **Docs**: `docs/schema-v1.md`, `docs/adr/0002-canonical-party-model.md` (odluke, pravilo 38,
-  „Otvoreno": login → `auth` šema, outbox → `vigor_worker`), runbook (`!` komande, test baza),
-  README, `.env.example`.
+- **Migracija 002 (predlog, NIJE commit-ovana, NIJE primenjena na `collect`):**
+  `db/migrations/002_customers_subject_keys_{up,down}.sql`:
+  - `subject_keys` (ključ podataka po subjektu + blind index ključ tenanta, šifrovani master
+    ključem; jedan aktivan po subjektu/svrsi; app samo INSERT/SELECT);
+  - `customers` (TenantPartyRelationship, `is_natural_person`, `owner_user_id`; fizičko lice →
+    ime samo šifrovano, CHECK);
+  - `customer_contacts` (ime, email, telefon samo šifrovani + `*_key_version`; `email_bidx`);
+  - `user_roles.scope` (`OWN`/`TEAM`/`ORGANIZATION`, default `OWN`);
+  - `find_or_create_legal_entity()` (SECURITY DEFINER, `search_path=''`, tenant kontekst,
+    tačno poklapanje, vraća samo `id`, ne menja postojeći red; EXECUTE samo `vigor_app`);
+  - `app_read_linked` proširena na `customers` (`ALTER POLICY`);
+  - `pii_field_registry.exception_reason`; `users.email`/`display_name` = `auth identity`.
+  - Na `collect_test`: up → down → up bez greške.
+- **`src/server/crypto`**: keyring (`PII_MASTER_KEYS`, verzije), AES-256-GCM envelope sa AAD
+  (tenant, tabela.kolona, red, verzija), blind index (HMAC ključem tenanta), `subject_keys`
+  (kreiranje, unwrap, tenant iz `app_tenant_id()`). Samo `node:crypto`, bez novih paketa.
+- **`src/server/customers/repository.ts`**: `createCustomer` (kroz `find_or_create_legal_entity`),
+  `readCustomerName`, `createContact`, `findContactIdsByEmail` (tačno, nikad ne kreira ključ),
+  `readContact`. Zod validacija ulaza.
+- **Testovi**: unit `tests/unit/crypto.test.ts` (7); golden DB 70 (bilo 39): `customers`,
+  `find-or-create-legal-entity`, `encryption` (nema čistog teksta u redu, AAD, blind index A ≠ B,
+  pretraga samo u svom tenantu), registar (P1+ ⇒ `encrypted` ili `exception_reason`; svaka
+  `*_enc` ima `*_key_version`). Mutacioni test: 5 pokvarenih zaštita → 7 testova pada.
+- **Seed**: admin uloga `scope = ORGANIZATION` + audit `user_role.assigned`; demo tenant dobija
+  2 kupca (kompanije) sa po jednim šifrovanim primarnim kontaktom; bez `PII_MASTER_KEYS` staje
+  pre prvog upisa. Proveren 2× na `collect_test`, test baza vraćena na fixture stanje.
+- **Docs**: ADR 0003 (šifrovanje, `key_version`, rotacija, master ključ van backup-a), runbook
+  „PII master ključ", `schema-v1.md`, `.env.example`, ADR 0002 „Odluke posle 0.2a".
 
 ### Nije urađeno
 
-- Commit i primena migracije 001 na `collect` — čeka Urošev `!` (pravilo 13).
-- Seed na dev bazi — posle primene 001: `! cd /srv/vigor-collect && npm run seed`.
-- Drizzle definicije u `src/db/schema` za tabele iz 001 (BACKLOG — potrebne pre prvog ekrana sa podacima).
-- `verify-tenant.sh` / `rls-drift-check.sh` DB provere → 1.6 (golden DB testovi već pokrivaju veći deo).
+- Commit i primena migracije 002 na `collect` — čeka Urošev `!` (pravilo 13).
+- `docker-compose.yml` (zaštićen): app servisu dodati `PII_MASTER_KEYS: ${PII_MASTER_KEYS:?}` pre
+  prve rute koja čita kontakte (1.x). Danas ga koriste samo seed i testovi.
+- Re-wrap / re-encrypt job i erasure (crypto-shredding) tok — ADR 0003, BACKLOG.
+- `audit()` / `requirePermission` oko repozitorijuma — servisi u 1.x (repozitorijum je sloj ispod).
 
-### Pretpostavke za Uroša (najkonzervativnija opcija, bez DROP/RENAME rizika)
+### Pretpostavke (najkonzervativnija opcija, bez DROP/RENAME rizika)
 
-1. `jurisdiction_profiles` ima samo identitetske kolone (zemlja, valuta, locale, zona, `fx_source`); pravni parametri (kamata, naknada, zastarelost) dodaju se aditivno u sprintu koji ih koristi.
-2. `legal_entities.tax_id` je `NOT NULL` (zbog `UNIQUE(country_code, tax_id)`); fizičko lice bez poreskog broja bi tražilo `DROP NOT NULL` (nije DROP kolone).
-3. `legal_entities` nema `is_natural_person`; flag ostaje na `customers` (pravilo 19), a `conditional_on = 'customers.is_natural_person = true'`.
-4. Uz `conditional_on` dodata je i `conditional_pii_class` (klasa kad uslov važi — P1 ili P2 se razlikuju po koloni).
-5. Uslovno su klasifikovani i `tax_id` (P2), `normalized_name` (P1) i sva adresna polja (P2), ne samo tri navedene kolone; `tenant_companies.display_name` P0 → P1.
-6. `audit_log.before/after` i `domain_events.payload` su P2, `domain_events.last_error` P1 (mogu nositi bilo koje polje).
-7. `tenants` je za app samo SELECT (preimenovanje tenanta = platformska akcija).
-8. `tenant_settings`: app sme samo UPDATE; INSERT/DELETE samo pri provisioningu.
-9. `users` i `tenant_companies` se ne brišu iz app-a (bez DELETE) — deaktivacija kroz `status`.
-10. `domain_events`: app samo INSERT + SELECT; status menja worker (1.5).
-11. `audit_log` nema `updated_at`/`updated_by` (redovi su nepromenljivi).
-12. `created_by`/`updated_by` su uuid bez FK (akter može biti sistem/job).
-13. Ista osoba u više tenanta = više `users` redova povezanih preko `auth_user_id`.
-14. Nazivi uloga idu kroz `translations` (0.2b) po `roles.key`; `roles` nema kolonu sa nazivom.
-15. Settlement flag sme biti `enabled` samo uz `legal_basis_confirmed_at` + `jurisdiction_country_code` (CHECK); ostali flagovi samo uz `enabled_by`/`enabled_at`.
-16. Seed: Sinergista i demo tenant u RS (`Europe/Belgrade`, RSD); tenant #0 `sr-Latn`, demo `en`; lažni identifikatori `DEMO-…`, email na rezervisanom `.example` TLD-u.
-17. 001 registruje i kolone `schema_migrations` (P0) u `pii_field_registry` — 000 nije menjana.
-18. `001_down` briše i `citext` ekstenziju (up je kreira; ranije nije postojala).
+1. `customers.legal_entity_id` je `NOT NULL` — svaki kupac ima kanonski identitet (pravilo 30).
+2. `customers.language` je NULL = nasleđuje `tenant_settings.default_locale` (tri nivoa jezika).
+3. `credit_status` default `unrated` (`green`/`yellow`/`red`); `status` `active`/`inactive`/`blocked`.
+4. `segment_code` je tekst bez FK; FK na `code_lists` dolazi aditivno u 0.2c.
+5. `customers` nema `tenant_company_id` („kompanija koja vodi kupca", pravilo 26) — aditivno kad zatreba.
+6. Kontakt: ime obavezno, email/telefon opciono, najviše jedan primarni po kupcu, bez DELETE.
+7. Blind index samo za email kontakta; telefon nema indeks (pretraga po telefonu nije tražena).
+8. Šifrovanje u aplikaciji (`node:crypto`), ne `pgcrypto` — ključ nikad ne prolazi kroz SQL (ADR 0003).
+9. `audit_log.before/after` i `domain_events.payload` smeju da nose samo id-jeve, P0 ili šifrat; `last_error` samo kodove.
+10. `find_or_create_legal_entity`: `tax_id` sa razmakom na krajevima se odbija (22023), ne „popravlja"; prvi upis određuje `legal_name`.
+11. Repozitorijum čita tenant iz sesije (`app_tenant_id()`), nikad iz parametra (pravilo 2).
+12. Seed pravi samo kupce-kompanije; dev seed podiže postojeći `OWN` admin na `ORGANIZATION`.
 
-### Otvorena pitanja
+### Otvoreno pitanje (pravilo 15 — pogrešan izbor bi kasnije tražio izmenu šeme)
 
-1. **Resource-scoped permisije** (pravilo 30 kao preduslov šeme v1): nullable `tenant_company_id`
-   na `user_roles` ili zasebna tabela opsega? Oba su aditivna — namerno nije urađeno u 0.2a.
-2. Da li `role_permissions` izmene treba da idu kroz maker-checker (`approval_requests`, 0.2b)?
+**Fizičko lice u `legal_entities`.** `legal_entities` je globalna tabela sa čistim tekstom. Za
+fizičko lice bi `legal_name`, `tax_id` (npr. JMBG) i adresa bili P1/P2 u čistom tekstu, vidljivi
+svakom tenantu koji ga ima u portfoliju. Ne mogu se šifrovati ključem tenanta, jer je red
+zajednički. Predlog: (a) **preduzetnik** (registrovan, javni registar) ide u `legal_entities`
+kao danas, uz `exception_reason`; (b) **potrošač** (bez registracije) NE ide u `legal_entities`
+— `customers.legal_entity_id` postaje nullable za `is_natural_person`, a identitet se čuva
+šifrovano na `customers` (nove kolone, aditivno). Do odluke seed i testovi ne prave potrošače.
+
+### Odluke Uroša posle 0.2a (2026-10-12; ADR 0002)
+
+1. **Resource-scoped permisije:** kolona `scope` na `user_roles` (`OWN` / `TEAM` / `ORGANIZATION`),
+   bez nove tabele. Pristup pojedinačnom resursu postoji samo kroz `access_grants`, i to samo za
+   spoljne strane.
+2. **Maker-checker:** izmene `role_permissions` i `user_roles` za admin role idu kroz
+   maker-checker. Implementacija u 1.4 kroz `approval_requests`; u 0.2b samo `audit()`.
+3. **`legal_entities.tax_id NOT NULL` ostaje**; fizička lica bez PIB-a → BACKLOG.
 
 ## Rizik
 
+- **`PII_MASTER_KEYS` gubitak = trajni gubitak svih P1–P3 podataka.** Dev ključ je samo u
+  `.env`; staging/prod ključevi u vault-u, dve kopije, nikad u backup-u (ADR 0003, runbook).
 - **Dev kontejner postavlja `PIP_TARGET=/opt/app/data/.python-deps` i `PYTHONPATH` na isto.**
   Svaka `pip install` bez očišćenog okruženja piše u `/opt/app/data/`. Tako je nastao i
   zalutali direktorijum u 0.1; Uroš ga je obrisao 2026-10-11. `setup-tools.sh` instalira
@@ -104,4 +114,11 @@ Obavezno u 0.2b:
 
 ## Istorija
 
+- **0.2b stranke i šifrovanje** (2026-10-12): commit ove sesije (testovi, kod, docs); migracija
+  002 čeka Uroša.
+
+- **0.2a Schema v1** (2026-10-11/12): `4bf31ef` testovi, seed, docs; `82b5905` migracija 001 (Uroš).
+  18 pretpostavki iz noćnog režima: `git show 4bf31ef:docs/NEXT.md`.
+  Na `collect`: `schema_migrations` = 000, 001; seed: 2 legal entities, po 1 tenant/user po
+  kontekstu, audit tenant #0 = 3 reda (1 user.created + 2 tenant.provisioned), demo = 1.
 - **0.1 Bootstrap** (2026-10-11): `bcde887` skelet, `335a261` zaštićeni fajlovi (Uroš). Detalji u ADR 0001.
