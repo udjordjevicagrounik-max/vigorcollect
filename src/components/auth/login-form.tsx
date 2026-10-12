@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from 'react';
 import { useTranslations } from 'next-intl';
+import { ContinueFallback, useNavigateWithFallback } from './continue-fallback';
 import { HONEYPOT_FIELD } from '@/lib/auth-policy';
 import { isCaptchaError, postJSON } from '@/lib/post-json';
 import { Field, SubmitButton } from './field';
@@ -23,6 +24,7 @@ export function LoginForm({
   const [resetSignal, setResetSignal] = useState(0);
   const [problem, setProblem] = useState<FormProblem | null>(null);
   const [pending, setPending] = useState(false);
+  const { go, fallbackHref } = useNavigateWithFallback();
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -44,7 +46,7 @@ export function LoginForm({
     );
     if (res.status === 200) {
       const twoFactor = (res.json as { twoFactorRedirect?: boolean } | null)?.twoFactorRedirect;
-      window.location.assign(twoFactor ? '/login/mfa' : '/');
+      go(twoFactor ? '/login/mfa' : '/');
       return;
     }
     setPending(false);
@@ -83,6 +85,7 @@ export function LoginForm({
         resetSignal={resetSignal}
       />
       <FormError problem={problem} />
+      <ContinueFallback href={fallbackHref} />
       <SubmitButton label={pending ? t('login.submitting') : t('login.submit')} pending={pending} />
     </form>
   );

@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from 'react';
 import { useTranslations } from 'next-intl';
+import { ContinueFallback, useNavigateWithFallback } from './continue-fallback';
 import { MIN_PASSWORD_LENGTH } from '@/lib/auth-policy';
 import { postJSON } from '@/lib/post-json';
 import { Field, SubmitButton } from './field';
@@ -17,6 +18,7 @@ export function MfaSetup() {
   const [enrollment, setEnrollment] = useState<Enrollment | null>(null);
   const [problem, setProblem] = useState<FormProblem | null>(null);
   const [pending, setPending] = useState(false);
+  const { go, fallbackHref } = useNavigateWithFallback();
 
   async function start(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -39,7 +41,7 @@ export function MfaSetup() {
     setProblem(null);
     const res = await postJSON('/api/auth/two-factor/verify-totp', { code });
     if (res.status === 200) {
-      window.location.assign('/');
+      go('/');
       return;
     }
     setPending(false);
@@ -114,6 +116,7 @@ export function MfaSetup() {
           required
         />
         <FormError problem={problem} />
+        <ContinueFallback href={fallbackHref} />
         <SubmitButton label={t('mfaSetup.verify')} pending={pending} />
       </form>
     </div>

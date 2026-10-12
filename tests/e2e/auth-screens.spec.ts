@@ -55,3 +55,20 @@ test('security headers on pages: nonce CSP, no framing, no referrer', async ({ r
   expect(res.headers()['referrer-policy']).toBe('no-referrer');
   expect(res.headers()['strict-transport-security']).toMatch(/max-age=/);
 });
+
+test('login: when the browser does not navigate, "Continue" appears after 2 s', async ({
+  page,
+}) => {
+  // An aborted navigation = the browser stays where it is (what an extension did on
+  // the preview); the form must not leave the person stuck.
+  await page.route('**/login/mfa', (route) => route.abort('aborted'));
+  await page.goto('/login');
+  await page.locator('#email').fill(process.env.E2E_EMAIL ?? '');
+  await page.locator('#password').fill(process.env.E2E_PASSWORD ?? '');
+  await waitForCaptcha(page);
+  await page.locator('form button[type="submit"]').click();
+  const fallback = page.getByTestId('continue-fallback');
+  await expect(fallback).toBeVisible({ timeout: 6_000 });
+  await expect(fallback.getByRole('link')).toHaveAttribute('href', '/login/mfa');
+  await expect(page).toHaveURL(/\/login$/);
+});

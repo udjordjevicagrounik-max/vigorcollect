@@ -56,7 +56,9 @@
       "signOut": "Odjava",
       "passwordHint": "Najmanje {min} znakova. Duža fraza je bolja od komplikovane reči.",
       "passwordMismatch": "Lozinke se ne poklapaju.",
-      "passwordTooShort": "Lozinka mora imati najmanje {min} znakova."
+      "passwordTooShort": "Lozinka mora imati najmanje {min} znakova.",
+      "continue": "Nastavi",
+      "continueHint": "Prijava je uspela. Ako se stranica ne otvori sama, kliknite Nastavi."
     },
     "login": {
       "title": "Prijava",
