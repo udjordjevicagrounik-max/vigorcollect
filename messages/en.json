@@ -13,6 +13,7 @@
     },
     "items": {
       "home": "Home",
+      "customers": "Customers",
       "import": "Import",
       "settingsPassword": "Password",
       "users": "Users",
@@ -177,6 +178,55 @@
     "unsupported": "This kind of request cannot be decided here yet."
   },
   "dashboard": {
+    "title": "Collections overview",
+    "description": "All figures are in {currency}, as of today in the company's time zone, and cover only the customers you can see.",
+    "kpiLabel": "Key figures",
+    "definition": "Definition",
+    "days": "{n} d",
+    "naturalPerson": "Private person",
+    "missingFx": "{n} invoices without an exchange rate are not included",
+    "kpi": {
+      "overdue_total": {
+        "label": "Overdue total",
+        "definition": "Sum of open amounts of invoices whose due day has ended (company time zone), in the reporting currency."
+      },
+      "open_total": {
+        "label": "Open total",
+        "definition": "Sum of open amounts of all open invoices, overdue or not."
+      },
+      "dso": {
+        "label": "DSO",
+        "definition": "Open total ÷ average daily invoiced amount of the last {window} days."
+      },
+      "promises_today": {
+        "label": "Promises today",
+        "definition": "Number and sum of pending promises dated today."
+      },
+      "promises_broken": {
+        "label": "Broken promises",
+        "definition": "Promises broken in the last 30 days: by the day after the promise date, less than the promised amount was paid."
+      },
+      "open_cases": {
+        "label": "Open cases",
+        "definition": "Number of open collection cases."
+      }
+    },
+    "aging": {
+      "title": "Aging distribution",
+      "definition": "Open amounts by days overdue (buckets from settings)."
+    },
+    "topOverdue": "Most overdue",
+    "work": {
+      "title": "My work today",
+      "modeLabel": "Whose customers",
+      "own": "Mine",
+      "team": "Team",
+      "definition": "Promises falling due, scheduled next actions and open cases.",
+      "empty": "Nothing scheduled for today.",
+      "promise": "Promise {amount} for {date}",
+      "nextAction": "{action} — scheduled for {date}",
+      "case": "Open case · {stage}"
+    },
     "empty": {
       "title": "No invoices yet",
       "description": "Once you import invoices from your accounting system, the customers and items that need attention appear here, ordered by priority. The first step is the import.",
@@ -443,5 +493,134 @@
   "pwa": {
     "install": "Install the app",
     "installHint": "Works from your phone’s home screen too."
+  },
+  "customers": {
+    "title": "Customers",
+    "description": "Customers you can see, ordered by overdue debt. Search by name, tax ID or ERP code.",
+    "search": "Search",
+    "searchPlaceholder": "Name, tax ID or code",
+    "status": "Status",
+    "any": "all",
+    "onlyOverdue": "Only with overdue",
+    "onlyMine": "Only mine",
+    "apply": "Apply",
+    "statuses": {
+      "active": "active",
+      "inactive": "inactive",
+      "blocked": "blocked"
+    },
+    "naturalPerson": "Private person",
+    "noOwner": "no owner",
+    "days": "{n} d",
+    "cardLine": "Exposure {exposure} · overdue {overdue} · oldest {days} d",
+    "columns": {
+      "customer": "Customer",
+      "exposure": "Exposure",
+      "overdue": "Overdue",
+      "oldest": "Oldest",
+      "status": "Status",
+      "owner": "Owner"
+    },
+    "emptyTitle": "No customers for this view",
+    "emptyDescription": "Change the search or filters. If you have not imported invoices yet, customers are created by the import.",
+    "emptyAction": "Import invoices",
+    "saved": {
+      "label": "Saved filters",
+      "name": "Filter name",
+      "save": "Save current filter",
+      "savedNotice": "Filter saved.",
+      "deletedNotice": "Filter deleted.",
+      "delete": "Delete filter {name}",
+      "deleteShort": "×",
+      "confirmDelete": "Delete?"
+    }
+  },
+  "customer360": {
+    "back": "← Customers",
+    "naturalPerson": "Private person",
+    "taxId": "Tax ID",
+    "noOwner": "no owner",
+    "days": "{n} d",
+    "statuses": {
+      "active": "active",
+      "inactive": "inactive",
+      "blocked": "blocked"
+    },
+    "kpi": {
+      "exposure": {
+        "label": "Exposure",
+        "definition": "Open total of the customer (docs/metrics.md)."
+      },
+      "overdue": {
+        "label": "Overdue",
+        "definition": "Open amount of invoices past their due day."
+      },
+      "oldest": {
+        "label": "Oldest",
+        "definition": "Most days overdue among overdue invoices."
+      },
+      "promises": {
+        "label": "Pending promises",
+        "definition": "Payment promises not evaluated yet."
+      }
+    },
+    "missingFx": "{n} invoices without an exchange rate are not included",
+    "tabsLabel": "Customer record sections",
+    "tabs": {
+      "overview": "Overview",
+      "invoices": "Invoices",
+      "payments": "Payments",
+      "promises": "Promises",
+      "activities": "Activities",
+      "cases": "Cases"
+    },
+    "aging": "Aging",
+    "openCases": "Open cases ({n})",
+    "empty": {
+      "invoices": "The customer has no invoices.",
+      "payments": "No payments.",
+      "promises": "No promises.",
+      "activities": "No activities — log the first contact.",
+      "cases": "No cases."
+    },
+    "invoiceLine": "amount {total} · due {due}",
+    "invoiceStatus": {
+      "open": "open",
+      "partially_paid": "partially paid",
+      "paid": "paid",
+      "credited": "credited",
+      "cancelled": "cancelled"
+    },
+    "paymentKind": {
+      "received": "payment",
+      "source_settlement": "settled in ERP"
+    },
+    "allocated": "allocated {amount}",
+    "promiseStatus": {
+      "pending": "pending",
+      "fulfilled": "fulfilled",
+      "partial": "partial",
+      "broken": "broken",
+      "cancelled": "cancelled"
+    },
+    "paid": "paid {amount}",
+    "activityKind": {
+      "call": "Call",
+      "email": "Email",
+      "note": "Note",
+      "meeting": "Meeting"
+    },
+    "next": "next: {action} {date}",
+    "caseStatus": {
+      "open": "open",
+      "closed": "closed"
+    },
+    "priority": {
+      "low": "low priority",
+      "normal": "normal priority",
+      "high": "high priority",
+      "urgent": "urgent"
+    },
+    "caseInvoices": "{n} invoices"
   }
 }

@@ -13,6 +13,7 @@
     },
     "items": {
       "home": "Početna",
+      "customers": "Kupci",
       "import": "Uvoz",
       "settingsPassword": "Lozinka",
       "users": "Korisnici",
@@ -177,6 +178,55 @@
     "unsupported": "Ova vrsta zahteva se još ne odlučuje na ovom mestu."
   },
   "dashboard": {
+    "title": "Pregled naplate",
+    "description": "Sve brojke su u {currency}, na današnji dan u zoni kompanije, i obuhvataju samo kupce koje vidite.",
+    "kpiLabel": "Ključni pokazatelji",
+    "definition": "Definicija",
+    "days": "{n} d",
+    "naturalPerson": "Fizičko lice",
+    "missingFx": "{n} faktura bez kursa nije uračunato",
+    "kpi": {
+      "overdue_total": {
+        "label": "Dospelo ukupno",
+        "definition": "Zbir otvorenih iznosa faktura kojima je prošao kraj dana dospeća (u zoni kompanije), u izveštajnoj valuti."
+      },
+      "open_total": {
+        "label": "Otvoreno ukupno",
+        "definition": "Zbir otvorenih iznosa svih otvorenih faktura, dospelih i nedospelih."
+      },
+      "dso": {
+        "label": "DSO",
+        "definition": "Otvoreno ukupno ÷ prosečan dnevni fakturisani iznos poslednjih {window} dana."
+      },
+      "promises_today": {
+        "label": "Obećanja danas",
+        "definition": "Broj i zbir obećanja na čekanju čiji je datum danas."
+      },
+      "promises_broken": {
+        "label": "Prekršena obećanja",
+        "definition": "Obećanja prekršena u poslednjih 30 dana: dan posle datuma obećanja nije uplaćeno bar obećano."
+      },
+      "open_cases": {
+        "label": "Otvoreni case-ovi",
+        "definition": "Broj otvorenih case-ova naplate."
+      }
+    },
+    "aging": {
+      "title": "Aging raspodela",
+      "definition": "Otvoreni iznosi po danima kašnjenja (bucket-i iz podešavanja)."
+    },
+    "topOverdue": "Najviše dospelog",
+    "work": {
+      "title": "Moj rad danas",
+      "modeLabel": "Čiji kupci",
+      "own": "Moji",
+      "team": "Tim",
+      "definition": "Obećanja koja dospevaju, zakazane sledeće akcije i otvoreni case-ovi.",
+      "empty": "Za danas nema ničeg zakazanog.",
+      "promise": "Obećanje {amount} za {date}",
+      "nextAction": "{action} — zakazano za {date}",
+      "case": "Otvoren case · {stage}"
+    },
     "empty": {
       "title": "Još nema faktura",
       "description": "Kada uvezete fakture iz knjigovodstva, ovde vidite kupce i stavke koje traže pažnju, poređane po prioritetu. Prvi korak je uvoz.",
@@ -443,5 +493,134 @@
   "pwa": {
     "install": "Instaliraj aplikaciju",
     "installHint": "Radi i sa početnog ekrana telefona."
+  },
+  "customers": {
+    "title": "Kupci",
+    "description": "Kupci koje vidite, poređani po dospelom dugu. Pretraga po nazivu, PIB-u ili šifri iz ERP-a.",
+    "search": "Pretraga",
+    "searchPlaceholder": "Naziv, PIB ili šifra",
+    "status": "Status",
+    "any": "svi",
+    "onlyOverdue": "Samo sa dospelim",
+    "onlyMine": "Samo moji",
+    "apply": "Primeni",
+    "statuses": {
+      "active": "aktivan",
+      "inactive": "neaktivan",
+      "blocked": "blokiran"
+    },
+    "naturalPerson": "Fizičko lice",
+    "noOwner": "bez vlasnika",
+    "days": "{n} d",
+    "cardLine": "Izloženost {exposure} · dospelo {overdue} · najstarije {days} d",
+    "columns": {
+      "customer": "Kupac",
+      "exposure": "Izloženost",
+      "overdue": "Dospelo",
+      "oldest": "Najstarije",
+      "status": "Status",
+      "owner": "Vlasnik"
+    },
+    "emptyTitle": "Nema kupaca za ovaj prikaz",
+    "emptyDescription": "Promenite pretragu ili filtere. Ako još niste uvezli fakture, kupci nastaju automatski pri uvozu.",
+    "emptyAction": "Uvezi fakture",
+    "saved": {
+      "label": "Sačuvani filteri",
+      "name": "Naziv filtera",
+      "save": "Sačuvaj trenutni filter",
+      "savedNotice": "Filter je sačuvan.",
+      "deletedNotice": "Filter je obrisan.",
+      "delete": "Obriši filter {name}",
+      "deleteShort": "×",
+      "confirmDelete": "Obriši?"
+    }
+  },
+  "customer360": {
+    "back": "← Kupci",
+    "naturalPerson": "Fizičko lice",
+    "taxId": "PIB",
+    "noOwner": "bez vlasnika",
+    "days": "{n} d",
+    "statuses": {
+      "active": "aktivan",
+      "inactive": "neaktivan",
+      "blocked": "blokiran"
+    },
+    "kpi": {
+      "exposure": {
+        "label": "Izloženost",
+        "definition": "Otvoreno ukupno za kupca (docs/metrics.md)."
+      },
+      "overdue": {
+        "label": "Dospelo",
+        "definition": "Otvoreni iznos faktura kojima je prošao dan dospeća."
+      },
+      "oldest": {
+        "label": "Najstarije",
+        "definition": "Najviše dana kašnjenja među dospelim fakturama."
+      },
+      "promises": {
+        "label": "Obećanja na čekanju",
+        "definition": "Obećanja plaćanja koja još nisu ocenjena."
+      }
+    },
+    "missingFx": "{n} faktura bez kursa nije uračunato",
+    "tabsLabel": "Delovi kartona kupca",
+    "tabs": {
+      "overview": "Pregled",
+      "invoices": "Fakture",
+      "payments": "Uplate",
+      "promises": "Obećanja",
+      "activities": "Aktivnosti",
+      "cases": "Case-ovi"
+    },
+    "aging": "Aging",
+    "openCases": "Otvoreni case-ovi ({n})",
+    "empty": {
+      "invoices": "Kupac nema faktura.",
+      "payments": "Nema uplata.",
+      "promises": "Nema obećanja.",
+      "activities": "Nema aktivnosti — zabeležite prvi kontakt.",
+      "cases": "Nema case-ova."
+    },
+    "invoiceLine": "iznos {total} · dospeće {due}",
+    "invoiceStatus": {
+      "open": "otvorena",
+      "partially_paid": "delimično plaćena",
+      "paid": "plaćena",
+      "credited": "knjižno odobrenje",
+      "cancelled": "stornirana"
+    },
+    "paymentKind": {
+      "received": "uplata",
+      "source_settlement": "zatvoreno u ERP-u"
+    },
+    "allocated": "povezano {amount}",
+    "promiseStatus": {
+      "pending": "na čekanju",
+      "fulfilled": "ispunjeno",
+      "partial": "delimično",
+      "broken": "prekršeno",
+      "cancelled": "otkazano"
+    },
+    "paid": "plaćeno {amount}",
+    "activityKind": {
+      "call": "Poziv",
+      "email": "Email",
+      "note": "Beleška",
+      "meeting": "Sastanak"
+    },
+    "next": "sledeće: {action} {date}",
+    "caseStatus": {
+      "open": "otvoren",
+      "closed": "zatvoren"
+    },
+    "priority": {
+      "low": "nizak prioritet",
+      "normal": "normalan prioritet",
+      "high": "visok prioritet",
+      "urgent": "hitno"
+    },
+    "caseInvoices": "{n} faktura"
   }
 }

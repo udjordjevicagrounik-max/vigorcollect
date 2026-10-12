@@ -3,7 +3,15 @@ import { getTranslations } from 'next-intl/server';
 import { isAnySettlementFlagEnabled } from '@/lib/feature-flags';
 
 type NavGroupKey = 'work' | 'resolution' | 'intelligence' | 'admin';
-type NavItemKey = 'home' | 'import' | 'users' | 'teams' | 'approvals' | 'tenantSettings' | 'systemStatus';
+type NavItemKey =
+  | 'home'
+  | 'customers'
+  | 'import'
+  | 'users'
+  | 'teams'
+  | 'approvals'
+  | 'tenantSettings'
+  | 'systemStatus';
 /** `anyOf` empty = every member; otherwise the item exists only with one of those permissions. */
 type NavItem = { key: NavItemKey; href: string; anyOf: readonly string[] };
 type NavGroup = { key: NavGroupKey; items: NavItem[] };
@@ -15,6 +23,7 @@ const NAV_GROUPS: NavGroup[] = [
     key: 'work',
     items: [
       { key: 'home', href: '/', anyOf: [] },
+      { key: 'customers', href: '/customers', anyOf: ['customer.read'] },
       { key: 'import', href: '/import', anyOf: ['import.read', 'import.create'] },
     ],
   },
