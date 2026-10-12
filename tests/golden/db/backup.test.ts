@@ -4,17 +4,34 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import { alertsCheck } from '@/server/jobs/ops';
-import { appPool, closePools, migratePool, workerPool } from './helpers';
+import { Pool } from 'pg';
+import { appPool, closePools, migratePool, sqlState, workerPool } from './helpers';
 
 // Golden (never delete or skip) — rule 28, task 1.7: the nightly backup dumps every database,
 // keeps 30 daily copies, never contains .env or role passwords, records the run; the restore
 // test restores the latest dump and finds every row; a fresh backup silences the backup alarm.
 
 const DIR = mkdtempSync(join(tmpdir(), 'golden-backup-'));
-const env = {
-  ...process.env,
+const TEST_DB = new URL(process.env.TEST_MIGRATE_DATABASE_URL ?? '').pathname.slice(1);
+/** A service-role URL from .env, pointed at the test database. */
+function onTestDb(name: 'BACKUP_DATABASE_URL' | 'RESTORE_DATABASE_URL'): string {
+  const url = new URL(process.env[name] ?? '');
+  url.pathname = `/${TEST_DB}`;
+  return url.toString();
+}
+const BACKUP_URL = onTestDb('BACKUP_DATABASE_URL');
+const RESTORE_URL = onTestDb('RESTORE_DATABASE_URL');
+// Never the superuser: the scripts get only the service-role URLs.
+const withoutSuperuser = Object.fromEntries(
+  Object.entries(process.env).filter(([k]) => k !== 'POSTGRES_USER' && k !== 'POSTGRES_PASSWORD'),
+);
+const env: NodeJS.ProcessEnv = {
+  ...withoutSuperuser,
+  NODE_ENV: 'test',
   BACKUP_DIR: DIR,
-  POSTGRES_DB: new URL(process.env.TEST_MIGRATE_DATABASE_URL ?? '').pathname.slice(1),
+  POSTGRES_DB: TEST_DB,
+  BACKUP_DATABASE_URL: BACKUP_URL,
+  RESTORE_DATABASE_URL: RESTORE_URL,
   BACKUP_S3_BUCKET: '',
 };
 const run = (script: string) =>
@@ -27,6 +44,54 @@ const run = (script: string) =>
 afterAll(async () => {
   rmSync(DIR, { recursive: true, force: true });
   await closePools();
+});
+
+describe('golden/db: service roles for backup and restore (never the superuser)', () => {
+  it('vigor_backup reads everything through RLS but writes nothing (except its own ops_runs row — trigger, since BYPASSRLS skips policies)', async () => {
+    const backup = new Pool({ connectionString: BACKUP_URL, max: 1 });
+    try {
+      const role = await backup.query<{ rolsuper: boolean; rolbypassrls: boolean }>(
+        'SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user',
+      );
+      expect(role.rows).toEqual([{ rolsuper: false, rolbypassrls: true }]);
+      const users = await backup.query<{ n: number }>('SELECT count(*)::int AS n FROM users');
+      expect(users.rows[0]?.n).toBeGreaterThan(0); // no tenant context needed: BYPASSRLS
+      const writes = {
+        insertUser: await sqlState(
+          backup.query(
+            `INSERT INTO users (tenant_id, email, display_name, timezone) SELECT tenant_id, 'x@y.test', 'x', 'UTC' FROM users LIMIT 1`,
+          ),
+        ),
+        updateCustomer: await sqlState(backup.query(`UPDATE customers SET status = 'blocked'`)),
+        deleteAudit: await sqlState(backup.query('DELETE FROM audit_log')),
+        updateRun: await sqlState(backup.query(`UPDATE ops_runs SET status = 'failed'`)),
+        foreignKind: await sqlState(
+          backup.query(
+            `INSERT INTO ops_runs (kind, status, started_at, finished_at) VALUES ('restore_test', 'ok', now(), now())`,
+          ),
+        ),
+      };
+      expect(writes).toEqual({
+        insertUser: '42501',
+        updateCustomer: '42501',
+        deleteAudit: '42501',
+        updateRun: '42501',
+        foreignKind: '42501',
+      });
+    } finally {
+      await backup.end();
+    }
+  });
+
+  it('vigor_restore cannot read the main database', async () => {
+    const restore = new Pool({ connectionString: RESTORE_URL, max: 1 });
+    try {
+      expect(await sqlState(restore.query('SELECT 1 FROM users LIMIT 1'))).toBe('42501');
+      expect(await sqlState(restore.query('SELECT 1 FROM customers LIMIT 1'))).toBe('42501');
+    } finally {
+      await restore.end();
+    }
+  });
 });
 
 describe('golden/db: backup and restore test', () => {

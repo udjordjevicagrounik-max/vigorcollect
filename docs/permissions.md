@@ -50,6 +50,8 @@ Izvoz (`*.export`) ide samo kroz `exportService` koji piše `export_log` (pravil
 | `user.assign`             | Dodela role i scope-a korisniku                   | 🅼       | 🅼       | ➖    | ➖                | ➖                   | ➖          | ➖              | ➖          | ➖              | ➖        | ➖          |
 | `role.read`               | Role i njihove permisije                          | ✅      | ✅      | ➖    | ➖                | ➖                   | ➖          | ➖              | ➖          | ➖              | ✅        | ➖          |
 | `role.manage`             | Izmena permisija role (custom role)               | 🅼       | 🅼       | ➖    | ➖                | ➖                   | ➖          | ➖              | ➖          | ➖              | ➖        | ➖          |
+| `team.read`               | Timovi i njihovi članovi                          | ✅      | ✅      | ✅    | ✅                | ✅                   | ✅          | ✅              | ✅          | ✅              | ✅        | ✅          |
+| `team.manage`             | Timovi: kreiranje, članovi, vođa                  | ✅      | ✅      | ➖    | ➖                | ✅                   | ➖          | ➖              | ➖          | ➖              | ➖        | ➖          |
 | `customer.read`           | Kupci i Customer 360                              | ✅      | ✅      | ✅    | ✅                | ✅                   | ✅          | ✅              | ✅          | ✅              | ✅        | ✅          |
 | `customer.create`         | Novi kupac                                        | ✅      | ➖      | ➖    | ✅                | ✅                   | ➖          | ✅              | ➖          | ➖              | ➖        | ➖          |
 | `customer.update`         | Izmena atributa kupca (segment, jezik, status)    | ✅      | ➖      | ✅    | ✅                | ✅                   | ➖          | ✅              | ➖          | ➖              | ➖        | ➖          |
@@ -121,8 +123,8 @@ Izvoz (`*.export`) ide samo kroz `exportService` koji piše `export_log` (pravil
   svakim upitom na kupce (kasnije fakture, case-ove); golden statički test obara upit bez nje.
   `OWN` = `owner_user_id` = ja · `TEAM` = moji + kupci tima (`owner_team_id`) + kupci kolega iz
   mog tima · `ORGANIZATION` = ceo tenant. Kupac bez vlasnika vidljiv je samo uz `ORGANIZATION`.
-- **Timovi:** pregled `user.read`, upravljanje `user.update` (matrica nema `team.*` ključeve —
-  BACKLOG). Jedan primarni tim po osobi; vođa mora biti član.
+- **Timovi:** pregled `team.read` (sve role), upravljanje `team.manage` (owner, admin,
+  collection_manager; migracija 011). Jedan primarni tim po osobi; vođa mora biti član.
 - **Promena matrice po tenantu** = `approval_requests` `role_permission.change`: predlaže
   `approval.create`, odlučuje `role.manage` (🅼), podnosilac ≠ odlučilac; do odobrenja važi
   stara matrica. Dozvole role `owner` se ovim tokom ne menjaju.

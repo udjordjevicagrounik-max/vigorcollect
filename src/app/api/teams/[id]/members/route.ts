@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 const paramsSchema = z.object({ id: z.uuid() });
 
 export const POST = withTenant<{ id: string }>(async (request, ctx, params) => {
-  await ctx.requirePermission('user.update');
+  await ctx.requirePermission('team.manage');
   const parsed = paramsSchema.safeParse(params);
   if (!parsed.success) throw new NotFoundError();
   await addTeamMember(ctx, parsed.data.id, memberSchema.parse(await request.json()));

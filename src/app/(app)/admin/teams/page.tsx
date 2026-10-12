@@ -17,13 +17,15 @@ export default async function TeamsPage() {
     data = await withTenantPage(async (ctx) => {
       const teams = await listTeams(ctx);
       const inTeam = new Set(teams.flatMap((t) => t.members.map((m) => m.userId)));
-      const members = await listMembers(ctx);
+      // The member picker needs user.read; without it the page still shows the teams.
+      const keys = await permissionKeys(ctx.db, ctx.userId);
+      const members = keys.has('user.read') ? await listMembers(ctx) : [];
       return {
         teams,
         free: members
           .filter((m) => m.status === 'active' && !inTeam.has(m.id))
           .map((m) => ({ id: m.id, displayName: m.displayName })),
-        canManage: (await permissionKeys(ctx.db, ctx.userId)).has('user.update'),
+        canManage: keys.has('team.manage'),
       };
     });
   } catch (error) {

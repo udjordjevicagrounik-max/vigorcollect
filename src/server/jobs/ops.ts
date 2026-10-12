@@ -11,8 +11,8 @@ import { jobHealth } from './health';
 /**
  * Ops jobs in the worker (task 1.7): nightly backup 02:00 UTC, weekly restore test Sunday 03:00
  * UTC (scripts/backup.sh, scripts/restore-test.sh — copied to <image>/ops), and the alarm check
- * every 5 minutes. The scripts need pg_dump/pg_restore and superuser credentials
- * (BACKUP_DATABASE_URL). Without them the job logs why and does nothing — the
+ * every 5 minutes. The scripts need pg_dump/pg_restore (worker image) and the service roles
+ * vigor_backup / vigor_restore (BACKUP_DATABASE_URL, RESTORE_DATABASE_URL) — never a superuser. Without them the job logs why and does nothing — the
  * "backup not done by 06:00" alarm makes that visible (it is not silently "ok").
  */
 
@@ -35,8 +35,8 @@ export function opsAvailability(): { ok: true; dir: string } | { ok: false; reas
       return { ok: false, reason: `${tool}_missing_in_image` };
     }
   }
-  if (!process.env.BACKUP_DATABASE_URL && !process.env.POSTGRES_PASSWORD) {
-    return { ok: false, reason: 'no_backup_credentials' };
+  if (!process.env.BACKUP_DATABASE_URL || !process.env.RESTORE_DATABASE_URL) {
+    return { ok: false, reason: 'no_service_role_urls' };
   }
   return { ok: true, dir };
 }

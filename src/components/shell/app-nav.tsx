@@ -18,7 +18,7 @@ const NAV_GROUPS: NavGroup[] = [
     key: 'admin',
     items: [
       { key: 'users', href: '/admin/users', anyOf: ['user.read'] },
-      { key: 'teams', href: '/admin/teams', anyOf: ['user.read'] },
+      { key: 'teams', href: '/admin/teams', anyOf: ['team.read'] },
       {
         key: 'approvals',
         href: '/admin/approvals',

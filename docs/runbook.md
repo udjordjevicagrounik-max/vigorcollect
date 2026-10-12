@@ -135,21 +135,35 @@ SQL
   se ne isporučuje (pravilo 24). Pregled sink-a u aplikaciji: BACKLOG.
 - Do SMTP-a (BACKLOG) i ostali tenanti pišu samo u sink.
 
-## Worker (ADR 0005)
+## Servisne role (ADR 0005)
 
-Rola `vigor_worker` se pravi **jednom po klasteru, pre migracije 007** (migracija bez nje odbija
-rad). Dev: `WORKER_DB_PASSWORD` i `WORKER_DATABASE_URL` u `.env` (generisani, nikad u chat), pa:
+Tri role se prave **jednom po klasteru, kao superuser, PRE migracija 007 i 011** (migracije bez
+njih odbijaju rad) — `scripts/create-service-roles.sh` (ranije `create-worker-role.sh`; poruka u
+migraciji 007 još pominje staro ime):
+
+| rola            | lozinka (env)         | namena                                                                                   |
+| --------------- | --------------------- | ---------------------------------------------------------------------------------------- |
+| `vigor_worker`  | `WORKER_DB_PASSWORD`  | poslovi; politike samo na `domain_events` i `mail_outbox`                                |
+| `vigor_backup`  | `BACKUP_DB_PASSWORD`  | `pg_dump`: `pg_read_all_data` + BYPASSRLS, ne piše (osim svog reda u `ops_runs`)         |
+| `vigor_restore` | `RESTORE_DB_PASSWORD` | restore test: CREATEDB + BYPASSRLS za SVOJU privremenu bazu; podatke glavne baze ne vidi |
+
+Dev: lozinke i `WORKER_/BACKUP_/RESTORE_DATABASE_URL` u `.env` (generisani, nikad u chat), pa:
 
 ```bash
-! cd /srv/vigor-collect && ./scripts/create-worker-role.sh && ./scripts/migrate.sh up
+! cd /srv/vigor-collect && ./scripts/create-service-roles.sh && ./scripts/migrate.sh up
 ```
 
 Staging/prod: na Elestio hostu, sa vrednostima iz vault-a eksportovanim u shell (van Claude
-sesije), isti skript (`POSTGRES_USER`/`POSTGRES_PASSWORD` = superuser). Provera:
-`SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = 'vigor_worker';` → `f`, `f`.
+sesije), isti skript (`POSTGRES_USER`/`POSTGRES_PASSWORD` = superuser — samo ovde). Provera:
+`SELECT rolname, rolsuper, rolbypassrls FROM pg_roles WHERE rolname LIKE 'vigor%';` → nijedna
+`rolsuper`; `rolbypassrls` samo `vigor_backup` i `vigor_restore`.
 
-Pokretanje: servis `worker` u `docker-compose.yml` (od 1.5 i `app` traži `PII_MASTER_KEYS`, `BETTER_AUTH_*`, `TURNSTILE_*` — compose odbija start bez njih; lokalno rade Cloudflare-ovi javni test ključevi) (isti image, `node worker.mjs`, port nije
-objavljen; `/health` na 3001 unutar mreže). Lokalno: `npm run build` pa
+Pokretanje: servis `worker` u `docker-compose.yml` — Dockerfile stage `worker` (app image +
+`postgresql-client-16` + `rclone`, pinovane verzije), `node worker.mjs`, port nije objavljen,
+`/health` na 3001 unutar mreže, volume `backups` → `/srv/backups`. `app` je stage `app` (od 1.5
+traži `PII_MASTER_KEYS`, `BETTER_AUTH_*`, `TURNSTILE_*`; lokalno rade Cloudflare-ovi test ključevi).
+**Worker image:** kad PGDG objavi noviji 16.x, stari nestaje iz glavnog repoa i build pada —
+podići `PG_CLIENT_VERSION` u Dockerfile-u (`apt-cache policy postgresql-client-16`). Lokalno: `npm run build` pa
 `cd .next/standalone && node worker.mjs` (iz `.env`: `DATABASE_URL`, `WORKER_DATABASE_URL`).
 
 Neuspeli događaji (`status = 'failed'`, `last_error` = kod greške) ostaju u `domain_events`.
@@ -190,36 +204,53 @@ Posle deploya: smoke (`/health` 200 + `X-App-Version` = očekivani tag).
 ### Release checklist (pravilo 23; dopunjuje se kroz 1.7)
 
 - [ ] Testovi zeleni (`npm test`, `npm run test:db`), migracije probane na kopiji prod baze.
-- [ ] **BLOKIRAJUĆE:** `scripts/create-worker-role.sh` kao superuser **PRE** migracije 007 (bez role `vigor_worker` migracija 007 odbija rad; ADR 0005, runbook „Worker").
+- [ ] **BLOKIRAJUĆE:** `scripts/create-service-roles.sh` kao superuser **PRE** migracija 007 i 011 (`vigor_worker`, `vigor_backup`, `vigor_restore`; bez njih migracije odbijaju rad; runbook „Servisne role").
 - [ ] **Pre prvog staging deploya:** `ALTER TABLE users VALIDATE CONSTRAINT users_auth_user;`
       (kao `vigor_migrate`). Ako padne — postoje viseći `auth_user_id`: očistiti, pa ponoviti.
 - [ ] `BETTER_AUTH_URL` je `https://…`; Secure kolačić se ne isključuje nikakvim env flagom.
 - [ ] **Turnstile ključevi** (`TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET`) u vault-u i env-u — bez njih production ne startuje (ADR 0006).
 - [ ] `scripts/smoke.sh` posle deploya zelen (exit 0).
 - [ ] Sentry DSN, kanal za alarme i off-site storage podešeni (Admin → Status sistema: sve „povezan”).
-- [ ] Host cron za `backup.sh` / `restore-test.sh` (dok image nema `pg_dump`); prvi backup + restore test zeleni.
+- [ ] Prvi backup + restore test iz worker-a zeleni (Admin → Status sistema); host cron samo kao fallback.
 - [ ] Release notes + rollback korak zapisani.
 
 ## Backup / restore (pravilo 28, zadatak 1.7)
 
-- **Backup:** `scripts/backup.sh` — `pg_dump -Fc` svih baza klastera (superuser, jer FORCE RLS),
-  role bez lozinki, repo kao `git bundle`; `$BACKUP_DIR/daily/YYYY-MM-DD` (30) i
+- **Backup:** `scripts/backup.sh` — `pg_dump -Fc` svih baza na koje `vigor_backup` ima CONNECT
+  (nikad superuser; `pg_read_all_data` + BYPASSRLS zbog FORCE RLS), role bez lozinki, repo kao
+  `git bundle` (u worker image-u nema git-a → bez bundle-a; repo je na GitHub-u); `$BACKUP_DIR/daily/YYYY-MM-DD` (30) i
   `monthly/YYYY-MM` (12). `.env` i ključevi nikad (skripta staje ako je `.env` ili ključ u git-u).
   Rezultat → `ops_runs` (Admin → Status sistema, alarmi).
-- **Gde radi:** worker ga zakazuje u 02:00 UTC, ali image još nema `pg_dump` (BACKLOG) — do tada
-  **host cron** na Elestio-u:
+- **Gde radi:** worker (02:00 UTC backup, nedelja 03:00 UTC restore test), sa
+  `BACKUP_DATABASE_URL` / `RESTORE_DATABASE_URL`. **Fallback** (worker ne radi): host cron na
+  Elestio-u, isti env:
 
   ```bash
   0 2 * * *  cd /srv/vigor-collect && ./scripts/backup.sh >>/var/log/backup.log 2>&1
   0 3 * * 0  cd /srv/vigor-collect && ./scripts/restore-test.sh >>/var/log/backup.log 2>&1
   ```
 
-- **Off-site:** `BACKUP_S3_*` + `rclone` ili `aws` na hostu; bez klijenta → `offsite: skipped_no_client`
-  u `ops_runs` (blokada za staging).
-- **Restore test:** `scripts/restore-test.sh` vraća poslednji dump glavne baze u
-  `<db>_restore_test`, poredi broj redova svake tabele sa dump-om, briše kopiju, upisuje rezultat.
+- **Off-site:** `BACKUP_S3_*` → `rclone sync` iz worker-a; bez `BACKUP_S3_BUCKET` →
+  `offsite: not_configured` u `ops_runs` (blokada za staging).
+- **Restore test:** `scripts/restore-test.sh` (kao `vigor_restore`) vraća poslednji dump glavne
+  baze u `<db>_restore_test` (`--no-owner`), poredi broj redova svake tabele sa dump-om, briše kopiju, upisuje rezultat.
 - **Pravi restore (incident):** `createdb collect_new && pg_restore -d collect_new <dump>`, pa
   `PII_MASTER_KEYS` iz vault-a (bez ključa šifrovani podaci su izgubljeni), promena `DATABASE_URL`.
+
+## Git tok (od zatvaranja Sprinta 1)
+
+`feature/<zadatak>` → `develop` → `release/x.y` → `main`. Claude radi na `feature/*` (grana od
+`develop`) i commit-uje tamo; merge radi Uroš `!` komandom (nikad `--no-verify`, hook se vrti):
+
+```bash
+# feature gotov → develop
+! cd /srv/vigor-collect && git checkout develop && git merge --no-ff feature/<zadatak> -m "merge: feature/<zadatak> into develop" && git branch -d feature/<zadatak>
+# release (posle security review-a i release checkliste)
+! cd /srv/vigor-collect && git checkout -b release/x.y develop && npm test && npm run test:db && npm run build
+! cd /srv/vigor-collect && git checkout main && git merge --no-ff release/x.y -m "release: x.y" && git tag -a vx.y -m "release x.y" && git checkout develop && git merge --no-ff release/x.y -m "merge: release/x.y back into develop"
+```
+
+Zaštićeni fajlovi (pravilo 13) i dalje idu u Uroševu `!` komandu na `feature/*` grani.
 
 ## Sentry i alarmi (zadatak 1.7)
 

@@ -4,6 +4,7 @@
 # every table's row count with the counts INSIDE the dump (COPY blocks) — no race with live
 # writes. Result → ops_runs; the copy is dropped afterwards.
 set -euo pipefail
+OPS_URL_VAR=RESTORE_DATABASE_URL # vigor_restore — never the superuser
 # shellcheck source=lib/pg-admin.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/pg-admin.sh"
 
@@ -27,7 +28,9 @@ DUMP="$BACKUP_DIR/daily/$LATEST/db-$MAIN_DB.dump"
 step="restore"
 dropdb --if-exists --no-password "$TARGET"
 createdb --no-password "$TARGET"
-pg_restore --exit-on-error --no-password -d "$TARGET" "$DUMP"
+# vigor_restore owns the scratch database: objects become its own (no owner/grant replay);
+# BYPASSRLS lets it count rows through FORCE RLS.
+pg_restore --exit-on-error --no-owner --no-privileges --no-password -d "$TARGET" "$DUMP"
 
 step="compare"
 EXPECTED="$(mktemp)"

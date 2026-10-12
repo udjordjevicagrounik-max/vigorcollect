@@ -17,7 +17,7 @@ Zaseban **worker proces** (isti image, `node worker.mjs`, `PROCESS_ROLE=worker`)
 `vigor_worker` za outbox/pg-boss i `vigor_app` za svaki posao tenanta kroz `withTenantJob()`.
 
 - **Rola `vigor_worker`** (NOSUPERUSER NOBYPASSRLS NOINHERIT) pravi se van migracija
-  (`scripts/create-worker-role.sh`, superuser, lozinka iz `WORKER_DB_PASSWORD`); migracija 007
+  (`scripts/create-service-roles.sh`, superuser, lozinka iz `WORKER_DB_PASSWORD`); migracija 007
   odbija rad ako rola ne postoji ili ima opasne atribute.
 - **Politike samo na `domain_events` i `mail_outbox`**: čitanje svega, menjanje samo statusnih
   kolona (GRANT po koloni), brisanje samo onoga što retencija sme (politika, ne kod). Trigger
@@ -63,3 +63,12 @@ event.tenant_id`; 3 ponavljanja sa backoff-om; posle poslednjeg `failed` + `last
 `audit_log`, `subject_keys`, `auth.user`; handler vidi samo tenant događaja; drugi prolaz istog
 događaja se preskače; 4 neuspeha → `failed` sa kodom; retencija ne briše mlade redove (politika);
 jedan dnevni posao po lokalnom datumu i kad su kompanije u Njujorku i Tokiju.
+
+## Dopuna — zatvaranje Sprinta 1 (2026-10-12)
+
+- Worker ima svoj Dockerfile stage (`worker`): app image + `postgresql-client-16` + `rclone`,
+  pinovano; backup i restore test rade iz worker-a, host cron je fallback.
+- Backup i restore test **nikad kao superuser**: `vigor_backup` (`pg_read_all_data` + BYPASSRLS,
+  bez pisanja) i `vigor_restore` (CREATEDB + BYPASSRLS za sopstvenu privremenu bazu, bez prava na
+  podatke glavne baze); obe smeju samo da dodaju SVOJ red u `ops_runs`. Pošto BYPASSRLS preskače
+  i `WITH CHECK` politike, to ograničenje drži trigger `ops_runs_kind_by_role` (migracija 011).

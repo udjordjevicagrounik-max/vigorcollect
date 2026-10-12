@@ -112,7 +112,7 @@ Ideje i tehnički dug zapisani usred zadatka (protokol: ne predlaže se usred za
 
 ## Iz 1.6
 
-- [ ] `team.read` / `team.manage` u matrici (sada `user.read` / `user.update`) — traži odobrenje + migraciju kataloga.
+- [x] `team.read` / `team.manage` u matrici — migracija 011 (Uroš, zatvaranje Sprinta 1).
 - [ ] Arhiviranje tima (ekran) i premeštanje članova između timova jednim korakom.
 - [ ] Dodela vlasnika kupca (`customer.assign`: korisnik i/ili tim) — uz ekrane kupaca (Sprint 2).
 - [ ] Više timova po osobi: `ALTER TYPE team_membership_kind ADD VALUE 'secondary'` (aditivno) + `scopeFilter` već čita sve članstvo.
@@ -120,8 +120,8 @@ Ideje i tehnički dug zapisani usred zadatka (protokol: ne predlaže se usred za
 
 ## Iz 1.7
 
-- [ ] `postgresql-client-16` u runtime image (Dockerfile) da worker sam radi backup / restore test — traži odobrenje (novi sistemski paket); do tada host cron.
-- [ ] Off-site klijent (`rclone` ili `aws` cli) na hostu ili u image-u — nije instaliran; bez njega nema off-site kopije.
+- [x] `postgresql-client-16` + `rclone` u worker stage (Dockerfile, pinovano) — zatvaranje Sprinta 1; host cron ostaje fallback.
+- [x] Off-site klijent `rclone` u worker image-u; ostaje: bucket + ključevi (blokada za staging).
 - [ ] Sentry u browseru (client-side) i upload source map-a — sada samo server (app + worker).
 - [ ] Šifrovanje backup-a pre off-site slanja (npr. `age`) — dump sadrži P1 kolone sa izuzetkom (`users.email`).
 - [ ] Alarmi u bazi umesto u memoriji worker-a (dedupe preživljava restart).

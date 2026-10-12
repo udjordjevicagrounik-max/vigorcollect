@@ -33,6 +33,8 @@ const OBJECTS = [
   'tenant',
   'user',
   'role',
+  // Sprint 1 close-out (migration 011): teams get their own keys.
+  'team',
   'customer',
   'contact',
   'invoice',

@@ -3,8 +3,7 @@ import { ConflictError, NotFoundError, type TenantContext } from '@/server/auth/
 import { emitEvent } from '@/server/events';
 
 /**
- * Teams (task 1.6). Viewing needs `user.read`, managing `user.update` (the matrix has no
- * team.* keys; a new key needs Uroš's approval and a catalog migration — BACKLOG). One primary
+ * Teams (task 1.6). Viewing needs `team.read`, managing `team.manage` (migration 011). One primary
  * team per person (DB unique index); the lead must be a member; lead changes write audit + a
  * domain event. Teams are archived, never deleted.
  */
@@ -40,7 +39,7 @@ function slug(name: string): string {
 }
 
 export async function listTeams(ctx: TenantContext): Promise<Team[]> {
-  await ctx.requirePermission('user.read');
+  await ctx.requirePermission('team.read');
   const { rows } = await ctx.db.query<{
     id: string;
     key: string;
@@ -80,7 +79,7 @@ export async function createTeam(
   ctx: TenantContext,
   input: z.input<typeof newTeamSchema>,
 ): Promise<{ id: string }> {
-  await ctx.requirePermission('user.update');
+  await ctx.requirePermission('team.manage');
   const data = newTeamSchema.parse(input);
   const key = data.key ?? slug(data.name);
   const exists = await ctx.db.query('SELECT 1 FROM teams WHERE key = $1', [key]);
@@ -112,7 +111,7 @@ export async function addTeamMember(
   teamId: string,
   input: z.input<typeof memberSchema>,
 ) {
-  await ctx.requirePermission('user.update');
+  await ctx.requirePermission('team.manage');
   const { userId } = memberSchema.parse(input);
   await lockTeam(ctx, teamId);
   const user = await ctx.db.query<{ status: string }>('SELECT status FROM users WHERE id = $1', [
@@ -178,7 +177,7 @@ export async function removeTeamMember(
   teamId: string,
   input: z.input<typeof memberSchema>,
 ) {
-  await ctx.requirePermission('user.update');
+  await ctx.requirePermission('team.manage');
   const { userId } = memberSchema.parse(input);
   const team = await lockTeam(ctx, teamId);
   const removed = await ctx.db.query(
@@ -201,7 +200,7 @@ export async function setTeamLead(
   teamId: string,
   input: z.input<typeof leadSchema>,
 ) {
-  await ctx.requirePermission('user.update');
+  await ctx.requirePermission('team.manage');
   const { userId } = leadSchema.parse(input);
   const team = await lockTeam(ctx, teamId);
   if (userId) {

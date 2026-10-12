@@ -2,13 +2,16 @@
 
 ## Aktivan zadatak
 
-**Sprint 1 zatvoren.** Sledeće: plan Sprinta 2 (uvoz faktura, Customer 360, case-ovi) — posle
-Uroševe `!` komande za 009, 010, `src/server/auth/*` i `docker-compose.yml`.
+**Sprint 1 zatvoren, sledeće: security review, pa Sprint 2 — kupci, fakture, uvoz.**
 
-**Blokade za staging** (sve u runbook „Release checklist"): Turnstile ključevi · Sentry DSN ·
-off-site storage (+ `rclone`/`aws` na hostu) · kanal za alarme (Telegram/Slack) · rola
-`vigor_worker` na Elestio pre 007 · `VALIDATE CONSTRAINT users_auth_user` · GitHub remote
-(`/code-review`, CI) · host cron za backup dok image nema `pg_dump`.
+1. **Security review** u ODVOJENOJ sesiji: ulaz `docs/security-review-input.md` (diff
+   `03cc604..HEAD`, zaštićeni fajlovi, ADR-ovi) + `docs/security-review-checklist.md`.
+2. **Sprint 2** na grani `feature/*` od `develop` (git tok u runbook-u): kupci (Customer 360),
+   fakture, uvoz CSV/Excel.
+
+**Blokade za staging** (runbook „Release checklist"): Turnstile ključevi · Sentry DSN · off-site
+bucket + ključevi (rclone je u worker image-u) · kanal za alarme · servisne role na Elestio pre
+007/011 · `VALIDATE CONSTRAINT users_auth_user` · GitHub remote (CI, `/code-review`).
 
 ### Sprint 1 plan (1.1–1.7)
 
@@ -22,6 +25,31 @@ off-site storage (+ `rclone`/`aws` na hostu) · kanal za alarme (Telegram/Slack)
 
 Numeracija važi od Sprinta 1 i zamenjuje raniju (1.3 login, 1.4 maker-checker, 1.5 outbox,
 1.6 verify/backup) u starijim beleškama i komentarima.
+
+## Zatvaranje Sprinta 1 (2026-10-12, isti režim)
+
+- **Dockerfile:** stage `worker` = app + `postgresql-client-16=16.15-1.pgdg12+2` + `rclone=1.60.1+dfsg-2+b5`
+  (PGDG repo za `pg_dump` 16 = verzija servera); stage `app` je podrazumevani. Image izgrađen i
+  proveren (alati, `/app/ops`, korisnik `node`). Backup i restore test rade iz worker-a; host cron
+  je fallback.
+- **Servisne role:** `create-service-roles.sh` (ranije `create-worker-role.sh`): `vigor_worker`,
+  `vigor_backup` (`pg_read_all_data` + BYPASSRLS, ne piše), `vigor_restore`. Backup nikad kao
+  superuser. Migracija 011: CONNECT za obe + trigger `ops_runs_kind_by_role`.
+- **Matrica:** `team.read` (sve role), `team.manage` (owner, admin, collection_manager), migracija 011;
+  ekran Timovi, rute i navigacija na novim ključevima.
+- **Git tok:** `feature/*` → `develop` → `release/x.y` → `main`; `!` komande za merge u runbook-u.
+  Grana `develop` se pravi u Uroševoj `!` komandi.
+- **Testovi:** DB 202, unit 113, e2e 30 (+1 namerno preskočen); golden: `vigor_backup` ne može
+  INSERT/UPDATE/DELETE, `vigor_restore` ne čita glavnu bazu, skripte rade bez superuser-a.
+
+### Pretpostavke i nalazi
+
+1. **Restore test kao posebna rola `vigor_restore`:** `vigor_backup` „bez pisanja" ne sme da pravi bazu, a restore test mora; `vigor_restore` ima CREATEDB + BYPASSRLS samo za svoju privremenu bazu i nema prava nad podacima glavne baze.
+2. **Jedini upis ovih rola je sopstveni red u `ops_runs`** (rezultat posla). Nalaz: BYPASSRLS preskače i `WITH CHECK` politike — golden test je to uhvatio; ograničenje drži trigger.
+3. **Backup je sada neuspeh ako lista baza padne ili nema glavne baze** (ranije bi prijavio „ok, 0 baza" — nalaz iz ove sesije).
+4. Worker image nema git → bez `repo.bundle` u backup-u iz worker-a (repo je na GitHub-u kad postoji remote; do tada host cron pravi bundle).
+5. Pin PGDG verzije: kad izađe 16.16, stara nestaje iz glavnog repoa → build pada dok se ne podigne `PG_CLIENT_VERSION` (runbook).
+6. Dodele `team.*` rolama su podaci tenanta → seed (kao 004); postojeći tenanti ih dobijaju ponovnim seed-om.
 
 ## Poslednja sesija — lanac 1.6 → 1.7 (2026-10-12, noćni režim)
 

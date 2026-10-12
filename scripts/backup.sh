@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 # Nightly backup (rule 28; task 1.7) — run as cron on the host or by the worker (02:00 UTC).
-#   - pg_dump -Fc of EVERY database of the cluster (not templates, not restore copies) as the
-#     superuser, plus roles (globals) WITHOUT passwords;
+#   - pg_dump -Fc of EVERY database the backup role may connect to (not templates, not restore
+#     copies) as vigor_backup (pg_read_all_data + BYPASSRLS, no writes), roles WITHOUT passwords;
 #   - the repository as a git bundle (committed files only — .env and keys are never committed;
 #     checked below);
 #   - layout: $BACKUP_DIR/daily/YYYY-MM-DD (30 kept) and monthly/YYYY-MM (12 kept, hardlinks);
 #   - off-site sync when BACKUP_S3_BUCKET is set AND rclone or aws cli is installed;
 #   - result → ops_runs (Admin → System status, alarms). Secrets are never printed or stored.
 set -euo pipefail
+OPS_URL_VAR=BACKUP_DATABASE_URL # vigor_backup — never the superuser
 # shellcheck source=lib/pg-admin.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/pg-admin.sh"
 
@@ -30,9 +31,15 @@ rm -rf "$WORK"
 mkdir -p "$WORK" "$BACKUP_DIR/monthly"
 
 step="databases"
-mapfile -t DBS < <(psql -X -At --no-psqlrc -c \
+# A failed listing must fail the backup (process substitution would hide the exit code), and a
+# backup without the main database is no backup.
+DB_LIST="$(psql -X -At --no-psqlrc -v ON_ERROR_STOP=1 -c \
   "SELECT datname FROM pg_database WHERE NOT datistemplate AND datname <> 'postgres'
-     AND datname NOT LIKE '%\_restore\_test' ORDER BY 1")
+     AND datname NOT LIKE '%\_restore\_test' AND has_database_privilege(datname, 'CONNECT')
+   ORDER BY 1")"
+mapfile -t DBS <<<"$DB_LIST"
+step="databases:main-missing"
+printf '%s\n' "${DBS[@]}" | grep -qx "$MAIN_DB"
 for db in "${DBS[@]}"; do
   step="dump:$db"
   pg_dump -Fc --no-password -d "$db" -f "$WORK/db-$db.dump"

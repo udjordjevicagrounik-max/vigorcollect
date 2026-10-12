@@ -9,7 +9,7 @@ const paramsSchema = z.object({ id: z.uuid() });
 
 // Team lead (a member or nobody); audit + domain event team.lead_changed.
 export const PUT = withTenant<{ id: string }>(async (request, ctx, params) => {
-  await ctx.requirePermission('user.update');
+  await ctx.requirePermission('team.manage');
   const parsed = paramsSchema.safeParse(params);
   if (!parsed.success) throw new NotFoundError();
   await setTeamLead(ctx, parsed.data.id, leadSchema.parse(await request.json()));
