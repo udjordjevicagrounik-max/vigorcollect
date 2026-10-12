@@ -133,6 +133,15 @@ postoji samo šifrovano na `customers`. Ulazi u migraciju 003, aditivno.
 
 ## Rizik
 
+### Preview (dev) — od 2026-10-12
+
+- **Preview link se NE deli** dok `.env` nema prave Turnstile ključeve: aplikacija je javno
+  dostupna na https://vigorcollect-u57586.vm.elestio.app, a Cloudflare-ovi test ključevi uvek
+  propuštaju (CAPTCHA ne štiti); podaci su demo, prijava i dalje traži lozinku + TOTP. Prave
+  ključeve Uroš upisuje van chata, pa `docker compose up -d app`.
+- Nginx konfiguracija preview-a nije u git-u — kopija `docs/ops/nginx-preview.conf`, vraćanje u
+  runbook „Preview (dev)".
+
 ### Za Sprint 1
 
 - **Worker traži ručni korak po klasteru** (rola) pre 007 — bez toga migracija stoji.

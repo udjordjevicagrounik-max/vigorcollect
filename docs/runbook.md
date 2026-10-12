@@ -237,6 +237,30 @@ Posle deploya: smoke (`/health` 200 + `X-App-Version` = očekivani tag).
 - **Pravi restore (incident):** `createdb collect_new && pg_restore -d collect_new <dump>`, pa
   `PII_MASTER_KEYS` iz vault-a (bez ključa šifrovani podaci su izgubljeni), promena `DATABASE_URL`.
 
+## Preview (dev)
+
+- **URL:** https://vigorcollect-u57586.vm.elestio.app — Elestio nginx (`elestio-nginx`) prosleđuje
+  ceo domen na `172.17.0.1:13000` (compose servis `app`). `BETTER_AUTH_URL` u `.env` = taj URL.
+- **Iframe:** aplikacija namerno šalje `X-Frame-Options: DENY` + `frame-ancestors 'none'` (ADR 0006,
+  odluka (a) 2026-10-12) — Vibecoder preview panel je ne prikazuje; otvarati u posebnom tabu.
+- **Konfiguracija proksija** nije ni u jednom git-u: živi fajl je
+  `/opt/elestio/nginx/conf.d/vigorcollect-u57586.vm.elestio.app.conf`; kopija je u
+  `docs/ops/nginx-preview.conf`. **Vraćanje** (novi server ili izgubljen fajl) — izmeniti POSTOJEĆI
+  `.conf` tog domena (nikad novi fajl u `conf.d`, `/opt/app/CLAUDE.md`), prepisati `location /`
+  iz kopije (bez prvih 7 redova komentara), pa:
+
+  ```bash
+  ! docker exec elestio-nginx nginx -t && docker exec elestio-nginx nginx -s reload
+  ! curl -sI https://vigorcollect-u57586.vm.elestio.app/health
+  ```
+
+  Očekivano: `HTTP/2 200` i `x-app-version`. Ako je druga mašina, domen u kopiji zameniti `DOMAIN`
+  iz `/opt/app/.env`.
+
+- **Pokretanje aplikacije:** `cd /srv/vigor-collect && docker compose up -d app worker` (nikad
+  `restart`).
+- **Deljenje linka:** NE dok `.env` nema prave Turnstile ključeve (NEXT.md, rizik).
+
 ## Git tok (od zatvaranja Sprinta 1)
 
 `feature/<zadatak>` → `develop` → `release/x.y` → `main`. Claude radi na `feature/*` (grana od
