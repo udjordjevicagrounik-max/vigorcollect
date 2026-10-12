@@ -2,6 +2,9 @@ import { betterAuth, BASE_ERROR_CODES, type BetterAuthOptions } from 'better-aut
 import { APIError, createAuthMiddleware, isAPIError } from 'better-auth/api';
 import { twoFactor } from 'better-auth/plugins/two-factor';
 import { Pool } from 'pg';
+import { HONEYPOT_FIELD, MIN_PASSWORD_LENGTH } from '@/lib/auth-policy';
+import { getMasterKeyring } from '@/server/crypto/keyring';
+import { createAuthMailer } from '@/server/mail/auth-mailer';
 import { activeMemberships, isMember } from './memberships';
 
 /**
@@ -15,6 +18,10 @@ import { activeMemberships, isMember } from './memberships';
  * - Password lockout: 5 failures → 15 min, through Better Auth hooks; the answer while locked is
  *   identical to a wrong password (rule 27). TOTP lockout: the two-factor plugin, same limits.
  * - Rate limit per IP, stored in the database (shared by all app instances).
+ * - One-time tokens (password reset) are stored hashed (`verification.storeIdentifier`); the
+ *   plaintext exists only in the e-mail. A password change always revokes the other sessions.
+ * - Secure cookie always, except a non-production run on http://localhost / http://127.0.0.1
+ *   (resolveSecureCookies) — there is no flag that turns it off.
  * - The session carries `activeTenantId` from public.users — the ONLY tenant source for
  *   withTenant() (task 1.2).
  */
@@ -22,7 +29,6 @@ import { activeMemberships, isMember } from './memberships';
 export const SESSION_TTL_SECONDS = 8 * 60 * 60;
 export const MAX_FAILED_SIGN_INS = 5;
 export const LOCKOUT_SECONDS = 15 * 60;
-const MIN_PASSWORD_LENGTH = 12;
 
 export type AuthConfig = {
   /** vigor_app connection string; the auth pool pins search_path to schema `auth`. */
@@ -33,17 +39,31 @@ export type AuthConfig = {
   baseURL: string;
   /** Product name shown in the authenticator app (rule 21). */
   issuer: string;
-  /** false only in tests over plain HTTP. */
-  secureCookies?: boolean;
-  /** Outgoing auth mail (password reset). Task 1.1b wires the email service + demo sink. */
+  /** Outgoing auth mail (password reset) — src/server/mail/auth-mailer.ts at runtime. */
   mailer?: AuthMailer;
 };
 
-export type AuthMail = { kind: 'password_reset'; to: string; url: string };
+export type AuthMail = { kind: 'password_reset'; to: string; url: string; authUserId: string };
 export type AuthMailer = (mail: AuthMail) => Promise<void>;
 
-// TODO(1.1b): email service with the demo-tenant sink (rule 24). Until then nothing is sent.
 const noMailer: AuthMailer = async () => {};
+
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1']);
+
+/**
+ * Secure cookies are on unless BOTH hold: NODE_ENV is not 'production' AND the public URL is plain
+ * http on localhost / 127.0.0.1 (decision after 1.1a, NEXT.md). No environment flag can turn
+ * them off; anything unparsable counts as remote → secure.
+ */
+export function resolveSecureCookies(nodeEnv: string | undefined, baseURL: string): boolean {
+  if (nodeEnv === 'production') return true;
+  try {
+    const url = new URL(baseURL);
+    return !(url.protocol === 'http:' && LOCAL_HOSTS.has(url.hostname));
+  } catch {
+    return true;
+  }
+}
 
 type LockoutFields = {
   id: string;
@@ -60,7 +80,13 @@ function signInEmail(body: unknown): string | undefined {
   return typeof email === 'string' ? email.trim().toLowerCase() : undefined;
 }
 
+export function honeypotFilled(body: unknown): boolean {
+  const value = (body as Record<string, unknown> | undefined)?.[HONEYPOT_FIELD];
+  return typeof value === 'string' && value.trim() !== '';
+}
+
 export function buildAuthOptions(config: AuthConfig, pool: Pool) {
+  const secureCookies = resolveSecureCookies(process.env.NODE_ENV, config.baseURL);
   return {
     appName: config.issuer,
     baseURL: config.baseURL,
@@ -75,10 +101,23 @@ export function buildAuthOptions(config: AuthConfig, pool: Pool) {
       revokeSessionsOnPasswordReset: true,
       resetPasswordTokenExpiresIn: 60 * 60,
       // Same response whether the account exists or not (rule 27) — Better Auth's own behavior.
-      sendResetPassword: async ({ user, url }: { user: { email: string }; url: string }) => {
-        await (config.mailer ?? noMailer)({ kind: 'password_reset', to: user.email, url });
+      sendResetPassword: async ({
+        user,
+        url,
+      }: {
+        user: { id: string; email: string };
+        url: string;
+      }) => {
+        await (config.mailer ?? noMailer)({
+          kind: 'password_reset',
+          to: user.email,
+          url,
+          authUserId: user.id,
+        });
       },
     },
+    // Reset (and other one-time) tokens: only a hash is stored (ADR 0004, 1.1b).
+    verification: { storeIdentifier: 'hashed' },
     session: {
       expiresIn: SESSION_TTL_SECONDS,
       // Absolute lifetime: never extended by activity.
@@ -114,10 +153,10 @@ export function buildAuthOptions(config: AuthConfig, pool: Pool) {
       },
     },
     advanced: {
-      useSecureCookies: config.secureCookies ?? true,
+      useSecureCookies: secureCookies,
       defaultCookieAttributes: {
         httpOnly: true,
-        secure: config.secureCookies ?? true,
+        secure: secureCookies,
         sameSite: 'lax',
       },
       database: { generateId: 'uuid' },
@@ -145,7 +184,17 @@ export function buildAuthOptions(config: AuthConfig, pool: Pool) {
     },
     hooks: {
       before: createAuthMiddleware(async (ctx) => {
+        // A changed password ends every other session, whatever the client asked for.
+        if (ctx.path === '/change-password') {
+          return { context: { body: { ...(ctx.body as object), revokeOtherSessions: true } } };
+        }
         if (ctx.path !== '/sign-in/email') return;
+        // Honeypot (rule 27): a hidden form field people never fill. Same answer as a wrong
+        // password, same work, nothing counted against the account.
+        if (honeypotFilled(ctx.body)) {
+          await ctx.context.password.hash('honeypot');
+          throw APIError.from('UNAUTHORIZED', BASE_ERROR_CODES.INVALID_EMAIL_OR_PASSWORD);
+        }
         const email = signInEmail(ctx.body);
         if (!email) return;
         const found = await ctx.context.internalAdapter.findUserByEmail(email);
@@ -217,11 +266,12 @@ export function createAuth(
 
 export type Auth = ReturnType<typeof createAuth>;
 
-let instance: Auth | undefined;
+type Runtime = { auth: Auth; authPool: Pool; appPool: Pool; baseURL: string };
+let runtime: Runtime | undefined;
 
 /** Runtime instance from the environment. Fails without printing any secret. */
-export function getAuth(): Auth {
-  if (instance) return instance;
+function getRuntime(): Runtime {
+  if (runtime) return runtime;
   const { DATABASE_URL, BETTER_AUTH_SECRET, BETTER_AUTH_URL, PRODUCT_NAME } = process.env;
   if (!DATABASE_URL) throw new Error('DATABASE_URL is not set.');
   if (!BETTER_AUTH_SECRET || BETTER_AUTH_SECRET.length < 32) {
@@ -230,11 +280,37 @@ export function getAuth(): Auth {
     );
   }
   if (!BETTER_AUTH_URL) throw new Error('BETTER_AUTH_URL is not set.');
-  instance = createAuth({
-    connectionString: DATABASE_URL,
-    secret: BETTER_AUTH_SECRET,
-    baseURL: BETTER_AUTH_URL,
-    issuer: PRODUCT_NAME || 'App',
-  });
-  return instance;
+  // auth pool: search_path=auth (Better Auth tables); app pool: public schema (mail, invitations).
+  const authPool = createAuthPool(DATABASE_URL);
+  const appPool = new Pool({ connectionString: DATABASE_URL, max: 4 });
+  const auth = createAuth(
+    {
+      connectionString: DATABASE_URL,
+      secret: BETTER_AUTH_SECRET,
+      baseURL: BETTER_AUTH_URL,
+      issuer: PRODUCT_NAME || 'App',
+      mailer: createAuthMailer({ pool: appPool, keyring: getMasterKeyring }),
+    },
+    authPool,
+  );
+  runtime = { auth, authPool, appPool, baseURL: BETTER_AUTH_URL };
+  return runtime;
+}
+
+export function getAuth(): Auth {
+  return getRuntime().auth;
+}
+
+/** vigor_app pool with search_path=auth — for getAuthContext() / memberships. */
+export function getAuthPool(): Pool {
+  return getRuntime().authPool;
+}
+
+/** vigor_app pool (public schema) used by the auth flows (invitations, mail). */
+export function getAuthAppPool(): Pool {
+  return getRuntime().appPool;
+}
+
+export function getAuthBaseURL(): string {
+  return getRuntime().baseURL;
 }

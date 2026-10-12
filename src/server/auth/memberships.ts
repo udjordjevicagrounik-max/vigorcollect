@@ -11,7 +11,13 @@ import type { Pool } from 'pg';
  * from request input.
  */
 
-export type Membership = { tenantId: string; userId: string; tenantName: string };
+export type Membership = {
+  tenantId: string;
+  userId: string;
+  tenantName: string;
+  /** Demo tenant (rule 24): its mail goes only to the sink. */
+  isDemo: boolean;
+};
 
 export async function activeMemberships(pool: Pool, authUserId: string): Promise<Membership[]> {
   const client = await pool.connect();
@@ -19,7 +25,8 @@ export async function activeMemberships(pool: Pool, authUserId: string): Promise
     await client.query('BEGIN READ ONLY');
     await client.query("SELECT set_config('app.auth_user_id', $1, true)", [authUserId]);
     const { rows } = await client.query<Membership>(
-      `SELECT u.tenant_id AS "tenantId", u.id AS "userId", t.display_name AS "tenantName"
+      `SELECT u.tenant_id AS "tenantId", u.id AS "userId", t.display_name AS "tenantName",
+              t.is_demo AS "isDemo"
        FROM public.users u
        JOIN public.tenants t ON t.id = u.tenant_id
        WHERE u.auth_user_id = $1::uuid AND u.status = 'active'
