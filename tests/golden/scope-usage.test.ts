@@ -7,7 +7,8 @@ import { describe, expect, it } from 'vitest';
 // decrypts by id, and is reached only with ids a scoped read returned.
 // Task 2.3: receivables (invoices, payments, promises, activities, cases) are scoped through
 // their customer. Import (2.2) is a tenant-wide operation behind import.create and works on the
-// rows of its own run — the second exception.
+// rows of its own run — the second exception. Task 3.1: the rule engine runs in the worker for
+// the whole tenant (a job, not a member) — the third.
 
 const SRC = join(process.cwd(), 'src');
 const SCOPED_TABLES = [
@@ -23,6 +24,7 @@ const ALLOWED = new Set([
   'server/customers/repository.ts',
   'server/imports/service.ts',
   'server/imports/process.ts',
+  'server/workflows/engine.ts',
 ]);
 
 function files(dir: string): string[] {

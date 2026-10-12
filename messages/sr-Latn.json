@@ -20,6 +20,7 @@
       "tenantSettings": "Podešavanja",
       "systemStatus": "Status sistema",
       "teams": "Timovi",
+      "rules": "Pravila",
       "approvals": "Odobrenja"
     },
     "tenant": "Organizacija",
@@ -498,7 +499,8 @@
       "propose": "Pošalji na odobrenje",
       "proposed": "Zahtev je poslat; promena važi tek posle odobrenja.",
       "legalHandover": "Predaja case-a pravnoj službi",
-      "openCase": "Otvori case"
+      "openCase": "Otvori case",
+      "workflowPublish": "Objava pravila — verzija {version} · otvori"
     }
   },
   "pwa": {
@@ -750,5 +752,166 @@
         "meeting": "Sastanak"
       }
     }
+  },
+  "rules": {
+    "title": "Pravila naplate",
+    "description": "Pravila automatski vode naplatu: KADA se nešto desi, AKO su uslovi ispunjeni, ONDA se izvrše akcije. Svaka izmena je nova verzija i objavljuje se tek kad je odobri druga osoba.",
+    "new": "Novo pravilo",
+    "newTitle": "Novo pravilo",
+    "newDescription": "Pravilo nastaje kao nacrt (verzija 1). Posle čuvanja pošaljite ga na odobrenje — tek tada počinje da radi.",
+    "emptyTitle": "Još nema pravila",
+    "emptyDescription": "Standardna politika naplate se dodaje pri podešavanju organizacije. Napravite prvo pravilo dugmetom iznad.",
+    "published": "objavljena v{version}",
+    "notPublished": "nije objavljeno",
+    "versionStatus": {
+      "draft": "nacrt",
+      "pending_approval": "čeka odobrenje",
+      "published": "objavljena",
+      "superseded": "zamenjena",
+      "rejected": "odbijena"
+    },
+    "runs7d": "7 dana: izvršeno {succeeded} · uslovi nisu ispunjeni {skipped} · greške {failed}",
+    "back": "← Pravila",
+    "pendingNotice": "Ova verzija čeka odobrenje druge osobe (Administracija → Odobrenja). Do tada važi objavljena verzija.",
+    "invalidDefinition": "Definicija ove verzije nije ispravna — sačuvajte novu verziju.",
+    "versions": "Verzije",
+    "provisioned": "podrazumevana politika",
+    "runs": "Poslednja izvršavanja",
+    "runsEmpty": "Pravilo se još nije izvršavalo.",
+    "openEntity": "otvori",
+    "name": "Naziv pravila",
+    "when": "KADA",
+    "triggerType": "Okidač",
+    "triggers": {
+      "days_from_due": "Dani od dospeća",
+      "event": "Događaj",
+      "no_activity": "Bez aktivnosti",
+      "specific_date": "Određeni datum"
+    },
+    "event": "Događaj",
+    "events": {
+      "invoice_overdue": "Faktura je dospela",
+      "payment_received": "Primljena uplata",
+      "promise_broken": "Prekršeno obećanje",
+      "case_stage_changed": "Promenjena faza case-a"
+    },
+    "offset": "Dana (negativno = pre dospeća)",
+    "businessDays": "Radni dani",
+    "days": "Dana bez aktivnosti",
+    "date": "Datum",
+    "triggerHelp": {
+      "days_from_due": "Svakog dana posle 06:00 u zoni kompanije: fakture kojima je danas dospeće + broj dana.",
+      "event": "Kad se događaj desi (događaji koje izazove samo pravilo ne pokreću pravila).",
+      "no_activity": "Svakog dana: kupci sa dospelim dugom bez ijedne aktivnosti toliko dana — jednom po periodu neaktivnosti.",
+      "specific_date": "Jednom, tog datuma: kupci sa otvorenim fakturama."
+    },
+    "if": "AKO",
+    "ifHelp": "Svi uslovi moraju biti ispunjeni. Iznos je u izveštajnoj valuti, sa tačkom kao decimalnim znakom (npr. 1000.00).",
+    "field": "Polje",
+    "operator": "Uslov",
+    "value": "Vrednost",
+    "fields": {
+      "policy": "politika",
+      "amount": "iznos",
+      "days_overdue": "dana kašnjenja",
+      "segment": "segment",
+      "credit_status": "kreditni status",
+      "country": "država",
+      "currency": "valuta",
+      "team": "tim",
+      "owner": "vlasnik",
+      "case_stage": "faza case-a",
+      "is_natural_person": "fizičko lice"
+    },
+    "ops": {
+      "eq": "=",
+      "ne": "≠",
+      "gt": ">",
+      "gte": "≥",
+      "lt": "<",
+      "lte": "≤",
+      "in": "jedno od"
+    },
+    "yes": "da",
+    "no": "ne",
+    "remove": "Ukloni",
+    "addCondition": "Dodaj uslov",
+    "then": "ONDA",
+    "actionType": "Akcija",
+    "actions": {
+      "create_case": "Otvori case",
+      "assign": "Dodeli",
+      "create_task": "Napravi zadatak",
+      "send_notification": "Obaveštenje u aplikaciji",
+      "queue_email": "Email po šablonu",
+      "change_stage": "Promeni fazu",
+      "escalate": "Eskaliraj menadžeru",
+      "create_decision": "Predlog odluke",
+      "create_approval": "Predlog predaje pravnoj",
+      "call_webhook": "Webhook"
+    },
+    "priority": "Prioritet",
+    "priorities": {
+      "low": "nizak",
+      "normal": "normalan",
+      "high": "visok",
+      "urgent": "hitno"
+    },
+    "assignTo": "Kome",
+    "assign": {
+      "customer_owner": "vlasniku kupca",
+      "user": "korisniku",
+      "team": "vođi tima"
+    },
+    "user": "Korisnik",
+    "team": "Tim",
+    "choose": "— izaberi —",
+    "taskKind": "Vrsta zadatka",
+    "dueInDays": "Rok (dana)",
+    "notifyTo": "Kome",
+    "notify": {
+      "case_owner": "vlasniku case-a",
+      "customer_owner": "vlasniku kupca",
+      "team_lead": "vođi tima"
+    },
+    "message": "Poruka",
+    "messages": {
+      "rule_attention": "Kupac traži pažnju",
+      "rule_case_opened": "Otvoren je case",
+      "rule_task_created": "Dodeljen je zadatak"
+    },
+    "template": "Šablon",
+    "stage": "Faza",
+    "decisionType": "Vrsta odluke",
+    "url": "Adresa",
+    "actionHelp": {
+      "create_case": "Postojeći otvoren case kupca se koristi ponovo.",
+      "assign": "Menja vlasnika case-a.",
+      "create_task": "Zadatak dobija vlasnik case-a.",
+      "send_notification": "Samo unutar aplikacije.",
+      "queue_email": "Slanje emaila čeka odluku o vrsti poruka u mail outbox-u.",
+      "change_stage": "Faza „Pravna služba” samo kroz odobrenu predaju.",
+      "escalate": "Obaveštava menadžere i vođu tima.",
+      "create_decision": "Uvek samo predlog — odobrava čovek (pravilo 19).",
+      "create_approval": "Predlog; zahtev za predaju podnosi osoba sa ekrana case-a (pravilo 11).",
+      "call_webhook": "Isključeno dok se ne uključi feature flag."
+    },
+    "addAction": "Dodaj akciju",
+    "saveDraft": "Sačuvaj nacrt",
+    "submit": "Pošalji na odobrenje",
+    "saveAndSubmit": "Sačuvaj kao novu verziju i pošalji na odobrenje",
+    "saved": "Nacrt je sačuvan.",
+    "submitted": "Poslato na odobrenje; pravilo počinje da radi kad ga odobri druga osoba.",
+    "runTitle": "Pravilo „{name}” v{version}",
+    "runFailed": "Izvršavanje nije uspelo — ništa nije promenjeno.",
+    "runMatched": "Uslovi: {conditions} → {actions}",
+    "runNotMatched": "Uslovi nisu ispunjeni: {conditions}",
+    "noConditions": "bez uslova",
+    "actionStatus": {
+      "succeeded": "urađeno",
+      "skipped": "preskočeno",
+      "failed": "greška"
+    },
+    "versionLabel": "v{version}"
   }
 }
