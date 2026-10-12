@@ -2,10 +2,9 @@
 
 ## Aktivan zadatak
 
-**1.1b Pozivnice i auth ekrani** — posle Uroševog commit-a 005 i `src/server/auth/*` (`!`
-komanda u izveštaju 1.1a). Obim: pozivnica (hash tokena, 72 h, jednokratna, email u sink),
-ekrani login / MFA unos / MFA setup (QR, `qrcode` odobren) / prihvatanje pozivnice / lockout
-poruka (`mobile-full`, `t()` sr + en, prazno/greška), email servis + sink, testovi pozivnica.
+**1.3 outbox** — `domain_events` dispatcher, rola `vigor_worker` (ADR 0002 „Otvoreno" 2),
+retention job za `mail_outbox` (7 dana) i isteklih `auth.session` / `auth.verification`.
+Pre toga: Uroševa `!` komanda za 006 + `src/server/auth/*` (izveštaj lanca 1.1b → 1.2).
 
 ### Sprint 1 plan (1.1–1.7)
 
@@ -20,52 +19,54 @@ poruka (`mobile-full`, `t()` sr + en, prazno/greška), email servis + sink, test
 Numeracija važi od Sprinta 1 i zamenjuje raniju (1.3 login, 1.4 maker-checker, 1.5 outbox,
 1.6 verify/backup) u starijim beleškama i komentarima.
 
-## Poslednja sesija — 1.1a autentifikacija (2026-10-12, noćni režim)
+## Poslednja sesija — lanac 1.1b → 1.1c → 1.2 (2026-10-12, noćni režim)
 
-### Urađeno
+### Urađeno po bloku
 
-- **Migracija 005 (predlog, NIJE commit-ovana)** `db/migrations/005_auth_{up,down}.sql`: šema
-  `auth` (6 tabela Better Auth-a + `failedSignInCount`/`signInLockedUntil`), ENABLE + FORCE RLS
-  bez tenant predikata, `vigor_app` samo DML; FK `users.auth_user_id` (NOT VALID);
-  `app_auth_user_id()` + politika `auth_membership_read` (SELECT, samo sopstveni redovi u
-  `users` i nazivi tih tenanta, samo dok tenant nije izabran); PII registar za `auth.*`.
-- **`src/server/auth/*` (predlog, zaštićeno)**: `better-auth.ts` (konfiguracija, hook-ovi za
-  zaključavanje, `activeTenantId` + provera članstva), `memberships.ts`, `session.ts`
-  (`getAuthContext()`: anonymous / mfa_setup_required / tenant_required / ok), README.
-- Ruta `src/app/api/auth/[...all]/route.ts`; seed pravi prijavne naloge za admine (samo uz
-  `SEED_ADMIN_PASSWORD` + `BETTER_AUTH_SECRET`); `.env.example`.
-- **Testovi**: `tests/golden/db/auth.test.ts` (17): lozinka + TOTP → sesija vezana za tenant,
-  kolačić HttpOnly/SameSite, bez TOTP-a nema pristupa, pogrešan TOTP, isti odgovor za
-  nepostojeći email (prijava i reset), politika članstava samo pre izbora tenanta, 5 promašaja → 15 min sa istim odgovorom i otključavanje,
-  TOTP lockout konfiguracija, 429 posle 10 pokušaja sa jednog IP-a, sesija 8 h apsolutno (fake
-  timer), izbor tenanta samo među sopstvenim članstvima, izolacija, deaktivirano članstvo.
-  Golden `rls` i `pii-registry` prošireni na šemu `auth`. DB 120/120, unit 33/33, `next build` ✔.
-  Mutacioni test: 4 pokvarene zaštite → svaka obara bar 1 test.
-- **Docs**: ADR 0004 (uz obrazloženje za pravilo 10), ADR 0002 „Otvoreno" 1 zatvoreno, runbook
-  „Auth" (tajna, otključavanje, reset MFA), javne rute u `permissions.md`, BACKLOG „Iz 1.1a".
-
-### Nije urađeno (1.1b)
-
-- Pozivnice, 5 ekrana, email servis + sink, QR (`qrcode`), testovi pozivnica.
-- `BETTER_AUTH_*` u `docker-compose.yml` (zaštićen) — pre prvog deploy-a sa prijavom.
+- **1.1b backend — `273f1ad`** (+ predlozi): migracija 006 (`tenants.is_demo`, `user_invitations`
+  sa hešom tokena + trigger za konačnost/istek + politika `invite_token_lookup` samo pre tenanta,
+  `mail_outbox` šifrovan + trigger „demo samo sink"); `src/server/mail` (adapter, sink, HKDF
+  ključ, auth mailer); `invitations.ts`; Secure kolačić po odluci; `storeIdentifier: 'hashed'`;
+  promena lozinke gasi ostale sesije; `scripts/dev-admin-password.ts`; runbook „Prvi login" i
+  „Ponovno slanje pozivnice". Testovi: 16 DB (pozivnice, sink, reset, sesije) + 36 unit.
+- **1.1c ekrani — `431ec69`**: `/login`, `/login/mfa`, `/settings/mfa-setup` (QR + ručni ključ +
+  rezervni kodovi), `/invite/[token]`, `/settings/password`, `/select-tenant`, generička poruka
+  (pogrešna lozinka = nepostojeći = zaključan nalog); shell traži punu sesiju; honeypot;
+  `qrcode` 1.5.4. Playwright na `collect_test`: login → MFA setup → MFA → shell na 375 px.
+- **1.2 tenant helperi — commit ove sesije** (+ predlozi): `withTenant()` (tenant samo iz
+  sesije, `RESET app.auth_user_id`, fail-closed bez `requirePermission()` / mutacija bez
+  `audit()`), `requirePermission()` (najširi scope), `audit()` sa redakcijom kroz
+  `pii_field_registry`; rute `POST /api/invitations`, `POST /api/invitations/[id]/revoke`,
+  `GET /api/users/[id]`. Golden: statički test ruta, IDOR → 404, audit po mutaciji.
+- **Stanje testova:** DB 154/154, unit 73/73, e2e 23/23, `next build` ✔. Mutacije: 11 namerno
+  pokvarenih zaštita (5 u 1.1b, 6 u 1.2) — svaka obara bar 1 test.
 
 ### Pretpostavke (najkonzervativnija opcija)
 
-1. `auth` tabele imaju ENABLE + FORCE RLS sa politikama bez tenant uslova (ne „bez RLS-a") — golden pravilo „svaka tabela FORCE" ostaje bez izuzetka.
-2. Nazivi tabela/kolona su Better Auth-ovi (camelCase); DDL je preslikan iz `getMigrations()`.
-3. `generateId: 'uuid'` — `users.auth_user_id` je već `uuid` iz 001.
-4. Članstva se čitaju politikom `auth_membership_read` (GUC `app.auth_user_id`), ne SECURITY DEFINER funkcijom (`vigor_migrate` je pod FORCE RLS).
-5. FK `users_auth_user` je NOT VALID (dev `down 005` ostavlja viseće id-jeve koje RLS krije); VALIDATE pre prvog staging deploya (odluka ispod).
-6. Jedno članstvo → tenant se bira sam; više → `/update-session`, provereno hook-om; `getAuthContext()` proverava članstvo na svakom zahtevu.
-7. Zaključavanje: brojač se nulira u trenutku zaključavanja; pokušaji tokom zaključavanja ne produžavaju ga.
-8. MFA je obavezan kroz `getAuthContext()` (Better Auth sam ne tera upis TOTP-a).
-9. Rate limit: prijava i TOTP 10/min, reset 5 / 5 min, ostalo 100/min po IP-u.
-10. Lozinka min. 12 znakova; reset token 1 h; reset opoziva sve sesije; javna registracija isključena.
-11. Kolačić SameSite=Lax (Strict bi pokvario linkove iz emaila za reset i pozivnicu).
-12. Seed pravi prijavne naloge samo uz `SEED_ADMIN_PASSWORD` i `BETTER_AUTH_SECRET`; TOTP pri prvoj prijavi.
-13. Reset lozinke: `mailer` ne šalje ništa do 1.1b (odgovor je isti bez obzira).
-14. PII registar za `auth` koristi imena `auth.<tabela>`; registar golden test pokriva `public` i `auth`.
-15. Test sam računa TOTP (RFC 6238, `node:crypto`) — bez paketa.
+1. Ključ za `mail_outbox`: HKDF iz `PII_MASTER_KEYS` po tenantu, ne `subject_keys` — CHECK
+   `subject_keys_purpose_subject` ne dozvoljava `tenant`+`data`, a izmena bi bila DROP CONSTRAINT.
+2. SMTP ne postoji (`nodemailer` nije u zavisnostima): svi tenanti pišu u sink; `smtpEnabled = false`.
+3. Reset lozinke ide u sink tenanta u kome je osoba član — demo članstvo ima prednost; bez
+   članstva se ništa ne šalje (odgovor isti).
+4. Pozvani korisnik dobija scope `OWN`; širi scope = `user.assign` (maker-checker, 1.4).
+5. Osoba koja već ima nalog prihvata pozivnicu samo prijavljena (nema postavljanja lozinke tuđem nalogu).
+6. Pozivnica: tenant se nalazi preko heša tokena (pre tenanta), nikad iz zahteva; prihvatanje je van `withTenant()` jer osoba još nema tenant sesiju.
+7. Re-send = nova pozivnica; prethodna `revoked` (token se ne može povratiti).
+8. `dev-admin-password.ts`: „host" = `BETTER_AUTH_URL` (baza je na 172.17.0.1 i u dev-u i na Elestio, pa ne razlikuje okruženja); dodat uslov „izlaz je terminal" da lozinka ne uđe u chat ni log; ovaj kontejner ima `NODE_ENV=production` → runbook kaže `NODE_ENV=development`.
+9. `qrcode` zadržan iako je poslednje izdanje 2024-08 (pravilo 14: 12 meseci) — izričito odobren u 3b; obrazloženje u commit poruci, praćenje u BACKLOG-u.
+10. Turnstile (pravilo 27) nije urađen: traži Cloudflare ključeve → BACKLOG + blokada u release checklisti; honeypot + rate limit po IP-u do tada.
+11. Ekrani za reset lozinke i unos rezervnog koda → BACKLOG (nisu među 7 traženih).
+12. `audit()` čuva vrednost samo za kolone registrovane kao P0 bez uslova; sve ostalo, i nepoznati ključevi, postaje `[redacted]`.
+13. `requirePermission` vraća najširi scope; 🅼 (samo checker) se još ne razlikuje → 1.4.
+14. Neuspeh tenant rute: 401 za nepotpunu sesiju, 403 `{"error":"forbidden"}`, 404 i za tuđ id, 409 sa kodom, 400 `invalid_request`, 500 `internal` + JSON log.
+15. E2E radi na `collect_test` sa identitetom napravljenim za svako pokretanje; sesija iz setup projekta se deli (8 h, briše se u teardown-u).
+
+### Odluke Uroša za lanac (2026-10-12)
+
+- Sink (a): `mail_outbox` sa `recipient_enc` / `body_enc` kroz keyring; retencija 7 dana u 1.3.
+- `tenants.is_demo`: demo = true, Sinergista = false; demo nikad SMTP (adapter + trigger + test).
+- `verification.storeIdentifier: 'hashed'` — nalaz u ADR 0004.
+- Pozivnica: `user_roles` iz `role_key`; owner poziva sve role, admin sve osim owner-a.
 
 ### Odluke Uroša posle 1.1a (2026-10-12)
 
@@ -99,17 +100,14 @@ postoji samo šifrovano na `customers`. Ulazi u migraciju 003, aditivno.
 
 ### Za Sprint 1
 
-- **Bez `BETTER_AUTH_SECRET` u `.env` aplikacija i seed ne prave prijavu** (seed preskače uz
-  poruku; `/api/auth` vraća grešku). Generisanje: runbook „Auth".
-- **Lokalno nema HTTPS-a**: kolačić je `Secure`; za ručno testiranje u browseru treba HTTPS
-  (Elestio) ili `secureCookies: false` samo u dev konfiguraciji — odluka u 1.1b.
+- **Turnstile nedostaje (pravilo 27)** — blokada pre staging-a (release checklist).
+- **`qrcode` bez izdanja od 2024-08** — izuzetak od pravila 14; zamena = ručni ključ (već na ekranu).
+- **Nema SMTP-a**: pozivnice i reset za ne-demo tenante ostaju u sink-u dok se ne odobri `nodemailer`.
+- **Prihvatanje pozivnice nema rate limit po IP-u** (token 256 bita) — BACKLOG.
+- **`BETTER_AUTH_*` i `PII_MASTER_KEYS` nisu u `docker-compose.yml`** (zaštićen) — pre deploya sa prijavom.
 - **Better Auth nadogradnja = moguća migracija** (`getMigrations()` uporediti sa 005).
-- **`requirePermission` / `withTenant()` (1.2) još ne postoje** — `getAuthContext()` je spreman
-  izvor tenanta.
-- **Matrica permisija je pretpostavka o poslovnim ulogama** (0.3); izmena = `docs/permissions.md`
-  - nova migracija.
-- **Wireframe tekst nije kroz `t()`**; tabele faktura/uplata/case-ova još ne postoje.
-- **`PII_MASTER_KEYS` i `BETTER_AUTH_*` nisu u `docker-compose.yml`** (zaštićen).
+- **Matrica permisija je pretpostavka o poslovnim ulogama** (0.3); izmena = `docs/permissions.md` + nova migracija.
+- **Stranice još ne čitaju podatke tenanta** (`withTenant` je za API); server komponente sa podacima u 1.5.
 
 ### Trajni
 
@@ -130,8 +128,10 @@ postoji samo šifrovano na `customers`. Ulazi u migraciju 003, aditivno.
 
 ## Istorija
 
-- **1.1a autentifikacija** (2026-10-12, noćni režim): commit ove sesije (testovi, ruta, seed,
-  docs); 005 i `src/server/auth/*` čekaju Uroša.
+- **1.1a autentifikacija** (2026-10-12): `a08c05f` testovi, ruta, seed, docs; `ded50d5` ispravka
+  politike + odluke; `9ab892e` migracija 005 + `src/server/auth/*` (Uroš). 15 pretpostavki:
+  `git show ded50d5:docs/NEXT.md`.
+
 - **0.3 permisije i wireframe-i** (2026-10-12, noćni režim): `e861e22` matrica + role,
   `33a07a0` wireframe-i, `9f667af` migracija 004 (Uroš). 13 pretpostavki:
   `git show 33a07a0:docs/NEXT.md`. Sprint 0 zatvoren.

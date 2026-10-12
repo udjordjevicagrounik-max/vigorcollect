@@ -1,4 +1,5 @@
 import { randomBytes, randomUUID } from 'node:crypto';
+import type { PoolClient } from 'pg';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createAuth, createAuthPool } from '@/server/auth/better-auth';
 import {
@@ -9,6 +10,7 @@ import {
   previewInvitation,
 } from '@/server/auth/invitations';
 import { getAuthContext } from '@/server/auth/session';
+import { createTenantContext } from '@/server/auth/with-tenant';
 import { parseMasterKeyring } from '@/server/crypto/keyring';
 import { readOutbox, sendMail } from '@/server/mail/adapter';
 import { createAuthMailer } from '@/server/mail/auth-mailer';
@@ -58,6 +60,10 @@ const auth = createAuth(
 let ip = 0;
 const client = () => new AuthClient(auth, BASE_URL, `203.0.113.${(ip += 1)}`);
 
+/** withTenant()'s context for a member, on a client already inside the tenant transaction. */
+const memberContext = (c: PoolClient, tenantId: string, userId: string) =>
+  createTenantContext(c, { tenantId, userId, authUserId: randomUUID(), requestId: randomUUID() });
+
 /** Invites as `actor` in `tenantId`; returns the plaintext token read back from the sink. */
 async function invite(
   tenantId: string,
@@ -69,9 +75,8 @@ async function invite(
   let token = '';
   await inTenantCommit(appPool, tenantId, async (c) => {
     created = await createInvitation(
-      c,
+      memberContext(c, tenantId, actor),
       { keyring, baseURL: BASE_URL },
-      { userId: actor },
       { email: to, displayName: 'Golden Invitee', roleKey },
     );
     const [mail] = await readOutbox(c, keyring, { kind: 'invitation', limit: 1 });
@@ -228,7 +233,7 @@ describe('golden/db: accepting binds exactly the invited users row', () => {
       const audit = await c.query<{ n: number }>(
         `SELECT count(*)::int AS n FROM audit_log
          WHERE action = 'user_invitation.accepted' AND entity_id = $1`,
-        [mine.userId],
+        [mine.invitationId],
       );
       return { users: users.rows, roles: roles.rows, audit: audit.rows[0]?.n };
     });
@@ -387,9 +392,8 @@ describe('golden/db: who may invite whom', () => {
       inTenant(appPool, T.tenantE, (c) =>
         inviteError(
           createInvitation(
-            c,
+            memberContext(c, T.tenantE, actor),
             { keyring, baseURL: BASE_URL },
-            { userId: actor },
             { email: email(name), displayName: 'Golden', roleKey },
           ),
         ),

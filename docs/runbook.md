@@ -125,8 +125,9 @@ SQL
 ### Ponovno slanje pozivnice
 
 - Token pozivnice se ne čuva (samo SHA-256), pa se isti link ne može poslati ponovo.
-  Ponovno slanje = **nova pozivnica za isti email** (owner/admin, `user.create`): prethodna se
-  automatski opoziva, nova važi 72 h. Ni u audit-u ni u logu nema tokena ni email adrese.
+  Ponovno slanje = **nova pozivnica za isti email** (owner/admin, `user.create`,
+  `POST /api/invitations` sa `{email, displayName, roleKey}`): prethodna se automatski opoziva,
+  nova važi 72 h. Opoziv bez nove: `POST /api/invitations/{id}/revoke`. Ni u audit-u ni u logu nema tokena ni email adrese.
 - Istekla pozivnica kaže da je istekla; iskorišćena, opozvana i nepostojeća izgledaju isto
   („link nije važeći"). U oba slučaja korisnik traži novu od admina.
 - Osoba koja već ima nalog (član drugog tenanta) prvo se prijavi, pa otvori link.

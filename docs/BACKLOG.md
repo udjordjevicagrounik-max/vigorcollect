@@ -72,6 +72,13 @@ Ideje i tehnički dug zapisani usred zadatka (protokol: ne predlaže se usred za
 - [ ] `qrcode` (1.5.4) — poslednje izdanje 2024-08 (izuzetak od pravila 14 odobren u 3b): pratiti; zamena = sopstveni QR enkoder ili ručni unos ključa.
 - [ ] Posle prihvatanja pozivnice postojećim nalogom: povratak na pozivnicu posle prijave (`?next=`), umesto „otvorite link ponovo".
 
+## Iz 1.2
+
+- [ ] `requirePermission` ne razlikuje 🅼 (samo checker) od ✅ — `role_permissions` nema tu oznaku; maker-checker tok i oznaka u 1.4 (baza već tera podnosilac ≠ odobrilac).
+- [ ] Sentry: `logEvent(level: 'error')` je JSON na stdout sa `requestId`; povezivanje sa Sentry-jem u 1.7 (ops).
+- [ ] `withTenant` za server komponente (stranice čitaju podatke tenanta) — uz prve ekrane sa podacima (1.5); do tada stranice samo proveravaju sesiju (`requireTenantSession`).
+- [ ] Postojeći audit redovi iz seed-a i 0.x testova nisu prošli redakciju (pišu samo id-jeve i P0) — bez akcije, napomena.
+
 ## Roadmap
 
 ### Marketing sajt — paralelan tok uz Sprint 1
