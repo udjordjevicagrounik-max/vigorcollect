@@ -30,6 +30,13 @@ Ideje i tehnički dug zapisani usred zadatka (protokol: ne predlaže se usred za
 - [ ] `customers.tenant_company_id` („kompanija koja vodi kupca", pravilo 26) kad prvi job računa dospeće po zoni kompanije.
 - [ ] Pretraga kontakata po telefonu (blind index za `phone`, E.164 normalizacija) — ako zatreba.
 
+## Iz 0.2c
+
+- [ ] Identitet potrošača osim imena: `personal_id_enc` (+ blind index po tenantu), `address_enc` — aditivno, sa prvim uvozom potrošača.
+- [ ] Popuniti `permissions` iz `docs/permissions.md` (migracija) — preduslov za grantove i `requirePermission`.
+- [ ] Seed: code liste (`customer_segment`), prevodi naziva uloga, demo partner + grant (kad prvi ekran zatraži).
+- [ ] Job koji označava istekle `approval_requests` (`expired`) i obaveštava o grantovima pred istek.
+
 ## Funkcije
 
 _(prazno)_

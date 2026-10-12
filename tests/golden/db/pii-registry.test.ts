@@ -32,7 +32,7 @@ describe('golden/db: pii_field_registry', () => {
     expect(rows.map((r) => r.column)).toEqual([]);
   });
 
-  it('natural-person identity fields are conditionally P1/P2; users.email is an auth-identity exception', async () => {
+  it('natural-person identity fields are conditionally P1/P2 (sole trader); users.email is an auth-identity exception', async () => {
     const { rows } = await migratePool.query(
       `SELECT table_name, column_name, pii_class, conditional_pii_class, encrypted, exception_reason
        FROM pii_field_registry
@@ -47,7 +47,7 @@ describe('golden/db: pii_field_registry', () => {
         pii_class: 'P0',
         conditional_pii_class: 'P1',
         encrypted: false,
-        exception_reason: null,
+        exception_reason: 'sole trader: public business register',
       },
       {
         table_name: 'legal_entities',
@@ -55,7 +55,7 @@ describe('golden/db: pii_field_registry', () => {
         pii_class: 'P0',
         conditional_pii_class: 'P2',
         encrypted: false,
-        exception_reason: null,
+        exception_reason: 'sole trader: public business register',
       },
       {
         table_name: 'users',
@@ -73,6 +73,16 @@ describe('golden/db: pii_field_registry', () => {
       `SELECT table_name || '.' || column_name AS column
        FROM pii_field_registry
        WHERE pii_class IN ('P1', 'P2', 'P3') AND NOT encrypted AND exception_reason IS NULL
+       ORDER BY 1`,
+    );
+    expect(rows.map((r) => r.column)).toEqual([]);
+  });
+
+  it('every conditionally P1–P3 column is encrypted or carries a documented exception_reason', async () => {
+    const { rows } = await migratePool.query<{ column: string }>(
+      `SELECT table_name || '.' || column_name AS column
+       FROM pii_field_registry
+       WHERE conditional_pii_class IN ('P1', 'P2', 'P3') AND NOT encrypted AND exception_reason IS NULL
        ORDER BY 1`,
     );
     expect(rows.map((r) => r.column)).toEqual([]);

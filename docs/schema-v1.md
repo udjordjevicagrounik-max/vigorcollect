@@ -1,9 +1,8 @@
 # Schema v1 — rečnik tabela
 
 Izvor istine je SQL u `db/migrations/` (pravilo 4). Ovaj dokument objašnjava **zašto** tabela
-postoji i ko sme šta. Stanje: **0.2b** (`001_identity_tenant_governance`,
-`002_customers_subject_keys`). 0.2c dodaje external_parties, access_grants, data_sources,
-approval_requests, decisions, export_log, translations, code_lists.
+postoji i ko sme šta. Stanje: **0.2c** (`001_identity_tenant_governance`,
+`002_customers_subject_keys`, `003_sharing_governance`) — Schema v1 je kompletna.
 
 ## Zajednička pravila
 
@@ -54,6 +53,15 @@ bez šifrovanja mora imati `exception_reason` (golden test) — npr. `users.emai
 | `customer_contacts` | osobe kod kupca; ime, email, telefon **samo šifrovano**; `email_bidx` za tačnu pretragu | INSERT/UPDATE; bez DELETE (brisanje = crypto-shredding) | ova tabela | P1 šifrovano; `email_bidx` P1 (HMAC po tenantu) | `audit()` bez PII u snapshot-u (samo id-jevi) |
 | `subject_keys` | ključ podataka po subjektu + blind index ključ tenanta, šifrovani master ključem (ADR 0003) | INSERT/SELECT; rotacija i uništavanje = poseban job | ova tabela + `PII_MASTER_KEYS` (okruženje) | P0 (ključni materijal, ne PII) | uništavanje ključa = brisanje subjekta → `audit_log` |
 
+| `code_lists` | tenantove liste kodova (`list_key` + `code`); `requires_flag` za vrednosti iza feature flag-a (pravilo 31) | INSERT/UPDATE; bez DELETE (`is_active`) | ova tabela | P0 | `audit()` |
+| `translations` | nazivi/opisi uloga i kodova po locale-u (pravilo 17) | DML | ova tabela | P0 | `audit()` |
+| `external_parties` | tenantov imenik spoljnih strana (pravilo 34); postojanje ≠ pristup | INSERT/UPDATE; bez DELETE (status) | ova tabela | `display_name` P0 / advokat pojedinac P1 (`exception_reason`) | `audit()` |
+| `access_grants` | jedini put do pojedinačnog resursa za spoljnu stranu: jedan resurs po redu, svrha, permisije, rok, odobrenje (četiri oka), opoziv; `grant_batch_id` za zajednički opoziv | INSERT/UPDATE (trigger: opseg zamrznut posle odluke); bez DELETE | ova tabela | `revoke_reason` P1 (`exception_reason`) | `audit()`; izvoz kroz grant → `export_log.access_grant_id` |
+| `data_sources` | prava nad spoljnim izvorom (pravilo 35): prikaz, čuvanje, retencija, izvedeni podaci, redistribucija, onward-sharing, brisanje po raskidu — sve najstrože po default-u | INSERT/UPDATE; bez DELETE | ova tabela (ugovor sa izvorom) | P0 | `audit()` |
+| `approval_requests` | maker-checker (pravilo 11): predlog promene, maker ≠ checker, sadržaj zamrznut, odluka konačna | INSERT/UPDATE; bez DELETE | ova tabela | `payload` P2 kontejner, `decision_note` P1 (`exception_reason`) | `audit()` + `domain_events` (1.4) |
+| `decisions` | odluke sa (mogućim) pravnim dejstvom; rule/AI samo predlaže; fizičko lice → odobrava samo čovek (pravilo 19, trigger) | INSERT/UPDATE (samo `superseded` posle odobrenja); bez DELETE | ova tabela | `rationale` P1 (`exception_reason`) | `audit()` |
+| `export_log` | svaki izvoz podataka (pravilo 12): ko, šta, svrha, broj redova, filter, hash fajla, grant | **samo INSERT** (+ SELECT); REVOKE + trigger `block_mutation()` | ova tabela | `filters` P2 kontejner | sam je trag |
+
 ## Governance
 
 | Tabela          | Svrha                                                                            | Ko piše (vigor_app)                                                                                             | PII                                                 | Napomena                                                                             |
@@ -73,3 +81,7 @@ bez šifrovanja mora imati `exception_reason` (golden test) — npr. `users.emai
 - `subject_keys_single_active` — tačno jedan aktivan ključ po subjektu i svrsi; `subject_keys_purpose_subject` — blind index ključ pripada samo tenantu.
 - `find_or_create_legal_entity()` — jedini put upisa u `legal_entities` iz app-a: SECURITY DEFINER, `search_path=''`, traži tenant kontekst, tačno `(country_code, tax_id)`, vraća samo `id`, ne menja postojeći red.
 - `app_read_linked` na `legal_entities` — vidljivo samo preko sopstvenih `tenant_companies` **ili** `customers`.
+- `customers_identity_required` — `legal_entity_id` je NULL samo za potrošača (ADR 0002, odluka 4); potrošač nikad nema kanonski identitet.
+- `customers_segment` — kompozitni FK `(tenant_id, segment_list_key, segment_code)` → `code_lists`; `segment_list_key` je generisana konstanta `customer_segment`.
+- `access_grants_four_eyes`, `approval_requests_four_eyes`, `decisions_four_eyes` — odobrava uvek neko drugi, ne autor.
+- `request_id uuid` na `access_grants`, `approval_requests`, `decisions`, `export_log` — isti correlation kao `audit_log` (pravilo 23).

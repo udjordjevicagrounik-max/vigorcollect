@@ -19,7 +19,12 @@ export const FX = {
   entityShared: '1c000000-0000-4000-8000-00000000000c',
   customerA: '6a000000-0000-4000-8000-00000000000a',
   customerB: '6b000000-0000-4000-8000-00000000000b',
+  // Second user of A: checker for maker-checker tests (maker ≠ checker).
+  userA2: '3a000000-0000-4000-8000-0000000000a2',
 } as const;
+
+/** Permission used by access_grants tests (platform catalog). */
+export const FX_PERMISSION = 'customer.read';
 
 type TenantFixture = {
   tenantId: string;
@@ -84,6 +89,9 @@ async function createFixtures(): Promise<void> {
        ON CONFLICT (id) DO NOTHING`,
       [FX.entityShared],
     );
+    await c.query('INSERT INTO permissions (key) VALUES ($1) ON CONFLICT (key) DO NOTHING', [
+      FX_PERMISSION,
+    ]);
   });
 
   for (const t of TENANTS) {
@@ -121,6 +129,12 @@ async function createFixtures(): Promise<void> {
   }
 
   await inTenantCommit(migratePool, FX.tenantA, async (c) => {
+    await c.query(
+      `INSERT INTO users (id, tenant_id, email, display_name, timezone, status)
+       VALUES ($1, $2, 'checker-a@golden.example.test', 'Golden checker A', 'UTC', 'active')
+       ON CONFLICT (id) DO NOTHING`,
+      [FX.userA2, FX.tenantA],
+    );
     await c.query(
       `INSERT INTO audit_log (id, tenant_id, actor_type, action, entity_type, entity_id)
        VALUES ($1, $2, 'system', 'golden.fixture_created', 'tenants', $2)

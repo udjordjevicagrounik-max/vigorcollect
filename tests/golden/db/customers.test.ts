@@ -1,4 +1,7 @@
+import { randomBytes } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { parseMasterKeyring } from '@/server/crypto/keyring';
+import { createConsumer, readCustomerName } from '@/server/customers/repository';
 import { ensureFixtures, FX } from './fixtures';
 import { appPool, closePools, inTenant, sqlState } from './helpers';
 
@@ -9,6 +12,7 @@ beforeAll(ensureFixtures);
 afterAll(closePools);
 
 const entityById = 'SELECT id FROM legal_entities WHERE id = $1';
+const keyring = parseMasterKeyring(`1:${randomBytes(32).toString('base64')}`);
 
 describe('golden/db: one legal entity in two portfolios', () => {
   it('both tenants see the shared entity through their own customer (app_read_linked)', async () => {
@@ -121,5 +125,78 @@ describe('golden/db: user_roles.scope', () => {
       ),
     );
     expect(invalid).toBe('23514');
+  });
+});
+
+describe('golden/db: consumers never get a canonical identity (ADR 0002, decision 4)', () => {
+  it('a company without legal_entity_id is rejected', async () => {
+    const state = await inTenant(appPool, FX.tenantA, (c) =>
+      sqlState(
+        c.query(
+          `INSERT INTO customers (tenant_id, legal_entity_id, is_natural_person, display_name)
+           VALUES ($1, NULL, false, 'No Identity d.o.o.')`,
+          [FX.tenantA],
+        ),
+      ),
+    );
+    expect(state).toBe('23514');
+  });
+
+  it('createConsumer: no legal_entities row, legal_entity_id NULL, name only encrypted', async () => {
+    const res = await inTenant(appPool, FX.tenantA, async (c) => {
+      const { id } = await createConsumer(c, keyring, { displayName: 'Marija Potrošač' });
+      const row = await c.query<{ legal_entity_id: string | null; display_name: string | null }>(
+        'SELECT legal_entity_id, display_name FROM customers WHERE id = $1',
+        [id],
+      );
+      const inserted = await c.query<{ n: number }>(
+        `SELECT n_tup_ins::int AS n FROM pg_stat_xact_user_tables WHERE relname = 'legal_entities'`,
+      );
+      return {
+        row: row.rows[0],
+        legalEntityInserts: inserted.rows[0]?.n ?? 0,
+        name: await readCustomerName(c, keyring, id),
+      };
+    });
+    expect(res.row).toEqual({ legal_entity_id: null, display_name: null });
+    expect(res.legalEntityInserts).toBe(0);
+    expect(res.name).toBe('Marija Potrošač');
+  });
+});
+
+describe('golden/db: customers.segment_code → code_lists', () => {
+  it('unknown segment is rejected; a code from the tenant list is accepted', async () => {
+    const res = await inTenant(appPool, FX.tenantA, async (c) => {
+      const unknown = await sqlState(
+        c.query(`UPDATE customers SET segment_code = 'vip' WHERE id = $1`, [FX.customerA]),
+      );
+      return unknown;
+    });
+    expect(res).toBe('23503');
+
+    const ok = await inTenant(appPool, FX.tenantA, async (c) => {
+      await c.query(
+        `INSERT INTO code_lists (tenant_id, list_key, code) VALUES ($1, 'customer_segment', 'vip')`,
+        [FX.tenantA],
+      );
+      return sqlState(
+        c.query(`UPDATE customers SET segment_code = 'vip' WHERE id = $1`, [FX.customerA]),
+      );
+    });
+    expect(ok).toBe('OK');
+  });
+
+  it('a segment code of another tenant’s list is rejected (composite FK)', async () => {
+    const state = await inTenant(appPool, FX.tenantB, async (c) => {
+      await c.query(
+        `INSERT INTO code_lists (tenant_id, list_key, code) VALUES ($1, 'customer_segment', 'vip')`,
+        [FX.tenantB],
+      );
+      await c.query("SELECT set_config('app.tenant_id', $1, true)", [FX.tenantA]);
+      return sqlState(
+        c.query(`UPDATE customers SET segment_code = 'vip' WHERE id = $1`, [FX.customerA]),
+      );
+    });
+    expect(state).toBe('23503');
   });
 });

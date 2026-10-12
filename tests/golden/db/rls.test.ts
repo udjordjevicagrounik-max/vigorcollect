@@ -19,6 +19,14 @@ const TENANT_TABLE_COUNTS: Record<string, string> = {
   subject_keys: 'SELECT count(*)::int AS n FROM subject_keys',
   customers: 'SELECT count(*)::int AS n FROM customers',
   customer_contacts: 'SELECT count(*)::int AS n FROM customer_contacts',
+  code_lists: 'SELECT count(*)::int AS n FROM code_lists',
+  translations: 'SELECT count(*)::int AS n FROM translations',
+  external_parties: 'SELECT count(*)::int AS n FROM external_parties',
+  access_grants: 'SELECT count(*)::int AS n FROM access_grants',
+  data_sources: 'SELECT count(*)::int AS n FROM data_sources',
+  approval_requests: 'SELECT count(*)::int AS n FROM approval_requests',
+  decisions: 'SELECT count(*)::int AS n FROM decisions',
+  export_log: 'SELECT count(*)::int AS n FROM export_log',
 };
 
 beforeAll(ensureFixtures);
@@ -61,11 +69,11 @@ describe('golden/db: no tenant context → no rows', () => {
 });
 
 describe('golden/db: tenant A never sees tenant B', () => {
-  it('users: A sees only its own user, B’s user id returns nothing', async () => {
+  it('users: A sees only its own users, B’s user id returns nothing', async () => {
     const own = await inTenant(appPool, FX.tenantA, (c) =>
       c.query<{ id: string }>('SELECT id FROM users ORDER BY id'),
     );
-    expect(own.rows.map((r) => r.id)).toEqual([FX.userA]);
+    expect(own.rows.map((r) => r.id)).toEqual([FX.userA, FX.userA2]);
 
     const foreign = await inTenant(appPool, FX.tenantA, (c) =>
       c.query('SELECT id FROM users WHERE id = $1', [FX.userB]),

@@ -32,6 +32,19 @@ export const newCustomerSchema = z.object({
 
 export type NewCustomer = z.input<typeof newCustomerSchema>;
 
+// Consumer = natural person without business registration (ADR 0002, decision 4): never a
+// canonical identity, never find_or_create_legal_entity; identity exists only encrypted here.
+export const newConsumerSchema = z.object({
+  id: z.uuid().optional(),
+  displayName: z.string().trim().min(1),
+  relationshipType: z.enum(['customer', 'supplier', 'both']).default('customer'),
+  externalId: z.string().trim().min(1).optional(),
+  ownerUserId: z.uuid().optional(),
+  language: localeSchema.optional(),
+});
+
+export type NewConsumer = z.input<typeof newConsumerSchema>;
+
 export const newContactSchema = z.object({
   id: z.uuid().optional(),
   customerId: z.uuid(),
@@ -99,6 +112,39 @@ export async function createCustomer(
     ],
   );
   return { id, legalEntityId };
+}
+
+/** Creates a consumer: is_natural_person = true, legal_entity_id = NULL, name encrypted. */
+export async function createConsumer(
+  db: Queryable,
+  keyring: MasterKeyring,
+  input: NewConsumer,
+): Promise<{ id: string }> {
+  const c = newConsumerSchema.parse(input);
+  const id = c.id ?? randomUUID();
+  const name = await encryptField(
+    db,
+    keyring,
+    { type: 'customer', id },
+    { table: 'customers', column: 'display_name_enc', rowId: id },
+    c.displayName,
+  );
+  await db.query(
+    `INSERT INTO customers (id, tenant_id, legal_entity_id, relationship_type, is_natural_person,
+                            display_name_enc, display_name_key_version, external_id,
+                            owner_user_id, language)
+     VALUES ($1, app_tenant_id(), NULL, $2, true, $3, $4, $5, $6, $7)`,
+    [
+      id,
+      c.relationshipType,
+      name.ciphertext,
+      name.keyVersion,
+      c.externalId ?? null,
+      c.ownerUserId ?? null,
+      c.language ?? null,
+    ],
+  );
+  return { id };
 }
 
 /** Display name of a customer, decrypted for natural persons. */

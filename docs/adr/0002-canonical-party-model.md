@@ -92,3 +92,15 @@ klijentske arhitekture — **test prolazi**.
 3. **`legal_entities.tax_id` ostaje `NOT NULL`.** Fizička lica bez poreskog broja su BACKLOG
    stavka; rešenje bi bilo `DROP NOT NULL` + parcijalni unique, što je aditivno (nije DROP/RENAME
    kolone).
+4. **Fizička lica (Uroš, 2026-10-12).**
+   - **Preduzetnik** (upisan u javni registar) je pravni subjekt i ostaje u `legal_entities` kao
+     i do sada; registar za njegova uslovno P1/P2 polja dobija `exception_reason` (javni
+     registar privrednih subjekata).
+   - **Potrošač** (fizičko lice bez registracije) **nikad ne ulazi u `legal_entities`** i nikad
+     nema kanonski identitet (pravilo 30); za njega nema `find_or_create_legal_entity`.
+     `customers.legal_entity_id` postaje nullable uz CHECK: NULL je dozvoljen samo kad je
+     `is_natural_person = true`. Identitet potrošača postoji samo šifrovano na `customers`
+     (ključ subjekta, ADR 0003), pa se isti potrošač kod dva tenanta nikad ne povezuje
+     (pravilo 33).
+   - Uvodi se u migraciji 003 aditivno (`DROP NOT NULL` + CHECK + nove `*_enc` kolone), bez
+     DROP/RENAME kolona.

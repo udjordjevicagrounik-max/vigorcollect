@@ -69,3 +69,20 @@ export async function sqlState(promise: Promise<unknown>): Promise<string> {
     return (error as { code?: string }).code ?? 'UNKNOWN';
   }
 }
+
+/**
+ * sqlState inside a SAVEPOINT: a rejected statement does not abort the surrounding test
+ * transaction, so several checks can run in one rolled-back transaction.
+ */
+export async function savepointState(
+  client: PoolClient,
+  text: string,
+  values: unknown[] = [],
+): Promise<string> {
+  await client.query('SAVEPOINT golden_check');
+  const state = await sqlState(client.query(text, values));
+  await client.query(
+    state === 'OK' ? 'RELEASE SAVEPOINT golden_check' : 'ROLLBACK TO SAVEPOINT golden_check',
+  );
+  return state;
+}

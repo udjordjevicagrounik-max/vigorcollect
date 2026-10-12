@@ -40,17 +40,29 @@ Reset test baze: `MIGRATE_DATABASE_URL=<test url> ./scripts/migrate.sh down NNN`
 Šifruje ključeve podataka u `subject_keys` (ADR 0003). Bez njega seed i svaki rad sa
 kontaktima padaju. **Nikad u repo, bazu, backup, log ili chat** (pravila 9, 28).
 
-Generisanje (jednom po okruženju — dev, staging, prod imaju RAZLIČITE ključeve):
+Pravila:
+
+- Ključ se proverava **isključivo** sa `grep -c '^PII_MASTER_KEYS=.' .env` (očekuje se `1`) —
+  nikad `grep` bez `-c`, `cat`, `echo` ni bilo šta što ispisuje vrednost.
+- **Dev ključ je potrošan** i ne čuva se u vault-u; obnavlja se postupkom zamene ispod (demo
+  podaci se ponovo prave iz seed-a).
+- **Staging/prod ključevi** se generišu van chata (SSH na instancu ili Elestio env panel) i
+  čuvaju u vault-u (dve nezavisne kopije) — **nikad kroz Claude sesiju**, nikad u backup-u baze.
+  Restore baze bez ključa = nečitljiv PII; gubitak ključa je nepovratan za sve P1–P3 podatke.
+- Ako se ključ pojavi u čistom tekstu **bilo gde** (chat, log, terminal, commit): smatra se
+  kompromitovanim → odmah zamena.
+
+Prvo generisanje / zamena dev ključa (samo dev baza). `migrate.sh down` vraća samo POSLEDNJU
+migraciju, pa se vraća sve od najnovije do 002 (stanje posle 003: `down 003` pa `down 002`).
+Briše demo kupce, kontakte, ključeve i tabele deljenja/governance; `audit_log` ostaje:
 
 ```bash
-! cd /srv/vigor-collect && grep -q '^PII_MASTER_KEYS=.' .env || echo "PII_MASTER_KEYS=1:$(openssl rand -base64 32)" >> .env
+! cd /srv/vigor-collect && sed -i '/^PII_MASTER_KEYS=/d' .env && echo "PII_MASTER_KEYS=1:$(openssl rand -base64 32)" >> .env && ./scripts/migrate.sh down 003 && ./scripts/migrate.sh down 002 && ./scripts/migrate.sh up && npm run seed && grep -c '^PII_MASTER_KEYS=1:' .env
 ```
 
-- Format: `verzija:base64(32 bajta)`, više verzija odvojeno zarezom; najviša šifruje nove ključeve.
-- Staging/prod: vrednost ide u vault (dve nezavisne kopije), pa u okruženje instance — **ne** u
-  backup baze. Restore baze bez ovog ključa = nečitljiv PII.
-- Rotacija: dodati `N+1:<novi>`; stari ostaje dok re-wrap job ne prijavi 0 redova (ADR 0003).
-- Gubitak ključa je nepovratan za sve P1–P3 podatke.
+Format: `verzija:base64(32 bajta)`, više verzija odvojeno zarezom; najviša šifruje nove ključeve.
+Rotacija na staging/prod (bez gubitka podataka): dodati `N+1:<novi>`; stari ostaje dok re-wrap
+job ne prijavi 0 redova (ADR 0003). Zamena „down → up → seed" važi **samo za dev**.
 
 ## DB uloge na Elestio (staging/prod)
 

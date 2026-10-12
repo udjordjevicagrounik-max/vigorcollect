@@ -44,7 +44,10 @@ identity'`). Better Auth (1.3) iste vrednosti drži u čistom tekstu u šemi `au
 7. **Izuzeci su eksplicitni.** `pii_field_registry.exception_reason` je obavezan za svaku P1–P3
    kolonu koja nije `encrypted` (golden test). Kontejneri (`audit_log.before/after`,
    `domain_events.payload`) smeju da nose samo id-jeve, P0 vrednosti ili šifrat;
-   `domain_events.last_error` sme da nosi samo kodove grešaka.
+   `domain_events.last_error` sme da nosi samo kodove grešaka. Slobodne beleške
+   (`approval_requests.decision_note`, `decisions.rationale`, `access_grants.revoke_reason`,
+   0.2c) nemaju subjekta za ključ: P1 sa `exception_reason`, a UI traži razlog bez ličnih
+   podataka.
 8. **Fizičko lice kao kupac:** `customers.display_name` je NULL, a ime je samo u
    `display_name_enc` (CHECK `customers_name_protection`).
 
@@ -66,7 +69,8 @@ identity'`). Better Auth (1.3) iste vrednosti drži u čistom tekstu u šemi `au
 Čuva se šifrovano u vault-u, odvojeno od backup-a baze. Restore baze bez ključa daje nečitljiv
 PII, i to je namerno. Restore test (1.6) zato mora da vrati i ključ iz vault-a. Gubitak ključa
 znači trajni gubitak svih P1–P3 podataka, pa ključ ima najmanje dve nezavisne kopije u vault-u.
-Generisanje: `docs/runbook.md` → „PII master ključ".
+Generisanje i pravila rukovanja (provera samo `grep -c`, dev ključ potrošan, staging/prod van
+Claude sesije): `docs/runbook.md` → „PII master ključ".
 
 ## Razmotrene alternative
 
@@ -97,8 +101,8 @@ sa svojim ključevima i svoj blind index. Ništa se ne spaja preko tenanta, a br
 kroz `access_grants` (0.2c) dobija dešifrovan podatak samo kroz servis koji poštuje grant i
 `data_sources` prava. Prolazi bez spajanja baza i bez slabljenja RLS-a.
 
-## Otvoreno
+## Odlučeno posle 0.2b
 
-- **Fizičko lice u `legal_entities`** (globalni red, čist tekst): predlog je preduzetnik u
-  `legal_entities` uz `exception_reason`, a potrošač samo šifrovano na `customers`. Čeka odluku
-  (NEXT.md); do tada nema potrošača ni u seed-u ni u testovima.
+- **Fizičko lice u `legal_entities`** — ADR 0002, odluka 4: preduzetnik ostaje u
+  `legal_entities` uz `exception_reason`; potrošač nikad ne ulazi, a njegov identitet postoji
+  samo šifrovano na `customers` (migracija 003).
