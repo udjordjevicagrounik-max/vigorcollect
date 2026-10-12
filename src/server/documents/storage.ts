@@ -14,6 +14,7 @@ import type { MasterKeyring } from '@/server/crypto/keyring';
 
 export type StoredObject = { storageRef: string; keyVersion: number };
 
+// Runtime data, not part of the bundle: turbopackIgnore keeps the build from tracing the project.
 function root(): string {
   return process.env.DOCUMENTS_DIR || join(process.cwd(), 'data', 'documents');
 }
@@ -40,9 +41,9 @@ export function putDocument(
 ): StoredObject {
   const version = keyring.current.version;
   const { ref, file } = pathFor(tenantId, documentId);
-  mkdirSync(dirname(file), { recursive: true, mode: 0o700 });
+  mkdirSync(/* turbopackIgnore: true */ dirname(file), { recursive: true, mode: 0o700 });
   writeFileSync(
-    file,
+    /* turbopackIgnore: true */ file,
     seal(key(keyring, tenantId, version), content, aad(tenantId, documentId, version)),
     { mode: 0o600 },
   );
@@ -59,7 +60,7 @@ export function getDocument(
   if (stored.storageRef !== ref) throw new Error('storage: reference does not match the document');
   return openSealed(
     key(keyring, tenantId, stored.keyVersion),
-    readFileSync(file),
+    readFileSync(/* turbopackIgnore: true */ file),
     aad(tenantId, documentId, stored.keyVersion),
   );
 }
