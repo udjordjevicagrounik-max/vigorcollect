@@ -115,6 +115,18 @@ Izvoz (`*.export`) ide samo kroz `exportService` koji piše `export_log` (pravil
 | podešavanja tenanta                | `settings.read` / `settings.manage`                   | audit + `domain_events` `tenant_settings.updated`                        |
 | status sistema                     | `settings.read`                                       | isto što `/health`, samo čitanje                                         |
 
+## Obim (scope), timovi i matrica (1.6)
+
+- **Scope** se primenjuje u JEDNOJ funkciji `scopeFilter()` (`src/server/auth/scope.ts`) nad
+  svakim upitom na kupce (kasnije fakture, case-ove); golden statički test obara upit bez nje.
+  `OWN` = `owner_user_id` = ja · `TEAM` = moji + kupci tima (`owner_team_id`) + kupci kolega iz
+  mog tima · `ORGANIZATION` = ceo tenant. Kupac bez vlasnika vidljiv je samo uz `ORGANIZATION`.
+- **Timovi:** pregled `user.read`, upravljanje `user.update` (matrica nema `team.*` ključeve —
+  BACKLOG). Jedan primarni tim po osobi; vođa mora biti član.
+- **Promena matrice po tenantu** = `approval_requests` `role_permission.change`: predlaže
+  `approval.create`, odlučuje `role.manage` (🅼), podnosilac ≠ odlučilac; do odobrenja važi
+  stara matrica. Dozvole role `owner` se ovim tokom ne menjaju.
+
 ## Javne rute (bez `requirePermission`)
 
 Izuzeci od pravila 7. Svaki izuzetak mora biti ovde, sa razlogom. Ekrani i rute tenanta (sve ostalo) traže punu sesiju (lozinka + TOTP + aktivno članstvo) i `requirePermission` (1.2).

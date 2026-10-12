@@ -79,11 +79,17 @@ test('owner navigation follows permissions; settings and status pages at 375 px'
   page,
 }) => {
   await page.goto('/');
-  for (const item of ['home', 'users', 'tenantSettings', 'systemStatus']) {
+  for (const item of ['home', 'users', 'teams', 'approvals', 'tenantSettings', 'systemStatus']) {
     await expect(page.locator(`[data-nav-item="${item}"]`)).toBeVisible();
   }
   await expect(page.locator('[data-tenant-badge]')).toContainText('E2E Company');
-  for (const path of ['/admin/settings', '/admin/status', '/import']) {
+  for (const path of [
+    '/admin/settings',
+    '/admin/status',
+    '/admin/teams',
+    '/admin/approvals',
+    '/import',
+  ]) {
     await page.goto(path);
     await expect(page.locator('[data-mobile-class]')).toBeVisible();
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();

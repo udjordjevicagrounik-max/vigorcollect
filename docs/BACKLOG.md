@@ -106,6 +106,18 @@ Ideje i tehnički dug zapisani usred zadatka (protokol: ne predlaže se usred za
 - [ ] Feature flag-ovi (`isFlagEnabled`) čitati kroz `withTenantPage` — sada su svi isključeni (pravilo 31 drži Resolution skrivenim).
 - [ ] `docker-compose.yml`: `app` i `worker` grade isti image dvaput — zajednički `image:` tag pri prvom deploy-u.
 
+## Iz 1.5 → 1.6 (Uroš, 2026-10-12)
+
+- [ ] **P2:** pre-commit hook pada ako je broj preskočenih testova veći od očekivanog (1 — e2e desktop varijanta toka pozivnice). Povod: fajl koji padne pri učitavanju Vitest prijavljuje kao „skipped".
+
+## Iz 1.6
+
+- [ ] `team.read` / `team.manage` u matrici (sada `user.read` / `user.update`) — traži odobrenje + migraciju kataloga.
+- [ ] Arhiviranje tima (ekran) i premeštanje članova između timova jednim korakom.
+- [ ] Dodela vlasnika kupca (`customer.assign`: korisnik i/ili tim) — uz ekrane kupaca (Sprint 2).
+- [ ] Više timova po osobi: `ALTER TYPE team_membership_kind ADD VALUE 'secondary'` (aditivno) + `scopeFilter` već čita sve članstvo.
+- [ ] Dozvole role `owner` menjati samo kroz platformski proces (sada zabranjeno u toku odobrenja).
+
 ## Roadmap
 
 ### Marketing sajt — paralelan tok uz Sprint 1

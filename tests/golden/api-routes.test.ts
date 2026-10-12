@@ -51,8 +51,14 @@ export function routeViolations(source: string): string[] {
       problems.push(`${m} is not wrapped in withTenant()`);
     }
   }
+  const key = `'[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*'`;
   const checks = (
-    source.match(/requirePermission\(\s*'[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*'\s*\)/g) ?? []
+    source.match(
+      new RegExp(
+        `requirePermission\\(\\s*${key}\\s*\\)|requireAnyPermission\\(\\s*\\[\\s*${key}(\\s*,\\s*${key})*\\s*\\]\\s*\\)`,
+        'g',
+      ),
+    ) ?? []
   ).length;
   if (checks < exported.length) problems.push('requirePermission() missing for a handler');
   return problems;

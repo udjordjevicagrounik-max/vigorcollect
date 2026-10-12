@@ -30,6 +30,10 @@
  * Creates (1.1b):
  *   - tenants.is_demo: demo = true (all its e-mail goes to the sink, rule 24), Sinergista = false.
  *
+ * Creates (1.6):
+ *   - two teams in the demo tenant: "Naplata" (lead + member: the demo admin; owns Demo Agro)
+ *     and "Prodaja" (empty) — TEAM scope has something to show.
+ *
  * TODO(1.6): customers, invoices etc. through the same services as manual actions, using `rng`
  * for every random value and `daysFromToday` for every business date.
  */
@@ -363,6 +367,45 @@ async function seedRoles(client: Client, matrix: PermissionMatrix, t: DemoTenant
   });
 }
 
+const DEMO_TEAMS = [
+  { id: 'd0000000-0000-4000-8000-0000000e0001', key: 'naplata', name: 'Naplata', lead: true },
+  { id: 'd0000000-0000-4000-8000-0000000e0002', key: 'prodaja', name: 'Prodaja', lead: false },
+] as const;
+
+async function seedTeams(client: Client, t: DemoTenant): Promise<void> {
+  await inTenant(client, t.tenantId, async () => {
+    for (const team of DEMO_TEAMS) {
+      const inserted = await client.query(
+        `INSERT INTO teams (id, tenant_id, key, name) VALUES ($1, $2, $3, $4)
+         ON CONFLICT (id) DO NOTHING`,
+        [team.id, t.tenantId, team.key, team.name],
+      );
+      if (!team.lead) continue;
+      await client.query(
+        `INSERT INTO team_members (tenant_id, team_id, user_id) VALUES ($1, $2, $3)
+         ON CONFLICT DO NOTHING`,
+        [t.tenantId, team.id, t.userId],
+      );
+      await client.query(
+        `UPDATE teams SET lead_user_id = $2 WHERE id = $1 AND lead_user_id IS NULL`,
+        [team.id, t.userId],
+      );
+      if (inserted.rowCount) {
+        await client.query(
+          `INSERT INTO audit_log (tenant_id, actor_type, action, entity_type, entity_id, after)
+           VALUES ($1, 'system', 'team.created', 'teams', $2, jsonb_build_object('seed', true))`,
+          [t.tenantId, team.id],
+        );
+      }
+    }
+    // Demo Agro belongs to the collection team (TEAM scope example).
+    await client.query(
+      `UPDATE customers SET owner_team_id = $1 WHERE id = $2 AND owner_team_id IS NULL`,
+      [DEMO_TEAMS[0].id, DEMO_CUSTOMERS[2]?.id],
+    );
+  });
+}
+
 /** Sign-in identities for the tenant admins (ADR 0004). Skipped without the env values. */
 async function seedSignIn(client: Client, url: string, tenants: DemoTenant[]): Promise<void> {
   const password = process.env.SEED_ADMIN_PASSWORD;
@@ -445,6 +488,7 @@ async function main(): Promise<void> {
     await seedTenant(client, DEMO_TENANT);
     for (const t of [PLATFORM_OPERATOR, DEMO_TENANT]) await seedRoles(client, matrix, t);
     await seedCustomers(client, keyring, DEMO_TENANT);
+    await seedTeams(client, DEMO_TENANT);
     await seedSignIn(client, url, [PLATFORM_OPERATOR, DEMO_TENANT]);
     console.warn(`seed-demo: tenant #0 (${PLATFORM_OPERATOR.slug}) + ${DEMO_TENANT.slug} ready.`);
   } finally {

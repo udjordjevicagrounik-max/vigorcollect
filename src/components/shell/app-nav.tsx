@@ -3,23 +3,29 @@ import { getTranslations } from 'next-intl/server';
 import { isAnySettlementFlagEnabled } from '@/lib/feature-flags';
 
 type NavGroupKey = 'work' | 'resolution' | 'intelligence' | 'admin';
-type NavItemKey = 'home' | 'users' | 'tenantSettings' | 'systemStatus';
-/** `permission` null = every member; otherwise the item exists only with that permission. */
-type NavItem = { key: NavItemKey; href: string; permission: string | null };
+type NavItemKey = 'home' | 'users' | 'teams' | 'approvals' | 'tenantSettings' | 'systemStatus';
+/** `anyOf` empty = every member; otherwise the item exists only with one of those permissions. */
+type NavItem = { key: NavItemKey; href: string; anyOf: readonly string[] };
 type NavGroup = { key: NavGroupKey; items: NavItem[] };
 
 // Navigation follows PERMISSIONS, never role names (task 1.5). Groups render their heading even
 // when empty, except Resolution, which is hidden (not disabled) while settlement flags are off.
 const NAV_GROUPS: NavGroup[] = [
-  { key: 'work', items: [{ key: 'home', href: '/', permission: null }] },
+  { key: 'work', items: [{ key: 'home', href: '/', anyOf: [] }] },
   { key: 'resolution', items: [] },
   { key: 'intelligence', items: [] },
   {
     key: 'admin',
     items: [
-      { key: 'users', href: '/admin/users', permission: 'user.read' },
-      { key: 'tenantSettings', href: '/admin/settings', permission: 'settings.read' },
-      { key: 'systemStatus', href: '/admin/status', permission: 'settings.read' },
+      { key: 'users', href: '/admin/users', anyOf: ['user.read'] },
+      { key: 'teams', href: '/admin/teams', anyOf: ['user.read'] },
+      {
+        key: 'approvals',
+        href: '/admin/approvals',
+        anyOf: ['approval.read', 'role.manage', 'user.assign', 'approval.create'],
+      },
+      { key: 'tenantSettings', href: '/admin/settings', anyOf: ['settings.read'] },
+      { key: 'systemStatus', href: '/admin/status', anyOf: ['settings.read'] },
     ],
   },
 ];
@@ -32,7 +38,9 @@ export async function AppNav({ permissions }: { permissions: readonly string[] }
   const groups = NAV_GROUPS.filter((group) => group.key !== 'resolution' || showResolution).map(
     (group) => ({
       ...group,
-      items: group.items.filter((item) => item.permission === null || allowed.has(item.permission)),
+      items: group.items.filter(
+        (item) => item.anyOf.length === 0 || item.anyOf.some((key) => allowed.has(key)),
+      ),
     }),
   );
 

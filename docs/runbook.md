@@ -190,6 +190,7 @@ Posle deploya: smoke (`/health` 200 + `X-App-Version` = očekivani tag).
 ### Release checklist (pravilo 23; dopunjuje se kroz 1.7)
 
 - [ ] Testovi zeleni (`npm test`, `npm run test:db`), migracije probane na kopiji prod baze.
+- [ ] **BLOKIRAJUĆE:** `scripts/create-worker-role.sh` kao superuser **PRE** migracije 007 (bez role `vigor_worker` migracija 007 odbija rad; ADR 0005, runbook „Worker").
 - [ ] **Pre prvog staging deploya:** `ALTER TABLE users VALIDATE CONSTRAINT users_auth_user;`
       (kao `vigor_migrate`). Ako padne — postoje viseći `auth_user_id`: očistiti, pa ponoviti.
 - [ ] `BETTER_AUTH_URL` je `https://…`; Secure kolačić se ne isključuje nikakvim env flagom.
