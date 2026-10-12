@@ -42,6 +42,14 @@ services:
       # Inside the compose network the DB host is `db`, not localhost.
       DATABASE_URL: postgres://vigor_app:${APP_DB_PASSWORD}@db:5432/${POSTGRES_DB}
       MIGRATE_DATABASE_URL: postgres://vigor_migrate:${MIGRATE_DB_PASSWORD}@db:5432/${POSTGRES_DB}
+      # Secrets come from .env / the Elestio env panel (vault) — never from this file.
+      PII_MASTER_KEYS: ${PII_MASTER_KEYS:?set in .env (docs/runbook.md)}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?set in .env (docs/runbook.md)}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL:?set in .env}
+      # Production refuses to start without Turnstile keys (ADR 0006); locally Cloudflare's
+      # public test keys work.
+      TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY:?set in .env (docs/runbook.md)}
+      TURNSTILE_SECRET: ${TURNSTILE_SECRET:?set in .env (docs/runbook.md)}
     ports:
       - '${APP_BIND_HOST:-127.0.0.1}:${APP_PORT:-3000}:3000'
     healthcheck:
@@ -53,6 +61,37 @@ services:
           "fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
         ]
       interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # Job runner (ADR 0005): same image, other command. Not published; /health on 3001 inside.
+  # Needs the role vigor_worker (scripts/create-worker-role.sh) before migration 007.
+  worker:
+    build:
+      context: .
+      args:
+        APP_VERSION: ${APP_VERSION:-dev}
+    restart: unless-stopped
+    command: ['node', 'worker.mjs']
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      TZ: UTC
+      NODE_ENV: production
+      PRODUCT_NAME: ${PRODUCT_NAME:?set in .env}
+      WORKER_PORT: '3001'
+      DATABASE_URL: postgres://vigor_app:${APP_DB_PASSWORD}@db:5432/${POSTGRES_DB}
+      WORKER_DATABASE_URL: postgres://vigor_worker:${WORKER_DB_PASSWORD:?set in .env}@db:5432/${POSTGRES_DB}
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3001/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
       timeout: 5s
       retries: 5
 

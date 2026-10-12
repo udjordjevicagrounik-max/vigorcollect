@@ -1,17 +1,21 @@
+import { headers as requestHeaders } from 'next/headers';
+import { redirect } from 'next/navigation';
 import { NextResponse, type NextRequest } from 'next/server';
 import type { Pool, PoolClient } from 'pg';
 import { ZodError } from 'zod';
+import { apiError, type ApiErrorCode } from '@/lib/api-error';
 import { logEvent } from '@/lib/log';
 import { APP_VERSION_HEADER, REQUEST_ID_HEADER, resolveRequestId } from '@/lib/request-id';
 import { getAppVersion } from '@/lib/version';
 import { writeAudit, type AuditEntry } from './audit';
-import { getAuth, getAuthAppPool, getAuthPool } from './better-auth';
+import { getAuth, getAuthAppPool, getAuthBaseURL, getAuthPool } from './better-auth';
 import {
   checkPermission,
   PermissionDeniedError,
   UnknownPermissionError,
   type PermissionGrant,
 } from './permissions';
+import { currentAuthContext, nextStep } from './context';
 import { getAuthContext } from './session';
 
 /**
@@ -23,9 +27,12 @@ import { getAuthContext } from './session';
  *      bridge policy must never apply inside a tenant transaction);
  *   3. fail closed: a handler that never called requirePermission() → 500; a successful
  *      mutation (POST/PUT/PATCH/DELETE) without audit() → 500; both roll back;
- *   4. errors: forbidden → 403 without detail; NotFoundError → 404 (also for another tenant's
- *      id: the row is invisible, so IDOR looks like "does not exist"); invalid input → 400;
- *      unknown permission key → 500 + error log; X-Request-Id / X-App-Version on every answer.
+ *   4. errors (one shape: {code, message_key, request_id} — src/lib/api-error.ts): forbidden →
+ *      403 without detail; NotFoundError → 404 (also for another tenant's id: the row is
+ *      invisible, so IDOR looks like "does not exist"); invalid input → 400; unknown permission
+ *      key → 500 + error log; never a stack; X-Request-Id / X-App-Version on every answer;
+ *   5. CSRF (1.4): a mutating request must come from our own origin (Origin header = the
+ *      BETTER_AUTH_URL origin, or Sec-Fetch-Site: same-origin); SameSite=Lax is the second layer.
  */
 
 export class NotFoundError extends Error {
@@ -35,10 +42,18 @@ export class NotFoundError extends Error {
   }
 }
 
+/** Input that passed the schema but is not acceptable (e.g. an unknown country) → 400. */
+export class InvalidRequestError extends Error {
+  override name = 'InvalidRequestError';
+  constructor() {
+    super('invalid request');
+  }
+}
+
 /** Domain conflict the client can act on (e.g. "invitation is not pending"); code only. */
 export class ConflictError extends Error {
   override name = 'ConflictError';
-  constructor(readonly code: string) {
+  constructor(readonly code: ApiErrorCode) {
     super(code);
   }
 }
@@ -86,8 +101,15 @@ export type TenantHandler<P> = (
 
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
-function json(status: number, body: unknown, requestId: string): NextResponse {
-  return withHeaders(NextResponse.json(body, { status }), requestId);
+function fail(status: number, code: ApiErrorCode, requestId: string): NextResponse {
+  return withHeaders(apiError(status, code, requestId), requestId);
+}
+
+/** Mutations only from our own origin (CSRF, task 1.4). */
+export function sameOrigin(headers: Headers, allowedOrigin: string): boolean {
+  const origin = headers.get('origin');
+  if (origin) return origin === allowedOrigin;
+  return headers.get('sec-fetch-site') === 'same-origin';
 }
 
 function withHeaders<R extends Response>(response: R, requestId: string): R {
@@ -97,7 +119,11 @@ function withHeaders<R extends Response>(response: R, requestId: string): R {
   return response;
 }
 
-export type WithTenantDeps = { appPool: () => Pool; resolveIdentity: typeof sessionIdentity };
+export type WithTenantDeps = {
+  appPool: () => Pool;
+  resolveIdentity: typeof sessionIdentity;
+  allowedOrigin: () => string;
+};
 
 /** Session → tenant identity, or null when the session is not complete. */
 export async function sessionIdentity(
@@ -110,12 +136,24 @@ export async function sessionIdentity(
 
 export function withTenant<P = Record<string, never>>(
   handler: TenantHandler<P>,
-  deps: WithTenantDeps = { appPool: getAuthAppPool, resolveIdentity: sessionIdentity },
+  deps: WithTenantDeps = {
+    appPool: getAuthAppPool,
+    resolveIdentity: sessionIdentity,
+    allowedOrigin: () => new URL(getAuthBaseURL()).origin,
+  },
 ): (request: NextRequest, route: RouteContext<P>) => Promise<Response> {
   return async (request, route) => {
     const requestId = resolveRequestId(request.headers.get(REQUEST_ID_HEADER));
+    if (MUTATING.has(request.method) && !sameOrigin(request.headers, deps.allowedOrigin())) {
+      logEvent('security.forbidden_origin', {
+        level: 'warn',
+        requestId,
+        path: request.nextUrl.pathname,
+      });
+      return fail(403, 'forbidden_origin', requestId);
+    }
     const identity = await deps.resolveIdentity(request.headers);
-    if (!identity) return json(401, { error: 'unauthorized' }, requestId);
+    if (!identity) return fail(401, 'unauthorized', requestId);
 
     const tracking: Tracking = { permissionChecked: false, audits: 0 };
     const client = await deps.appPool().connect();
@@ -134,7 +172,7 @@ export function withTenant<P = Record<string, never>>(
           requestId,
           path: request.nextUrl.pathname,
         });
-        return json(500, { error: 'internal' }, requestId);
+        return fail(500, 'internal', requestId);
       }
       if (MUTATING.has(request.method) && response.status < 300 && tracking.audits === 0) {
         await client.query('ROLLBACK');
@@ -143,21 +181,22 @@ export function withTenant<P = Record<string, never>>(
           requestId,
           path: request.nextUrl.pathname,
         });
-        return json(500, { error: 'internal' }, requestId);
+        return fail(500, 'internal', requestId);
       }
       await client.query(response.status < 400 ? 'COMMIT' : 'ROLLBACK');
       return withHeaders(response, requestId);
     } catch (error) {
       await client.query('ROLLBACK').catch(() => undefined);
-      if (error instanceof PermissionDeniedError)
-        return json(403, { error: 'forbidden' }, requestId);
-      if (error instanceof NotFoundError) return json(404, { error: 'not_found' }, requestId);
-      if (error instanceof ConflictError) return json(409, { error: error.code }, requestId);
-      if (error instanceof ZodError) return json(400, { error: 'invalid_request' }, requestId);
+      if (error instanceof PermissionDeniedError) return fail(403, 'forbidden', requestId);
+      if (error instanceof NotFoundError) return fail(404, 'not_found', requestId);
+      if (error instanceof ConflictError) return fail(409, error.code, requestId);
+      if (error instanceof ZodError || error instanceof InvalidRequestError) {
+        return fail(400, 'invalid_request', requestId);
+      }
       if (error instanceof UnknownPermissionError) {
         // Sentry-ready: level + stable event name + request id; the key is not personal data.
         logEvent('error.unknown_permission', { level: 'error', requestId, permission: error.key });
-        return json(500, { error: 'internal' }, requestId);
+        return fail(500, 'internal', requestId);
       }
       logEvent('error.unhandled', {
         level: 'error',
@@ -167,9 +206,43 @@ export function withTenant<P = Record<string, never>>(
           ? String((error as { code?: unknown }).code)
           : null,
       });
-      return json(500, { error: 'internal' }, requestId);
+      return fail(500, 'internal', requestId);
     } finally {
       client.release();
     }
   };
+}
+
+/**
+ * Server components (pages) — the same guarantees as withTenant(): tenant ONLY from the session,
+ * SET LOCAL app.tenant_id, pre-tenant GUCs reset — in a READ ONLY transaction (pages never
+ * write; mutations go through API routes). An incomplete session is redirected to its next
+ * step. ctx.requirePermission() throws PermissionDeniedError — the page shows its "no access"
+ * state.
+ */
+export async function withTenantPage<T>(fn: (ctx: TenantContext) => Promise<T>): Promise<T> {
+  const auth = await currentAuthContext();
+  if (auth.status !== 'ok') redirect(nextStep(auth.status) ?? '/login');
+  const requestId = resolveRequestId((await requestHeaders()).get(REQUEST_ID_HEADER));
+  const client = await getAuthAppPool().connect();
+  try {
+    await client.query('BEGIN READ ONLY');
+    await client.query('RESET app.auth_user_id');
+    await client.query('RESET app.invite_token_hash');
+    await client.query("SELECT set_config('app.tenant_id', $1, true)", [auth.tenantId]);
+    const ctx = createTenantContext(client, {
+      tenantId: auth.tenantId,
+      userId: auth.userId,
+      authUserId: auth.authUserId,
+      requestId,
+    });
+    const result = await fn(ctx);
+    await client.query('COMMIT');
+    return result;
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
 }

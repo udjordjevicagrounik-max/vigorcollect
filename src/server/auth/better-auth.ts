@@ -1,10 +1,12 @@
 import { betterAuth, BASE_ERROR_CODES, type BetterAuthOptions } from 'better-auth';
 import { APIError, createAuthMiddleware, isAPIError } from 'better-auth/api';
+import { captcha } from 'better-auth/plugins';
 import { twoFactor } from 'better-auth/plugins/two-factor';
 import { Pool } from 'pg';
 import { HONEYPOT_FIELD, MIN_PASSWORD_LENGTH } from '@/lib/auth-policy';
 import { getMasterKeyring } from '@/server/crypto/keyring';
 import { createAuthMailer } from '@/server/mail/auth-mailer';
+import { turnstileFromEnv, type TurnstileConfig } from '@/server/security/turnstile';
 import { activeMemberships, isMember } from './memberships';
 
 /**
@@ -41,6 +43,12 @@ export type AuthConfig = {
   issuer: string;
   /** Outgoing auth mail (password reset) — src/server/mail/auth-mailer.ts at runtime. */
   mailer?: AuthMailer;
+  /**
+   * Cloudflare Turnstile (rule 27) through Better Auth's official captcha plugin on sign-in and
+   * password reset (header x-captcha-response). null = keys missing outside production (skipped);
+   * production without keys never starts (src/instrumentation.ts).
+   */
+  turnstile?: TurnstileConfig;
 };
 
 export type AuthMail = { kind: 'password_reset'; to: string; url: string; authUserId: string };
@@ -153,6 +161,10 @@ export function buildAuthOptions(config: AuthConfig, pool: Pool) {
       },
     },
     advanced: {
+      // CSRF (task 1.4): origin + Fetch-Metadata checks ALWAYS on. Better Auth turns them off by
+      // default when NODE_ENV=test — explicit values keep tests and production identical.
+      disableOriginCheck: false,
+      disableCSRFCheck: false,
       useSecureCookies: secureCookies,
       defaultCookieAttributes: {
         httpOnly: true,
@@ -249,6 +261,16 @@ export function buildAuthOptions(config: AuthConfig, pool: Pool) {
           durationSeconds: LOCKOUT_SECONDS,
         },
       }),
+      ...(config.turnstile
+        ? [
+            captcha({
+              provider: 'cloudflare-turnstile',
+              secretKey: config.turnstile.secret,
+              siteVerifyURLOverride: config.turnstile.verifyUrl,
+              endpoints: ['/sign-in/email', '/request-password-reset'],
+            }),
+          ]
+        : []),
     ],
   } satisfies BetterAuthOptions;
 }
@@ -290,6 +312,7 @@ function getRuntime(): Runtime {
       baseURL: BETTER_AUTH_URL,
       issuer: PRODUCT_NAME || 'App',
       mailer: createAuthMailer({ pool: appPool, keyring: getMasterKeyring }),
+      turnstile: turnstileFromEnv(),
     },
     authPool,
   );

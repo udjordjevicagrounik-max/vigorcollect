@@ -54,3 +54,16 @@ export async function checkPermission(
   const scope = scopes.reduce((a, b) => (SCOPE_RANK[b] > SCOPE_RANK[a] ? b : a));
   return { key, scope };
 }
+
+/** Every permission key the user holds in the current tenant (navigation, button visibility). */
+export async function permissionKeys(db: Queryable, userId: string): Promise<Set<string>> {
+  const { rows } = await db.query<{ key: string }>(
+    `SELECT DISTINCT p.key
+     FROM user_roles ur
+     JOIN role_permissions rp ON rp.tenant_id = ur.tenant_id AND rp.role_id = ur.role_id
+     JOIN permissions p ON p.id = rp.permission_id
+     WHERE ur.user_id = $1`,
+    [userId],
+  );
+  return new Set(rows.map((r) => r.key));
+}
