@@ -1,5 +1,17 @@
 # NEXT
 
+## P1 — sutra PRVO (2026-10-13)
+
+**Repo i `/srv/backups` žive u kontejneru `app-vibecoder-1`, ne na hostu** — ako se kontejner
+rekreira (update Vibecoder-a, restart stack-a sa novim image-om), nestaje i kod (sa celom git
+istorijom) i sve lokalne backup kopije. Redom:
+
+1. **GitHub remote + push** (`main`, `develop`, tagovi) — privatni repo; ključ/token van chata.
+2. **Backup kopija na host putanju:** bind mount host direktorijuma u kontejner (izmena
+   `/opt/app/docker-compose.yml` servisa `vibecoder` — infrastruktura, Uroševa odluka) ILI cron na
+   hostu sa `docker cp app-vibecoder-1:/srv/backups <host putanja>` posle 02:00 UTC.
+3. Dok se to ne uradi: nikakvi novi podaci od vrednosti u dev bazi; demo seed se obnavlja.
+
 ## Aktivan zadatak
 
 **Sprint 1 zatvoren, sledeće: security review, pa Sprint 2 — kupci, fakture, uvoz.**

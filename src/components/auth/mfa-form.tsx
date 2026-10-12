@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from 'react';
 import { useTranslations } from 'next-intl';
+import { ContinueFallback, useNavigateWithFallback } from './continue-fallback';
 import Link from 'next/link';
 import { errorCode, postJSON } from '@/lib/post-json';
 import { Field, SubmitButton } from './field';
@@ -13,6 +14,7 @@ export function MfaForm() {
   const [problem, setProblem] = useState<FormProblem | null>(null);
   const [expired, setExpired] = useState(false);
   const [pending, setPending] = useState(false);
+  const { go, fallbackHref } = useNavigateWithFallback();
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -21,7 +23,7 @@ export function MfaForm() {
     setProblem(null);
     const res = await postJSON('/api/auth/two-factor/verify-totp', { code });
     if (res.status === 200) {
-      window.location.assign('/');
+      go('/');
       return;
     }
     setPending(false);
@@ -47,6 +49,7 @@ export function MfaForm() {
         required
       />
       <FormError problem={problem} />
+      <ContinueFallback href={fallbackHref} />
       {expired ? (
         <Link href="/login" className="min-h-11 text-brand-purple underline">
           {t('common.backToLogin')}

@@ -58,7 +58,15 @@ setup('login → MFA setup → MFA → shell at 375 px', async ({ page }) => {
   await expect(page).toHaveURL(/\/login\/mfa$/);
   await noHorizontalOverflow(page);
   await page.locator('#code').fill(totp(uri, Date.now() + 30_000));
+  // The browser "does not navigate" (aborted) → after 2 s the Continue link takes over.
+  await page.route(/\/$/, (route) =>
+    route.request().isNavigationRequest() ? route.abort('aborted') : route.fallback(),
+  );
   await page.locator('form button[type="submit"]').click();
+  const fallback = page.getByTestId('continue-fallback');
+  await expect(fallback).toBeVisible({ timeout: 6_000 });
+  await page.unroute(/\/$/);
+  await fallback.getByRole('link').click();
 
   await expect(page).toHaveURL(/\/$/);
   await expect(page.locator('[data-mobile-class]')).toHaveAttribute(

@@ -56,7 +56,9 @@
       "signOut": "Sign out",
       "passwordHint": "At least {min} characters. A long phrase beats a complicated word.",
       "passwordMismatch": "The passwords do not match.",
-      "passwordTooShort": "The password must have at least {min} characters."
+      "passwordTooShort": "The password must have at least {min} characters.",
+      "continue": "Continue",
+      "continueHint": "Signed in. If the page does not open by itself, click Continue."
     },
     "login": {
       "title": "Sign in",
