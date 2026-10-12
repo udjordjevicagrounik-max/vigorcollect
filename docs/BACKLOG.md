@@ -50,7 +50,7 @@ Ideje i tehnički dug zapisani usred zadatka (protokol: ne predlaže se usred za
 - [ ] Rate limit po email-u (prijava, reset, pozivnica) — odluka 2a: u MVP-u samo po IP-u.
 - [ ] `qrcode` paket za TOTP QR (odobren, odluka 3b) — dolazi sa ekranima u 1.1b; obrazloženje u commit poruci.
 - [ ] Email servis + sink za demo tenant (reset lozinke, pozivnice) — 1.1b; do tada `mailer` ne šalje ništa.
-- [ ] `VALIDATE CONSTRAINT users_auth_user` kad nijedno okruženje nema veze iz vremena pre 005.
+- [ ] `VALIDATE CONSTRAINT users_auth_user` — **pre prvog staging deploya** (Uroš, 2026-10-12); stavka je i u runbook „Release checklist".
 - [ ] Admin tok za otključavanje i reset MFA (maker-checker, audit) umesto ručnog SQL-a iz runbook-a — 1.4.
 - [ ] Brisanje isteklih `auth.session` / `auth.verification` redova (job, 1.3 outbox ili cron).
 

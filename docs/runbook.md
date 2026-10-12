@@ -115,6 +115,14 @@ Provera: `SELECT rolname, rolsuper, rolbypassrls FROM pg_roles WHERE rolname LIK
 `docker compose up -d app` — nikad `restart` (diže stari image).
 Posle deploya: smoke (`/health` 200 + `X-App-Version` = očekivani tag).
 
+### Release checklist (pravilo 23; dopunjuje se kroz 1.7)
+
+- [ ] Testovi zeleni (`npm test`, `npm run test:db`), migracije probane na kopiji prod baze.
+- [ ] **Pre prvog staging deploya:** `ALTER TABLE users VALIDATE CONSTRAINT users_auth_user;`
+      (kao `vigor_migrate`). Ako padne — postoje viseći `auth_user_id`: očistiti, pa ponoviti.
+- [ ] `BETTER_AUTH_URL` je `https://…`; Secure kolačić se ne isključuje nikakvim env flagom.
+- [ ] Release notes + rollback korak zapisani.
+
 ## Backup / restore
 
 TODO(1.6): `scripts/backup.sh`, restore test (baza + fajlovi + `PII_MASTER_KEYS` iz vault-a,

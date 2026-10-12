@@ -438,6 +438,32 @@ describe('golden/db: the session is bound to one tenant membership', () => {
     expect(res.rowCount).toBe(0);
   });
 
+  it('the bridge policy is pre-tenant only: with both GUCs set, only the chosen tenant is visible', async () => {
+    const query = (tenantId: string | null) =>
+      inTenant(appPool, tenantId, async (c) => {
+        await c.query("SELECT set_config('app.auth_user_id', $1, true)", [people.cd.authUserId]);
+        const users = await c.query<{ tenant_id: string }>(
+          'SELECT tenant_id FROM users WHERE auth_user_id = $1 ORDER BY tenant_id',
+          [people.cd.authUserId],
+        );
+        const tenants = await c.query<{ id: string }>(
+          'SELECT id FROM tenants WHERE id = ANY($1::uuid[]) ORDER BY id',
+          [[AUTH.tenantC, AUTH.tenantD]],
+        );
+        return {
+          users: users.rows.map((r) => r.tenant_id),
+          tenants: tenants.rows.map((r) => r.id),
+        };
+      });
+    // Before a tenant is chosen the person sees both memberships …
+    expect(await query(null)).toEqual({
+      users: [AUTH.tenantC, AUTH.tenantD],
+      tenants: [AUTH.tenantC, AUTH.tenantD],
+    });
+    // … once tenant C is set, the person's own row in D is no longer visible (policies are OR-ed).
+    expect(await query(AUTH.tenantC)).toEqual({ users: [AUTH.tenantC], tenants: [AUTH.tenantC] });
+  });
+
   it('a disabled membership ends tenant access on the next request', async () => {
     const client = await signIn(people.c);
     await inTenantCommit(migratePool, AUTH.tenantC, async (c) => {

@@ -28,18 +28,18 @@ Numeracija važi od Sprinta 1 i zamenjuje raniju (1.3 login, 1.4 maker-checker, 
   `auth` (6 tabela Better Auth-a + `failedSignInCount`/`signInLockedUntil`), ENABLE + FORCE RLS
   bez tenant predikata, `vigor_app` samo DML; FK `users.auth_user_id` (NOT VALID);
   `app_auth_user_id()` + politika `auth_membership_read` (SELECT, samo sopstveni redovi u
-  `users` i nazivi tih tenanta); PII registar za `auth.*`.
+  `users` i nazivi tih tenanta, samo dok tenant nije izabran); PII registar za `auth.*`.
 - **`src/server/auth/*` (predlog, zaštićeno)**: `better-auth.ts` (konfiguracija, hook-ovi za
   zaključavanje, `activeTenantId` + provera članstva), `memberships.ts`, `session.ts`
   (`getAuthContext()`: anonymous / mfa_setup_required / tenant_required / ok), README.
 - Ruta `src/app/api/auth/[...all]/route.ts`; seed pravi prijavne naloge za admine (samo uz
   `SEED_ADMIN_PASSWORD` + `BETTER_AUTH_SECRET`); `.env.example`.
-- **Testovi**: `tests/golden/db/auth.test.ts` (16): lozinka + TOTP → sesija vezana za tenant,
+- **Testovi**: `tests/golden/db/auth.test.ts` (17): lozinka + TOTP → sesija vezana za tenant,
   kolačić HttpOnly/SameSite, bez TOTP-a nema pristupa, pogrešan TOTP, isti odgovor za
-  nepostojeći email (prijava i reset), 5 promašaja → 15 min sa istim odgovorom i otključavanje,
+  nepostojeći email (prijava i reset), politika članstava samo pre izbora tenanta, 5 promašaja → 15 min sa istim odgovorom i otključavanje,
   TOTP lockout konfiguracija, 429 posle 10 pokušaja sa jednog IP-a, sesija 8 h apsolutno (fake
   timer), izbor tenanta samo među sopstvenim članstvima, izolacija, deaktivirano članstvo.
-  Golden `rls` i `pii-registry` prošireni na šemu `auth`. DB 119/119, unit 33/33, `next build` ✔.
+  Golden `rls` i `pii-registry` prošireni na šemu `auth`. DB 120/120, unit 33/33, `next build` ✔.
   Mutacioni test: 4 pokvarene zaštite → svaka obara bar 1 test.
 - **Docs**: ADR 0004 (uz obrazloženje za pravilo 10), ADR 0002 „Otvoreno" 1 zatvoreno, runbook
   „Auth" (tajna, otključavanje, reset MFA), javne rute u `permissions.md`, BACKLOG „Iz 1.1a".
@@ -55,7 +55,7 @@ Numeracija važi od Sprinta 1 i zamenjuje raniju (1.3 login, 1.4 maker-checker, 
 2. Nazivi tabela/kolona su Better Auth-ovi (camelCase); DDL je preslikan iz `getMigrations()`.
 3. `generateId: 'uuid'` — `users.auth_user_id` je već `uuid` iz 001.
 4. Članstva se čitaju politikom `auth_membership_read` (GUC `app.auth_user_id`), ne SECURITY DEFINER funkcijom (`vigor_migrate` je pod FORCE RLS).
-5. FK `users_auth_user` je NOT VALID (dev `down 005` ostavlja viseće id-jeve koje RLS krije); VALIDATE → BACKLOG.
+5. FK `users_auth_user` je NOT VALID (dev `down 005` ostavlja viseće id-jeve koje RLS krije); VALIDATE pre prvog staging deploya (odluka ispod).
 6. Jedno članstvo → tenant se bira sam; više → `/update-session`, provereno hook-om; `getAuthContext()` proverava članstvo na svakom zahtevu.
 7. Zaključavanje: brojač se nulira u trenutku zaključavanja; pokušaji tokom zaključavanja ne produžavaju ga.
 8. MFA je obavezan kroz `getAuthContext()` (Better Auth sam ne tera upis TOTP-a).
@@ -66,6 +66,18 @@ Numeracija važi od Sprinta 1 i zamenjuje raniju (1.3 login, 1.4 maker-checker, 
 13. Reset lozinke: `mailer` ne šalje ništa do 1.1b (odgovor je isti bez obzira).
 14. PII registar za `auth` koristi imena `auth.<tabela>`; registar golden test pokriva `public` i `auth`.
 15. Test sam računa TOTP (RFC 6238, `node:crypto`) — bez paketa.
+
+### Odluke Uroša posle 1.1a (2026-10-12)
+
+- **Ispravka 005 (urađena):** `auth_membership_read` na `users` i `tenants` važi samo dok tenant
+  nije izabran (`app_tenant_id() IS NULL`) — politike su permissive (OR), pa bi inače sesija u
+  tenantu A videla i sopstveni red u tenantu B. Golden test sa oba GUC-a; mutacija ga obara.
+- **Secure kolačić (1.1b):** `secureCookies = true` uvek, osim kad je `NODE_ENV !== 'production'`
+  **i** `BETTER_AUTH_URL` počinje sa `http://localhost` ili `http://127.0.0.1`. Nikad env flag
+  koji ga isključuje u prod-u. Uz unit test za sve kombinacije.
+- **NOT VALID FK:** `VALIDATE CONSTRAINT users_auth_user` pre prvog staging deploya — BACKLOG i
+  runbook „Release checklist".
+- **`SEED_ADMIN_PASSWORD`:** Uroš upisuje ručno u `.env`, nikad kroz chat.
 
 ### Odluka Uroša posle 0.2b (2026-10-12; ADR 0002, odluka 4)
 
