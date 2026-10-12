@@ -1,5 +1,6 @@
 import type { Pool } from 'pg';
 import { logEvent } from '@/lib/log';
+import { runDailyCollections } from '@/server/collections/service';
 import { dailyRun, runId } from './schedule';
 import { withTenantJob } from './tenant-job';
 
@@ -32,9 +33,13 @@ export async function tenantClockTick(
   return enqueued;
 }
 
-/** The daily tenant job. Business steps (reminders, aging) arrive in Sprint 2. */
+/**
+ * The daily tenant job (after local 06:00): promise evaluation (fulfilled / partial / broken at
+ * D + grace in the company's zone) and invoice.overdue events (task 2.4).
+ */
 export async function runTenantDaily(appPool: Pool, job: DailyJob, jobId: string): Promise<void> {
-  await withTenantJob(appPool, job.tenantId, jobId, async () => {
-    logEvent('tenant.daily', { tenantId: job.tenantId, localDate: job.localDate });
+  await withTenantJob(appPool, job.tenantId, jobId, async (ctx) => {
+    const result = await runDailyCollections(ctx.db, ctx.audit);
+    logEvent('tenant.daily', { tenantId: job.tenantId, localDate: job.localDate, ...result });
   });
 }

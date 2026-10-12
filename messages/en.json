@@ -13,6 +13,8 @@
     },
     "items": {
       "home": "Home",
+      "customers": "Customers",
+      "import": "Import",
       "settingsPassword": "Password",
       "users": "Users",
       "tenantSettings": "Settings",
@@ -167,12 +169,64 @@
     "captcha_failed": "The check that you are not a robot failed. Please try again.",
     "rate_limited": "Too many requests from this network. Wait a minute and try again.",
     "approval_required": "The change was sent for approval by another person (four eyes).",
+    "file_too_large": "The file is too large (at most 5 MB and 20,000 rows).",
+    "file_unreadable": "The file cannot be read — save it as CSV (UTF-8) or XLSX.",
+    "no_valid_rows": "There is no valid row to import.",
     "internal": "Something went wrong on our side. Please try again; if it persists, send the request ID to support.",
     "self_action": "You cannot do this to your own account — ask another administrator.",
     "last_owner": "This is the organization’s only owner; make someone else owner first.",
     "unsupported": "This kind of request cannot be decided here yet."
   },
   "dashboard": {
+    "title": "Collections overview",
+    "description": "All figures are in {currency}, as of today in the company's time zone, and cover only the customers you can see.",
+    "kpiLabel": "Key figures",
+    "definition": "Definition",
+    "days": "{n} d",
+    "naturalPerson": "Private person",
+    "missingFx": "{n} invoices without an exchange rate are not included",
+    "kpi": {
+      "overdue_total": {
+        "label": "Overdue total",
+        "definition": "Sum of open amounts of invoices whose due day has ended (company time zone), in the reporting currency."
+      },
+      "open_total": {
+        "label": "Open total",
+        "definition": "Sum of open amounts of all open invoices, overdue or not."
+      },
+      "dso": {
+        "label": "DSO",
+        "definition": "Open total ÷ average daily invoiced amount of the last {window} days."
+      },
+      "promises_today": {
+        "label": "Promises today",
+        "definition": "Number and sum of pending promises dated today."
+      },
+      "promises_broken": {
+        "label": "Broken promises",
+        "definition": "Promises broken in the last 30 days: by the day after the promise date, less than the promised amount was paid."
+      },
+      "open_cases": {
+        "label": "Open cases",
+        "definition": "Number of open collection cases."
+      }
+    },
+    "aging": {
+      "title": "Aging distribution",
+      "definition": "Open amounts by days overdue (buckets from settings)."
+    },
+    "topOverdue": "Most overdue",
+    "work": {
+      "title": "My work today",
+      "modeLabel": "Whose customers",
+      "own": "Mine",
+      "team": "Team",
+      "definition": "Promises falling due, scheduled next actions and open cases.",
+      "empty": "Nothing scheduled for today.",
+      "promise": "Promise {amount} for {date}",
+      "nextAction": "{action} — scheduled for {date}",
+      "case": "Open case · {stage}"
+    },
     "empty": {
       "title": "No invoices yet",
       "description": "Once you import invoices from your accounting system, the customers and items that need attention appear here, ordered by priority. The first step is the import.",
@@ -180,10 +234,118 @@
     }
   },
   "importPage": {
-    "empty": {
-      "title": "Invoice import is coming soon",
-      "description": "Importing CSV/Excel exports from your accounting system arrives in the next version. Meanwhile you can invite colleagues and set up your organization.",
-      "action": "Back to home"
+    "title": "Invoice import",
+    "description": "CSV or Excel (XLSX) from your ERP. Map the columns once — the next import from the same source remembers them. File content is only checked, never executed.",
+    "wizard": {
+      "stepsLabel": "Import steps",
+      "steps": {
+        "1": "1. File",
+        "2": "2. Mapping",
+        "3": "3. Preview",
+        "4": "4. Report"
+      },
+      "next": "Next",
+      "back": "Back",
+      "working": "Working…",
+      "file": {
+        "title": "Choose a file",
+        "hint": "CSV (UTF-8, separator ; or ,) or XLSX, first sheet, up to 5 MB and 20,000 rows.",
+        "columns": "Required columns: invoice ID, number, invoice date, due date, amount, customer tax ID and name. Open amount, currency and country are optional.",
+        "label": "Invoice file"
+      },
+      "mapping": {
+        "title": "Column mapping",
+        "summary": "{rows} rows · {recognized} of {total} fields recognized.",
+        "template": "The mapping of the previous import was applied.",
+        "decimal": "Decimal sign in amounts",
+        "decimalComma": "comma (1.234,56)",
+        "decimalDot": "dot (1,234.56)",
+        "dateOrder": "Date order",
+        "dmy": "day.month.year",
+        "ymd": "year-month-day",
+        "none": "— do not import —",
+        "column": "Column {n}",
+        "missing": "Required field missing: {fields}"
+      },
+      "fields": {
+        "external_id": "Invoice ID in ERP",
+        "number": "Invoice number",
+        "issue_date": "Invoice date",
+        "due_date": "Due date",
+        "currency": "Currency",
+        "amount_total": "Invoice amount",
+        "amount_open": "Open amount",
+        "amount_net": "Net amount",
+        "amount_tax": "VAT",
+        "customer_tax_id": "Customer tax ID",
+        "customer_name": "Customer name",
+        "customer_country": "Customer country",
+        "customer_registration_number": "Customer registration no.",
+        "customer_external_id": "Customer ID in ERP",
+        "buyer_reference": "Buyer reference",
+        "order_reference": "Purchase order"
+      },
+      "codes": {
+        "required": "required field is empty",
+        "too_long": "value too long",
+        "invalid_amount": "amount is not a valid number",
+        "negative_amount": "negative amount",
+        "zero_amount": "amount is zero",
+        "invalid_date": "invalid date",
+        "due_before_issue": "due date is before the invoice date",
+        "open_exceeds_total": "open amount exceeds the total",
+        "net_tax_mismatch": "net + VAT ≠ amount",
+        "invalid_currency": "currency is not an ISO code",
+        "invalid_country": "country is not an ISO code",
+        "duplicate_in_file": "the same ID repeats in the file",
+        "invalid_value": "invalid value"
+      },
+      "preview": {
+        "title": "Preview",
+        "valid": "Valid",
+        "invalid": "With errors (skipped)",
+        "total": "Total rows",
+        "first": "First {n} rows",
+        "row": "Row {n}",
+        "due": "due {date}",
+        "confirm": "Import {n} invoices"
+      },
+      "report": {
+        "title": "Import report",
+        "processing": "The import is being processed…",
+        "failed": "Processing the import failed. It is retried automatically; if it happens again, contact support.",
+        "summary": "New invoices: {created}, updated: {updated}, unchanged: {unchanged}. New customers: {customers}. Skipped rows: {skipped}.",
+        "exceptions": "To decide ({n})",
+        "toCustomers": "Go to customers",
+        "another": "New import",
+        "rollback": "Undo this import",
+        "rollbackConfirm": "Undo the import? Invoices nobody has changed will be removed.",
+        "rollbackYes": "Yes, undo",
+        "rollbackNo": "Cancel"
+      },
+      "exceptionKinds": {
+        "paid_invoice_changed": "amount of a paid invoice changed",
+        "total_changed": "invoice amount changed",
+        "open_amount_increased": "open amount is higher than before",
+        "currency_changed": "currency changed",
+        "customer_changed": "invoice now belongs to another customer",
+        "rollback_blocked": "invoice was changed meanwhile — not undone"
+      },
+      "rolledBack": "Import undone: {reverted} reverted, {blocked} left to decide."
+    },
+    "history": {
+      "title": "Import history",
+      "empty": "No imports yet. Export your customers' open items from the ERP to CSV or Excel and load them above.",
+      "counts": "{rows} rows · {valid} valid · {created} new · {updated} updated · {exceptions} to decide",
+      "status": {
+        "uploaded": "uploaded",
+        "validated": "checked",
+        "confirmed": "processing",
+        "completed": "completed",
+        "failed": "failed",
+        "cancelled": "cancelled",
+        "rolled_back": "undone"
+      }
     }
   },
   "admin": {
@@ -325,11 +487,259 @@
       "grant": "Add permission",
       "revoke": "Remove permission",
       "propose": "Send for approval",
-      "proposed": "The request was sent; the change applies only after approval."
+      "proposed": "The request was sent; the change applies only after approval.",
+      "legalHandover": "Hand a case over to legal",
+      "openCase": "Open case"
     }
   },
   "pwa": {
     "install": "Install the app",
     "installHint": "Works from your phone’s home screen too."
+  },
+  "customers": {
+    "title": "Customers",
+    "description": "Customers you can see, ordered by overdue debt. Search by name, tax ID or ERP code.",
+    "search": "Search",
+    "searchPlaceholder": "Name, tax ID or code",
+    "status": "Status",
+    "any": "all",
+    "onlyOverdue": "Only with overdue",
+    "onlyMine": "Only mine",
+    "apply": "Apply",
+    "statuses": {
+      "active": "active",
+      "inactive": "inactive",
+      "blocked": "blocked"
+    },
+    "naturalPerson": "Private person",
+    "noOwner": "no owner",
+    "days": "{n} d",
+    "cardLine": "Exposure {exposure} · overdue {overdue} · oldest {days} d",
+    "columns": {
+      "customer": "Customer",
+      "exposure": "Exposure",
+      "overdue": "Overdue",
+      "oldest": "Oldest",
+      "status": "Status",
+      "owner": "Owner"
+    },
+    "emptyTitle": "No customers for this view",
+    "emptyDescription": "Change the search or filters. If you have not imported invoices yet, customers are created by the import.",
+    "emptyAction": "Import invoices",
+    "saved": {
+      "label": "Saved filters",
+      "name": "Filter name",
+      "save": "Save current filter",
+      "savedNotice": "Filter saved.",
+      "deletedNotice": "Filter deleted.",
+      "delete": "Delete filter {name}",
+      "deleteShort": "×",
+      "confirmDelete": "Delete?"
+    }
+  },
+  "customer360": {
+    "back": "← Customers",
+    "naturalPerson": "Private person",
+    "taxId": "Tax ID",
+    "noOwner": "no owner",
+    "days": "{n} d",
+    "statuses": {
+      "active": "active",
+      "inactive": "inactive",
+      "blocked": "blocked"
+    },
+    "kpi": {
+      "exposure": {
+        "label": "Exposure",
+        "definition": "Open total of the customer (docs/metrics.md)."
+      },
+      "overdue": {
+        "label": "Overdue",
+        "definition": "Open amount of invoices past their due day."
+      },
+      "oldest": {
+        "label": "Oldest",
+        "definition": "Most days overdue among overdue invoices."
+      },
+      "promises": {
+        "label": "Pending promises",
+        "definition": "Payment promises not evaluated yet."
+      }
+    },
+    "missingFx": "{n} invoices without an exchange rate are not included",
+    "tabsLabel": "Customer record sections",
+    "tabs": {
+      "overview": "Overview",
+      "invoices": "Invoices",
+      "payments": "Payments",
+      "promises": "Promises",
+      "activities": "Activities",
+      "cases": "Cases"
+    },
+    "aging": "Aging",
+    "openCases": "Open cases ({n})",
+    "empty": {
+      "invoices": "The customer has no invoices.",
+      "payments": "No payments.",
+      "promises": "No promises.",
+      "activities": "No activities — log the first contact.",
+      "cases": "No cases."
+    },
+    "invoiceLine": "amount {total} · due {due}",
+    "invoiceStatus": {
+      "open": "open",
+      "partially_paid": "partially paid",
+      "paid": "paid",
+      "credited": "credited",
+      "cancelled": "cancelled"
+    },
+    "paymentKind": {
+      "received": "payment",
+      "source_settlement": "settled in ERP"
+    },
+    "allocated": "allocated {amount}",
+    "promiseStatus": {
+      "pending": "pending",
+      "fulfilled": "fulfilled",
+      "partial": "partial",
+      "broken": "broken",
+      "cancelled": "cancelled"
+    },
+    "paid": "paid {amount}",
+    "activityKind": {
+      "call": "Call",
+      "email": "Email",
+      "note": "Note",
+      "meeting": "Meeting"
+    },
+    "next": "next: {action} {date}",
+    "caseStatus": {
+      "open": "open",
+      "closed": "closed"
+    },
+    "priority": {
+      "low": "low priority",
+      "normal": "normal priority",
+      "high": "high priority",
+      "urgent": "urgent"
+    },
+    "caseInvoices": "{n} invoices"
+  },
+  "collections": {
+    "actionsLabel": "Customer actions",
+    "none": "— none —",
+    "due": "due {date}",
+    "priority": {
+      "low": "low",
+      "normal": "normal",
+      "high": "high",
+      "urgent": "urgent"
+    },
+    "case": {
+      "new": "Open a case",
+      "invoices": "Invoices in the case",
+      "noInvoices": "The customer has no open invoices.",
+      "priority": "Priority",
+      "create": "Open case",
+      "created": "The case is open."
+    },
+    "promise": {
+      "new": "Record a promise",
+      "amount": "Amount ({currency})",
+      "date": "Payment date",
+      "create": "Save promise",
+      "created": "The promise is recorded.",
+      "newDate": "New date",
+      "reschedule": "Move",
+      "updated": "The promise was changed.",
+      "cancel": "Cancel promise",
+      "confirmCancel": "Yes, cancel",
+      "cancelled": "The promise was cancelled."
+    },
+    "activity": {
+      "new": "Log an activity",
+      "kind": "Type",
+      "outcome": "Outcome",
+      "nextAction": "Next action",
+      "nextActionOn": "Next action date",
+      "note": "Note (stored encrypted)",
+      "create": "Save activity",
+      "created": "The activity is logged.",
+      "kinds": {
+        "call": "Call",
+        "email": "Email",
+        "note": "Note",
+        "meeting": "Meeting"
+      }
+    },
+    "payment": {
+      "new": "Mark a payment",
+      "amount": "Amount ({currency})",
+      "date": "Payment date",
+      "invoice": "Invoice",
+      "fifo": "Automatic — oldest due first",
+      "reference": "Reference / description",
+      "create": "Save payment",
+      "created": "The payment is recorded and allocated to invoices."
+    },
+    "caseScreen": {
+      "controls": "Case controls",
+      "title": "Case · {stage}",
+      "naturalPerson": "Private person",
+      "noOwner": "no owner",
+      "opened": "opened {date}",
+      "status": {
+        "open": "open",
+        "closed": "closed"
+      },
+      "priorities": {
+        "low": "low priority",
+        "normal": "normal priority",
+        "high": "high priority",
+        "urgent": "urgent"
+      },
+      "stage": "Stage",
+      "priority": "Priority",
+      "saved": "Saved.",
+      "legal": "Hand over to legal",
+      "legalReason": "Reason for the handover",
+      "legalSend": "Send for approval",
+      "legalHint": "The handover is approved by another person (four eyes). Until then the case keeps its stage.",
+      "legalRequested": "The handover request was sent for approval.",
+      "legalPending": "Handover to legal is awaiting approval.",
+      "close": "Close case",
+      "closeConfirm": "Close the case?",
+      "closeYes": "Yes, close",
+      "closed": "The case is closed.",
+      "cancel": "Cancel",
+      "invoices": "Invoices ({n})",
+      "due": "due {date}",
+      "days": "{n} d overdue",
+      "timeline": "Timeline",
+      "timelineEmpty": "No events yet.",
+      "events": {
+        "case": {
+          "opened": "Case opened",
+          "stage_changed": "Stage changed",
+          "assigned": "Owner changed",
+          "priority_changed": "Priority changed",
+          "closed": "Case closed",
+          "legal_handover_requested": "Handover to legal requested",
+          "legal_handover_rejected": "Handover to legal rejected"
+        },
+        "promise": {
+          "created": "Promise recorded",
+          "updated": "Promise changed",
+          "cancelled": "Promise cancelled",
+          "fulfilled": "Promise fulfilled",
+          "partial": "Promise partly kept",
+          "broken": "Promise broken"
+        },
+        "call": "Call",
+        "email": "Email",
+        "note": "Note",
+        "meeting": "Meeting"
+      }
+    }
   }
 }

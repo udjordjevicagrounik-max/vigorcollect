@@ -1,4 +1,6 @@
 import { logEvent } from '@/lib/log';
+import { getMasterKeyring } from '@/server/crypto/keyring';
+import { applyImport } from '@/server/imports/process';
 import type { EventHandlers } from './outbox';
 
 /**
@@ -10,5 +12,11 @@ export const EVENT_HANDLERS: EventHandlers = {
   // 1.5: settings changed → nothing to recompute yet; the event is the audit trail for jobs.
   'tenant_settings.updated': async (ctx, event) => {
     logEvent('tenant_settings.updated.handled', { tenantId: ctx.tenantId, eventId: event.id });
+  },
+  // 2.2: a confirmed import run is applied in one transaction; redelivery is a no-op.
+  'import.confirmed': async (ctx, event) => {
+    if (!event.aggregateId) return;
+    const result = await applyImport(ctx.db, ctx.audit, getMasterKeyring(), ctx.tenantId, event.aggregateId);
+    logEvent('import.applied', { tenantId: ctx.tenantId, eventId: event.id, result });
   },
 };

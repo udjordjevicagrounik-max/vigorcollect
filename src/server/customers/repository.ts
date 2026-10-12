@@ -147,6 +147,47 @@ export async function createConsumer(
   return { id };
 }
 
+/**
+ * The tenant's customer for a canonical legal entity (country + tax id), created when missing —
+ * import (2.2) "find_or_create po (country, tax_id)". Companies only: a natural person never gets
+ * a canonical identity (ADR 0002, decision 4).
+ */
+export async function findOrCreateCompanyCustomer(
+  db: Queryable,
+  keyring: MasterKeyring,
+  input: {
+    countryCode: string;
+    taxId: string;
+    legalName: string;
+    timezone: string;
+    registrationNumber?: string | null;
+    externalId?: string | null;
+  },
+): Promise<{ id: string; created: boolean }> {
+  const { rows } = await db.query<{ id: string }>(
+    'SELECT find_or_create_legal_entity($1, $2, $3, $4, $5) AS id',
+    [input.countryCode, input.taxId, input.legalName, input.timezone, input.registrationNumber ?? null],
+  );
+  const legalEntityId = rows[0]?.id;
+  if (!legalEntityId) throw new Error('find_or_create_legal_entity returned no id');
+  const existing = await db.query<{ id: string }>('SELECT id FROM customers WHERE legal_entity_id = $1', [
+    legalEntityId,
+  ]);
+  const id = existing.rows[0]?.id;
+  if (id) return { id, created: false };
+  const created = await createCustomer(db, keyring, {
+    countryCode: input.countryCode,
+    taxId: input.taxId,
+    registrationNumber: input.registrationNumber ?? undefined,
+    legalName: input.legalName,
+    timezone: input.timezone,
+    isNaturalPerson: false,
+    displayName: input.legalName,
+    externalId: input.externalId ?? undefined,
+  });
+  return { id: created.id, created: true };
+}
+
 /** Display name of a customer, decrypted for natural persons. */
 export async function readCustomerName(
   db: Queryable,

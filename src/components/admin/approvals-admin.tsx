@@ -15,6 +15,7 @@ type Pending = {
   permissionKey: string | null;
   grant: boolean | null;
   targetUser: { id: string; displayName: string } | null;
+  caseRef: { caseId: string; customerId: string } | null;
   canDecide: boolean;
   requestedByMe: boolean;
 };
@@ -106,16 +107,26 @@ export function ApprovalsAdmin({
                 className="rounded-lg border border-border bg-surface p-4"
               >
                 <p className="font-medium text-text">
-                  {p.actionType === 'user_role.change'
-                    ? t('roleChange', {
-                        user: p.targetUser?.displayName ?? '',
-                        role: roleName(p.roleKey),
-                      })
-                    : t('grantChange', {
-                        action: p.grant ? t('grantAdd') : t('grantRemove'),
-                        permission: p.permissionKey ?? '',
-                        role: roleName(p.roleKey),
-                      })}
+                  {p.caseRef ? (
+                    <a
+                      href={`/customers/${p.caseRef.customerId}/cases/${p.caseRef.caseId}`}
+                      className="text-brand-purple underline"
+                      data-approval-case
+                    >
+                      {t('legalHandover')} · {t('openCase')}
+                    </a>
+                  ) : p.actionType === 'user_role.change' ? (
+                    t('roleChange', {
+                      user: p.targetUser?.displayName ?? '',
+                      role: roleName(p.roleKey),
+                    })
+                  ) : (
+                    t('grantChange', {
+                      action: p.grant ? t('grantAdd') : t('grantRemove'),
+                      permission: p.permissionKey ?? '',
+                      role: roleName(p.roleKey),
+                    })
+                  )}
                 </p>
                 <p className="text-sm text-text-muted">
                   {t('requestedBy', { name: p.requestedBy.displayName })}

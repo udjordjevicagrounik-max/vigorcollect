@@ -1,6 +1,7 @@
 import { PgBoss } from 'pg-boss';
 import { Pool, type PoolClient } from 'pg';
 import { logEvent } from '@/lib/log';
+import { fxRatesJob } from '@/server/fx/rates-job';
 import { DAILY_QUEUE, runTenantDaily, tenantClockTick, type DailyJob } from './clock';
 import { EVENT_HANDLERS } from './handlers';
 import { dispatchMail } from './mail-dispatch';
@@ -51,7 +52,7 @@ export async function startWorker(
     .catch(() => logEvent('worker.health_grant_failed', { level: 'warn' }));
 
   for (const name of [EVENT_QUEUE, DAILY_QUEUE, 'retention']) await boss.createQueue(name, RETRY);
-  for (const name of ['tenant-clock', 'mail-dispatch', 'backup', 'restore-test', 'alerts-check']) {
+  for (const name of ['tenant-clock', 'mail-dispatch', 'backup', 'restore-test', 'alerts-check', 'fx-rates']) {
     await boss.createQueue(name);
   }
 
@@ -89,6 +90,10 @@ export async function startWorker(
   await boss.work('alerts-check', async () => {
     await alertsCheck({ workerPool, appPool });
   });
+  // Reference rates (rule 18): ECB publishes around 16:00 CET on working days.
+  await boss.work('fx-rates', async () => {
+    await fxRatesJob({ workerPool, appPool });
+  });
 
   // Schedules in UTC; tenant-local times are resolved by tenant-clock (rule 26).
   await boss.schedule('tenant-clock', '*/15 * * * *');
@@ -97,6 +102,7 @@ export async function startWorker(
   await boss.schedule('backup', '0 2 * * *');
   await boss.schedule('restore-test', '0 3 * * 0');
   await boss.schedule('alerts-check', '*/5 * * * *');
+  await boss.schedule('fx-rates', '30 16 * * 1-5');
 
   const enqueue = (client: PoolClient, event: { id: string; tenantId: string }) =>
     boss

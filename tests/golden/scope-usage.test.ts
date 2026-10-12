@@ -3,12 +3,27 @@ import { join, relative } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 // Golden (never delete or skip) — task 1.6: every query over a scoped entity goes through
-// scopeFilter() (src/server/auth/scope.ts). The repository is the only exception: it writes and
+// scopeFilter() (src/server/auth/scope.ts). The repository is an exception: it writes and
 // decrypts by id, and is reached only with ids a scoped read returned.
+// Task 2.3: receivables (invoices, payments, promises, activities, cases) are scoped through
+// their customer. Import (2.2) is a tenant-wide operation behind import.create and works on the
+// rows of its own run — the second exception.
 
 const SRC = join(process.cwd(), 'src');
-const SCOPED_TABLES = ['customers'];
-const ALLOWED = new Set(['server/customers/repository.ts']);
+const SCOPED_TABLES = [
+  'customers',
+  'invoices',
+  'invoice_positions',
+  'payments',
+  'promises',
+  'activities',
+  'collection_cases',
+];
+const ALLOWED = new Set([
+  'server/customers/repository.ts',
+  'server/imports/service.ts',
+  'server/imports/process.ts',
+]);
 
 function files(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {

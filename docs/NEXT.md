@@ -14,87 +14,72 @@ istorijom) i sve lokalne backup kopije. Redom:
 
 ## Aktivan zadatak
 
-**Sprint 1 zatvoren, sledeće: security review, pa Sprint 2 — kupci, fakture, uvoz.**
+**Sprint 2 (2.1–2.4) završen na `feature/sprint-2`; sledeće: nalazi security review-a, pa
+Sprint 3 — rule engine.**
 
-1. **Security review** u ODVOJENOJ sesiji: ulaz `docs/security-review-input.md` (diff
-   `03cc604..HEAD`, zaštićeni fajlovi, ADR-ovi) + `docs/security-review-checklist.md`.
-2. **Sprint 2** na grani `feature/*` od `develop` (git tok u runbook-u): kupci (Customer 360),
-   fakture, uvoz CSV/Excel.
+1. **Security review** u ODVOJENOJ sesiji: ulaz `docs/security-review-input.md` + checklist;
+   obuhvatiti i Sprint 2 (migracije 012–014, uvoz fajlova kao nepouzdan ulaz, XLSX čitač,
+   `fx_convert` / `invoice_positions`, maker-checker za predaju pravnoj). Nalazi pre Sprinta 3.
+2. **Sprint 3 — rule engine** na novoj `feature/*` grani od `develop`.
 
 **Blokade za staging** (runbook „Release checklist"): Turnstile ključevi · Sentry DSN · off-site
-bucket + ključevi (rclone je u worker image-u) · kanal za alarme · servisne role na Elestio pre
-007/011 · `VALIDATE CONSTRAINT users_auth_user` · GitHub remote (CI, `/code-review`).
+bucket + ključevi · kanal za alarme · servisne role na Elestio pre 007/011 ·
+`VALIDATE CONSTRAINT users_auth_user` · GitHub remote (CI, `/code-review`) · NBS adapter ako je
+prvi klijent u RS profilu (ECB nema RSD).
 
-### Sprint 1 plan (1.1–1.7)
-
-1. **1.1 auth** — Better Auth (šema `auth`), lozinka + TOTP, sesija 8 h, lockout, pozivnice, ekrani.
-2. **1.2 tenant helperi** — `withTenant()` (tenant isključivo iz sesije), `requirePermission()`, `audit()`.
-3. **1.3 outbox** — `domain_events` dispatcher, `vigor_worker` (ADR 0002 „Otvoreno" 2).
-4. **1.4 security** — maker-checker kroz `approval_requests`, security review checklist, IDOR testovi.
-5. **1.5 prvi ekrani** — po wireframe-ima iz 0.3 (`docs/wireframes/`), `t()` sr + en.
-6. **1.6 timovi** — `teams` / `team_members`, `TEAM` scope prestaje da bude `OWN`.
-7. **1.7 ops** — backup + restore test, `verify-tenant` / `rls-drift` nad živom bazom, smoke posle deploya.
-
-Numeracija važi od Sprinta 1 i zamenjuje raniju (1.3 login, 1.4 maker-checker, 1.5 outbox,
-1.6 verify/backup) u starijim beleškama i komentarima.
-
-## Zatvaranje Sprinta 1 (2026-10-12, isti režim)
-
-- **Dockerfile:** stage `worker` = app + `postgresql-client-16=16.15-1.pgdg12+2` + `rclone=1.60.1+dfsg-2+b5`
-  (PGDG repo za `pg_dump` 16 = verzija servera); stage `app` je podrazumevani. Image izgrađen i
-  proveren (alati, `/app/ops`, korisnik `node`). Backup i restore test rade iz worker-a; host cron
-  je fallback.
-- **Servisne role:** `create-service-roles.sh` (ranije `create-worker-role.sh`): `vigor_worker`,
-  `vigor_backup` (`pg_read_all_data` + BYPASSRLS, ne piše), `vigor_restore`. Backup nikad kao
-  superuser. Migracija 011: CONNECT za obe + trigger `ops_runs_kind_by_role`.
-- **Matrica:** `team.read` (sve role), `team.manage` (owner, admin, collection_manager), migracija 011;
-  ekran Timovi, rute i navigacija na novim ključevima.
-- **Git tok:** `feature/*` → `develop` → `release/x.y` → `main`; `!` komande za merge u runbook-u.
-  Grana `develop` se pravi u Uroševoj `!` komandi.
-- **Testovi:** DB 202, unit 113, e2e 30 (+1 namerno preskočen); golden: `vigor_backup` ne može
-  INSERT/UPDATE/DELETE, `vigor_restore` ne čita glavnu bazu, skripte rade bez superuser-a.
-
-### Pretpostavke i nalazi
-
-1. **Restore test kao posebna rola `vigor_restore`:** `vigor_backup` „bez pisanja" ne sme da pravi bazu, a restore test mora; `vigor_restore` ima CREATEDB + BYPASSRLS samo za svoju privremenu bazu i nema prava nad podacima glavne baze.
-2. **Jedini upis ovih rola je sopstveni red u `ops_runs`** (rezultat posla). Nalaz: BYPASSRLS preskače i `WITH CHECK` politike — golden test je to uhvatio; ograničenje drži trigger.
-3. **Backup je sada neuspeh ako lista baza padne ili nema glavne baze** (ranije bi prijavio „ok, 0 baza" — nalaz iz ove sesije).
-4. Worker image nema git → bez `repo.bundle` u backup-u iz worker-a (repo je na GitHub-u kad postoji remote; do tada host cron pravi bundle).
-5. Pin PGDG verzije: kad izađe 16.16, stara nestaje iz glavnog repoa → build pada dok se ne podigne `PG_CLIENT_VERSION` (runbook).
-6. Dodele `team.*` rolama su podaci tenanta → seed (kao 004); postojeći tenanti ih dobijaju ponovnim seed-om.
-
-## Poslednja sesija — lanac 1.6 → 1.7 (2026-10-12, noćni režim)
+## Poslednja sesija — lanac Sprint 2 (2026-10-12, režim lanca)
 
 ### Urađeno po bloku
 
-- **1.6 timovi i scope — `3aca0ba`** (+ predlog 009): `teams`, `team_members` (jedan primarni
-  tim po osobi), `customers.owner_team_id`; `scopeFilter()` jedini prevodi scope u predikat
-  (golden statički test); Admin → Timovi; maker-checker za matricu (`approval.create` →
-  `role.manage`); Admin → Odobrenja; 2 demo tima u seed-u.
-- **1.7 ops — commit ove sesije** (+ predlog 010 i compose): Sentry (`@sentry/nextjs` 10.75.3,
-  app + worker, `request_id` tag, release = verzija, PII scrubbing kroz `pii_field_registry`);
-  alarmi (Telegram/Slack, bez env samo log, dedupe 1 h); `backup.sh` (sve baze, globals bez
-  lozinki, git bundle, 30 + 12, off-site ako klijent postoji), `restore-test.sh` (broj redova iz
-  dump-a vs. vraćena baza), `ops_runs`; `smoke.sh`; Status sistema sa backup / restore / Sentry /
-  alarmima; worker cron za backup, restore test i alarme.
-- **Stanje testova:** DB 200, unit 113, e2e 30 (+1 namerno preskočen), `next build` ✔. Mutacije:
-  10 (4 + 6), svaka obara bar 1 test. Dev: backup 2 baze ✔, restore test ✔ (37 tabela / 1246 redova).
+- **2.1 finansijska šema — `04c2530`** (+ predlog 012): `invoices` (EN 16931 osnovna polja,
+  `due_date date`, FX zamrznut triggerom), `payments` (`received` / `source_settlement`),
+  `payment_allocations` (Σ ≤ uplata, Σ ≤ faktura, ista valuta i kupac), `amount_open` uvek izveden
+  triggerom iz alokacija (ručni upis se prepisuje), `promises`, `activities` (beleška šifrovana),
+  `collection_cases` + `case_invoices`, `aging_bucket_bounds`; podrazumevano u `tenant_settings`
+  / code listama (`provision_receivables_defaults()`); `money.ts` (bigint, half-even),
+  semgrep `no-float-amounts`, `fxRatesJob` (ECB; NBS skelet), DEMO kursevi u seed-u.
+- **2.2 uvoz — `289e6ea`** (+ predlog 013): wizard (fajl → mapiranje → pregled → izveštaj),
+  šablon mapiranja po tenant + izvor, Zod po redu, potvrda → worker (`import.confirmed`),
+  idempotentno po (izvor, `external_id`), exception-i, rollback; demo CSV u `scripts/demo-import/`.
+- **2.3 kupci / 360 / dashboard — `9f1f919`** (+ predlog 014): lista (pretraga, filteri,
+  privatni sačuvani filteri), Customer 360 sa 6 tabova i aging-om, dashboard (6 KPI sa
+  definicijama iz `docs/metrics.md`, aging, „moj rad danas" OWN/TEAM, drill-down).
+- **2.4 case / obećanje / aktivnost — `763af29`**: ekran case-a sa hronologijom, obećanja
+  (izmena / otkaz, dnevna evaluacija D+1), ručna uplata (eksplicitno → FIFO), aktivnosti,
+  „Predaj pravnoj" → `approval_request` + `decisions` za fizička lica; Playwright 375 px ceo tok.
+- **Testovi:** unit 138, DB 246, e2e 33 (+2 namerno preskočena); hook zelen na svakom commit-u.
 
 ### Pretpostavke (najkonzervativnija opcija)
 
-1. Timovi koriste `user.read` / `user.update` — matrica nema `team.*`; novi ključ traži tvoje odobrenje i migraciju kataloga.
-2. „Jedan tim po korisniku" = parcijalni UNIQUE indeks nad `kind = 'primary'` (enum sa jednom vrednošću); proširenje je `ALTER TYPE … ADD VALUE` (aditivno), ne CHECK koji bi kasnije tražio DROP.
-3. Matrica: predlaže `approval.create` (maker), odlučuje `role.manage` (🅼); admin ne može da predlaže (nema `approval.create`). Dozvole role `owner` se ne menjaju ovim tokom.
-4. Odluka o zahtevu: ruta traži `user.assign` ILI `role.manage` (`requireAnyPermission`), servis proverava tačan ključ po vrsti zahteva.
-5. Kupci bez vlasnika vidljivi samo uz `ORGANIZATION`; `TEAM` bez tima = `OWN`.
-6. `@sentry/nextjs` 10.75.3 (ne 11.0.0 — novi major star 3 nedelje); samo server (app + worker), bez tracinga i replay-a.
-7. Backup traži superuser (`pg_dump` i FORCE RLS); `BACKUP_DATABASE_URL` ili `POSTGRES_*`.
-8. Worker image nema `pg_dump`, `rclone` ni `aws`: isto pravilo kao tvoje za rclone/aws — ne dodajem paket; worker posao loguje razlog, alarm „backup do 06:00" to vidi; do odluke host cron.
-9. Rezultati backup-a i restore testa u `ops_runs` (platformska tabela, piše samo skripta kao superuser, app čita) — worker i dalje nema politike van `domain_events`/`mail_outbox`.
-10. Restore test broji redove iz COPY blokova dump-a (bez trke sa izmenama) i poredi sa listovima vraćene baze (particije uključene).
-11. Smoke „upit kroz test korisnika" = upit kao `vigor_app` sa `SMOKE_TENANT_ID` (0 bez tenanta, > 0 sa njim): prijava kroz UI je u production-u iza Turnstile-a i TOTP-a.
-12. Alarm dedupe u memoriji worker-a (restart ga resetuje) — BACKLOG.
-13. Scrubber maskira email, nizove od 8–13 cifara (PIB, MB, JMBG) i IBAN u tekstu; imena se hvataju po ključu (registar + osnovna lista), ne iz slobodnog teksta.
+1. **exceljs uklonjen** (dodat u `04c2530`, uklonjen u `289e6ea`): pretvara numeričke XLSX ćelije u JS `number` — iznos bi prošao kroz float (STOP uslov). Sopstveni čitač (`zlib` + XML tekst) čuva tačan decimalni tekst; nema novog paketa; `npm audit` 0 nalaza.
+2. Niži saldo iz izvora = `source_settlement` uplata + alokacija razlike (nikad upis `amount_open`); viši saldo, promena iznosa / valute / kupca i svaka promena plaćene fakture = reconciliation exception. Dospeće, broj i reference prate izvor.
+3. `payments` se ne brišu, osim nealocirane `source_settlement` uplate (trigger) — samo za rollback uvoza.
+4. Rollback uvoza: briše fakture iz run-a koje niko nije dirao (bez tuđih alokacija, case-a i kasnijeg uvoza) i vraća settlement-e run-a ako posle njih nema alokacija; ostalo `rollback_blocked`. Kupci i metapodaci ostaju. Dozvola: `import.create` (nema `import.rollback`).
+5. Kupac iz uvoza: `find_or_create` po (država, PIB), samo pravna lica; država bez kolone = država tenanta.
+6. Uvezeni redovi šifrovani HKDF ključem po tenantu (kao `mail_outbox`), brišu se na kraju / otkazu (DB CHECK); greške redova samo kao (polje, kod).
+7. Kolona „Valuta" / „Valuta plaćanja" = **datum dospeća** (srpsko knjigovodstvo), nikad valuta.
+8. Upload kao base64 JSON (Zod gate ne dozvoljava multipart), do 5 MB / 20.000 redova; ekran uvoza je `mobile-compact` (zadatak), iako wireframe kaže `desktop-only`.
+9. Dospelo = `due_date` < lokalni danas kompanije fakture (`invoice_positions`, `security_invoker`); na dan dospeća nije dospelo.
+10. Izveštajna valuta = valuta tenanta; `fx_convert` uzima poslednji kurs ≤ dan, prednost izvoru iz profila; bez kursa iznos se ne sabira i prikazuje se „nedostaje kurs".
+11. Profil RS ostaje `fx_source = ECB` dok NBS adapter ne postoji; dev ima DEMO kurseve EUR/RSD (ne predstavljaju se kao ECB/NBS).
+12. DSO: prozor iz `tenant_settings.dso_window_days`, fakturisano bez `cancelled`, zaokruženo na 0,1 dan; bez fakturisanja „—".
+13. „Prekršena obećanja" na dashboard-u = `broken` sa datumom u poslednjih 30 dana.
+14. Obećanje se ocenjuje nezavisno: uplate kupca u istoj valuti sa `paid_on` ∈ [dan obećanja, datum + grace); `partial` takođe dobija događaj. Ručna uplata odmah ispunjava pokrivena obećanja.
+15. Ručna uplata: imenovana faktura pa FIFO po dospeću, samo u valuti uplate; preplata ostaje nealocirana; datum u budućnosti se odbija; izvor `file-import` do bankovnih izvoda.
+16. Predaja pravnoj: maker `approval.create` + `case.update`, checker `approval.legal_handover`, četiri oka; `decisions` red samo za fizička lica (pravilo 19); faza `legal` direktno nikad (servis + DB CHECK).
+17. Scope svih potraživanja ide preko kupca; golden `scope-usage` proširen na fakture, uplate, obećanja, aktivnosti i case-ove; izuzetak je uvoz (tenant-wide, `import.create`).
+18. Sačuvani filteri: RLS po tenantu, privatnost po korisniku u servisu (`user_id` = ja).
+19. „Moj rad danas" računa „danas" po podrazumevanoj kompaniji tenanta.
+20. E2E diže i worker (drugi `webServer`, port 3191): na 3101 već radi stari `next-server` (pokrenut pre ~25 h) — nisam ga dirao.
+
+### Odluke Uroša za Sprint 2 (2026-10-12)
+
+- Domenski default-i: aging 0 / 1–30 / 31–60 / 61–90 / 91–180 / 180+ kao code lista po tenantu;
+  dospelo = kraj dana dospeća u zoni kompanije; FIFO po dospeću osim uz broj fakture; DSO po
+  `docs/metrics.md`; obećanje prekršeno D+1 bez uplate ≥ iznosa.
+- exceljs odobren (posle uklonjen — pretpostavka 1).
+
+## Trajne odluke iz Sprinta 0–1
 
 ### Odluke Uroša za lanac 1.6 → 1.7 (2026-10-12)
 
@@ -154,6 +139,16 @@ postoji samo šifrovano na `customers`. Ulazi u migraciju 003, aditivno.
 - Nginx konfiguracija preview-a nije u git-u — kopija `docs/ops/nginx-preview.conf`, vraćanje u
   runbook „Preview (dev)".
 
+### Za Sprint 2
+
+- **Sopstveni XLSX čitač** (umesto paketa): nepoznati izvozi (ZIP64, šifrovani, više listova) se
+  odbijaju jasnom greškom; pokriti u security review-u kao parser nepouzdanog ulaza.
+- **Uvoz zavisi od worker-a**: bez njega potvrđen uvoz ostaje „u obradi" (izveštaj to prikazuje).
+- **Bez kursa nema zbira**: tenant sa fakturama u stranoj valuti vidi „nedostaje kurs" dok
+  `fxRatesJob` ne upiše kurs (RSD tek sa NBS adapterom).
+- **Migracije 012–014 su aditivne** (nove tabele, kolone sa default-om); `down` briše sve
+  finansijske podatke — samo dev/test (pravilo 15).
+
 ### Za Sprint 1
 
 - **Worker traži ručni korak po klasteru** (rola) pre 007 — bez toga migracija stoji.
@@ -182,6 +177,9 @@ postoji samo šifrovano na `customers`. Ulazi u migraciju 003, aditivno.
 - `npm audit` u hook-u zavisi od mreže — offline commit neće proći.
 
 ## Istorija
+
+- **Lanac 1.6 → 1.7 i zatvaranje Sprinta 1** (2026-10-12): `3aca0ba`, 1.7, migracije 009–011,
+  `develop`. Pretpostavke i odluke: `git show e06390b:docs/NEXT.md`.
 
 - **Lanac 1.3 → 1.4 → 1.5** (2026-10-12): `6ea8b99`, `c207067`, `a18b6c5`; `cc26a28` migracije
   007 + 008, `src/server/auth/*`, compose (Uroš). 16 pretpostavki: `git show a18b6c5:docs/NEXT.md`.

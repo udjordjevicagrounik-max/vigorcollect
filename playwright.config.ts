@@ -3,6 +3,7 @@ import { e2eDatabaseUrls, loadDotEnv, STORAGE_STATE } from './tests/e2e/e2e-env'
 
 const PORT = Number(process.env.E2E_PORT ?? 3100);
 const BASE_URL = `http://127.0.0.1:${PORT}`;
+const WORKER_PORT = Number(process.env.E2E_WORKER_PORT ?? 3191);
 
 loadDotEnv();
 const db = e2eDatabaseUrls();
@@ -47,23 +48,43 @@ export default defineConfig({
       },
     },
   ],
-  webServer: {
-    // Same standalone server as the Docker image.
-    command: 'npm run build && npm run start',
-    url: `${BASE_URL}/health`,
-    reuseExistingServer: !process.env.CI,
-    timeout: 180_000,
-    env: {
-      PORT: String(PORT),
-      HOSTNAME: '127.0.0.1',
-      PRODUCT_NAME: process.env.PRODUCT_NAME ?? 'E2E Product',
-      DATABASE_URL: db.app,
-      MIGRATE_DATABASE_URL: db.migrate,
-      BETTER_AUTH_URL: BASE_URL,
-      // Cloudflare's PUBLIC Turnstile test keys ("always passes", documented by Cloudflare) —
-      // not secrets. Production refuses to start without real keys (rule 27).
-      TURNSTILE_SITE_KEY: '1x00000000000000000000AA',
-      TURNSTILE_SECRET: '1x0000000000000000000000000000000AA',
+  webServer: [
+    {
+      // Same standalone server as the Docker image.
+      command: 'npm run build && npm run start',
+      url: `${BASE_URL}/health`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 180_000,
+      env: {
+        PORT: String(PORT),
+        HOSTNAME: '127.0.0.1',
+        PRODUCT_NAME: process.env.PRODUCT_NAME ?? 'E2E Product',
+        DATABASE_URL: db.app,
+        MIGRATE_DATABASE_URL: db.migrate,
+        BETTER_AUTH_URL: BASE_URL,
+        // Cloudflare's PUBLIC Turnstile test keys ("always passes", documented by Cloudflare) —
+        // not secrets. Production refuses to start without real keys (rule 27).
+        TURNSTILE_SITE_KEY: '1x00000000000000000000AA',
+        TURNSTILE_SECRET: '1x0000000000000000000000000000000AA',
+      },
     },
-  },
+    {
+      // The job worker of the same build (task 2.4): applies confirmed imports, as in production.
+      command: 'node .next/standalone/worker.mjs',
+      url: `http://127.0.0.1:${WORKER_PORT}/health`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 60_000,
+      env: {
+        WORKER_PORT: String(WORKER_PORT),
+        HOSTNAME: '127.0.0.1',
+        PRODUCT_NAME: process.env.PRODUCT_NAME ?? 'E2E Product',
+        DATABASE_URL: db.app,
+        WORKER_DATABASE_URL: db.worker,
+        MIGRATE_DATABASE_URL: db.migrate,
+        BETTER_AUTH_URL: BASE_URL,
+        TURNSTILE_SITE_KEY: '1x00000000000000000000AA',
+        TURNSTILE_SECRET: '1x0000000000000000000000000000000AA',
+      },
+    },
+  ],
 });

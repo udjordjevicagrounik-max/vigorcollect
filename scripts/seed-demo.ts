@@ -34,6 +34,13 @@
  *   - two teams in the demo tenant: "Naplata" (lead + member: the demo admin; owns Demo Agro)
  *     and "Prodaja" (empty) — TEAM scope has something to show.
  *
+ * Creates (2.1):
+ *   - receivables defaults in every tenant (provision_receivables_defaults(): aging buckets,
+ *     case stages, activity outcomes, next actions + translations);
+ *   - 120 days of EUR→RSD rates under source DEMO (generated, never presented as ECB / NBS —
+ *     ECB publishes no RSD; the NBS adapter is a skeleton). Platform data, as vigor_migrate.
+ *   Invoices and payments come from the demo CSV import (scripts/demo-import/, task 2.2).
+ *
  * TODO(1.6): customers, invoices etc. through the same services as manual actions, using `rng`
  * for every random value and `daysFromToday` for every business date.
  */
@@ -468,6 +475,27 @@ function loadKeyring(): MasterKeyring {
   }
 }
 
+async function seedReceivablesDefaults(client: Client, t: DemoTenant): Promise<void> {
+  await inTenant(client, t.tenantId, async () => {
+    await client.query('SELECT provision_receivables_defaults()');
+  });
+}
+
+/** DEMO EUR→RSD middle rates: 117.1000 + a deterministic 0–0.0299 wobble, as strings. */
+async function seedDemoRates(client: Client, rng: () => number): Promise<void> {
+  await inTenant(client, null, async () => {
+    for (let day = 0; day < 120; day += 1) {
+      const wobble = Math.floor(rng() * 300).toString().padStart(4, '0');
+      await client.query(
+        `INSERT INTO exchange_rates (source, base_currency, quote_currency, rate, valid_on)
+         VALUES ('DEMO', 'EUR', 'RSD', $1::numeric, $2::date)
+         ON CONFLICT (source, base_currency, quote_currency, valid_on) DO NOTHING`,
+        [`117.1${wobble}`, daysFromToday(-day)],
+      );
+    }
+  });
+}
+
 async function main(): Promise<void> {
   loadEnv();
   const url = process.env.MIGRATE_DATABASE_URL;
@@ -477,7 +505,6 @@ async function main(): Promise<void> {
   const matrix = loadMatrix();
 
   const rng = createRng(SEED);
-  void rng; // reserved for generated business data (1.6)
 
   const client = new Client({ connectionString: url });
   await client.connect();
@@ -489,6 +516,8 @@ async function main(): Promise<void> {
     for (const t of [PLATFORM_OPERATOR, DEMO_TENANT]) await seedRoles(client, matrix, t);
     await seedCustomers(client, keyring, DEMO_TENANT);
     await seedTeams(client, DEMO_TENANT);
+    for (const t of [PLATFORM_OPERATOR, DEMO_TENANT]) await seedReceivablesDefaults(client, t);
+    await seedDemoRates(client, rng);
     await seedSignIn(client, url, [PLATFORM_OPERATOR, DEMO_TENANT]);
     console.warn(`seed-demo: tenant #0 (${PLATFORM_OPERATOR.slug}) + ${DEMO_TENANT.slug} ready.`);
   } finally {

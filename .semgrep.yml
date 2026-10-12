@@ -48,3 +48,11 @@ rules:
     paths:
       include: [package.json, scripts/, lefthook.yml]
     pattern-regex: '(?m)^(?![ \t]*#).*drizzle-kit\s+push'
+
+  - id: no-float-amounts
+    languages: [generic]
+    severity: ERROR
+    message: Amounts never pass through a float (rule 18) — use src/server/fx/money.ts (toMinor / money / convert / formatMoney).
+    paths:
+      include: [src/, scripts/]
+    pattern-regex: '(?i)\b(?:Number|parseFloat|parseInt|Math\.(?:round|floor|ceil))\s*\(\s*[\w.?!\[\]''"]*(?:amount|total|balance|exposure|overdue|paid|fx_?rate)|(?:amount|total|balance|exposure|overdue|paid|fx_?rate)\w*\)?\.toFixed\('
