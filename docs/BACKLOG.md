@@ -130,8 +130,10 @@ Ideje i tehnički dug zapisani usred zadatka (protokol: ne predlaže se usred za
 
 - [ ] NBS adapter u `fxRatesJob` (srednji kurs, baza RSD) — sada skelet koji samo loguje. ECB ne
   objavljuje RSD; dok adapter ne postoji, profil RS ostaje `fx_source = ECB`, a dev ima DEMO kurseve.
-- [ ] exceljs 4.4.0: poslednje izdanje 2023-10; 2 moderate nalaza (uuid < 11.1.1, tranzitivno).
-  Ponovo proceniti pre staging-a (fork / zamena / override uuid).
+- [x] exceljs uklonjen u 2.2: numeričke XLSX ćelije pretvara u JS `number` (float) — iznosi ne smeju
+  kroz float (pravilo 18). Zamena: `src/server/imports/xlsx.ts` (zlib + XML tekst, bez paketa).
+- [ ] XLSX čitač: šifrovani fajlovi, ZIP64 i više listova se odbijaju; datum kao Excel serijski broj
+  se prepoznaje samo u kolonama datuma. Proširiti ako klijent pošalje takav izvoz.
 - [ ] Valute sa 0 ili 3 decimale (JPY, KWD): `numeric(18,2)` i `SCALE = 2` u `money.ts` važe za
   sve valute; uvesti minor units po ISO 4217 kad prvi takav klijent bude realan.
 

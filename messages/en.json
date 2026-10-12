@@ -13,6 +13,7 @@
     },
     "items": {
       "home": "Home",
+      "import": "Import",
       "settingsPassword": "Password",
       "users": "Users",
       "tenantSettings": "Settings",
@@ -167,6 +168,9 @@
     "captcha_failed": "The check that you are not a robot failed. Please try again.",
     "rate_limited": "Too many requests from this network. Wait a minute and try again.",
     "approval_required": "The change was sent for approval by another person (four eyes).",
+    "file_too_large": "The file is too large (at most 5 MB and 20,000 rows).",
+    "file_unreadable": "The file cannot be read — save it as CSV (UTF-8) or XLSX.",
+    "no_valid_rows": "There is no valid row to import.",
     "internal": "Something went wrong on our side. Please try again; if it persists, send the request ID to support.",
     "self_action": "You cannot do this to your own account — ask another administrator.",
     "last_owner": "This is the organization’s only owner; make someone else owner first.",
@@ -180,10 +184,118 @@
     }
   },
   "importPage": {
-    "empty": {
-      "title": "Invoice import is coming soon",
-      "description": "Importing CSV/Excel exports from your accounting system arrives in the next version. Meanwhile you can invite colleagues and set up your organization.",
-      "action": "Back to home"
+    "title": "Invoice import",
+    "description": "CSV or Excel (XLSX) from your ERP. Map the columns once — the next import from the same source remembers them. File content is only checked, never executed.",
+    "wizard": {
+      "stepsLabel": "Import steps",
+      "steps": {
+        "1": "1. File",
+        "2": "2. Mapping",
+        "3": "3. Preview",
+        "4": "4. Report"
+      },
+      "next": "Next",
+      "back": "Back",
+      "working": "Working…",
+      "file": {
+        "title": "Choose a file",
+        "hint": "CSV (UTF-8, separator ; or ,) or XLSX, first sheet, up to 5 MB and 20,000 rows.",
+        "columns": "Required columns: invoice ID, number, invoice date, due date, amount, customer tax ID and name. Open amount, currency and country are optional.",
+        "label": "Invoice file"
+      },
+      "mapping": {
+        "title": "Column mapping",
+        "summary": "{rows} rows · {recognized} of {total} fields recognized.",
+        "template": "The mapping of the previous import was applied.",
+        "decimal": "Decimal sign in amounts",
+        "decimalComma": "comma (1.234,56)",
+        "decimalDot": "dot (1,234.56)",
+        "dateOrder": "Date order",
+        "dmy": "day.month.year",
+        "ymd": "year-month-day",
+        "none": "— do not import —",
+        "column": "Column {n}",
+        "missing": "Required field missing: {fields}"
+      },
+      "fields": {
+        "external_id": "Invoice ID in ERP",
+        "number": "Invoice number",
+        "issue_date": "Invoice date",
+        "due_date": "Due date",
+        "currency": "Currency",
+        "amount_total": "Invoice amount",
+        "amount_open": "Open amount",
+        "amount_net": "Net amount",
+        "amount_tax": "VAT",
+        "customer_tax_id": "Customer tax ID",
+        "customer_name": "Customer name",
+        "customer_country": "Customer country",
+        "customer_registration_number": "Customer registration no.",
+        "customer_external_id": "Customer ID in ERP",
+        "buyer_reference": "Buyer reference",
+        "order_reference": "Purchase order"
+      },
+      "codes": {
+        "required": "required field is empty",
+        "too_long": "value too long",
+        "invalid_amount": "amount is not a valid number",
+        "negative_amount": "negative amount",
+        "zero_amount": "amount is zero",
+        "invalid_date": "invalid date",
+        "due_before_issue": "due date is before the invoice date",
+        "open_exceeds_total": "open amount exceeds the total",
+        "net_tax_mismatch": "net + VAT ≠ amount",
+        "invalid_currency": "currency is not an ISO code",
+        "invalid_country": "country is not an ISO code",
+        "duplicate_in_file": "the same ID repeats in the file",
+        "invalid_value": "invalid value"
+      },
+      "preview": {
+        "title": "Preview",
+        "valid": "Valid",
+        "invalid": "With errors (skipped)",
+        "total": "Total rows",
+        "first": "First {n} rows",
+        "row": "Row {n}",
+        "due": "due {date}",
+        "confirm": "Import {n} invoices"
+      },
+      "report": {
+        "title": "Import report",
+        "processing": "The import is being processed…",
+        "failed": "Processing the import failed. It is retried automatically; if it happens again, contact support.",
+        "summary": "New invoices: {created}, updated: {updated}, unchanged: {unchanged}. New customers: {customers}. Skipped rows: {skipped}.",
+        "exceptions": "To decide ({n})",
+        "toCustomers": "Go to customers",
+        "another": "New import",
+        "rollback": "Undo this import",
+        "rollbackConfirm": "Undo the import? Invoices nobody has changed will be removed.",
+        "rollbackYes": "Yes, undo",
+        "rollbackNo": "Cancel"
+      },
+      "exceptionKinds": {
+        "paid_invoice_changed": "amount of a paid invoice changed",
+        "total_changed": "invoice amount changed",
+        "open_amount_increased": "open amount is higher than before",
+        "currency_changed": "currency changed",
+        "customer_changed": "invoice now belongs to another customer",
+        "rollback_blocked": "invoice was changed meanwhile — not undone"
+      },
+      "rolledBack": "Import undone: {reverted} reverted, {blocked} left to decide."
+    },
+    "history": {
+      "title": "Import history",
+      "empty": "No imports yet. Export your customers' open items from the ERP to CSV or Excel and load them above.",
+      "counts": "{rows} rows · {valid} valid · {created} new · {updated} updated · {exceptions} to decide",
+      "status": {
+        "uploaded": "uploaded",
+        "validated": "checked",
+        "confirmed": "processing",
+        "completed": "completed",
+        "failed": "failed",
+        "cancelled": "cancelled",
+        "rolled_back": "undone"
+      }
     }
   },
   "admin": {

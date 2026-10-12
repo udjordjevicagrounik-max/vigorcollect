@@ -3,7 +3,7 @@ import { getTranslations } from 'next-intl/server';
 import { isAnySettlementFlagEnabled } from '@/lib/feature-flags';
 
 type NavGroupKey = 'work' | 'resolution' | 'intelligence' | 'admin';
-type NavItemKey = 'home' | 'users' | 'teams' | 'approvals' | 'tenantSettings' | 'systemStatus';
+type NavItemKey = 'home' | 'import' | 'users' | 'teams' | 'approvals' | 'tenantSettings' | 'systemStatus';
 /** `anyOf` empty = every member; otherwise the item exists only with one of those permissions. */
 type NavItem = { key: NavItemKey; href: string; anyOf: readonly string[] };
 type NavGroup = { key: NavGroupKey; items: NavItem[] };
@@ -11,7 +11,13 @@ type NavGroup = { key: NavGroupKey; items: NavItem[] };
 // Navigation follows PERMISSIONS, never role names (task 1.5). Groups render their heading even
 // when empty, except Resolution, which is hidden (not disabled) while settlement flags are off.
 const NAV_GROUPS: NavGroup[] = [
-  { key: 'work', items: [{ key: 'home', href: '/', anyOf: [] }] },
+  {
+    key: 'work',
+    items: [
+      { key: 'home', href: '/', anyOf: [] },
+      { key: 'import', href: '/import', anyOf: ['import.read', 'import.create'] },
+    ],
+  },
   { key: 'resolution', items: [] },
   { key: 'intelligence', items: [] },
   {

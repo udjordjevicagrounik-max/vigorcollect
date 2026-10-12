@@ -13,6 +13,7 @@
     },
     "items": {
       "home": "Početna",
+      "import": "Uvoz",
       "settingsPassword": "Lozinka",
       "users": "Korisnici",
       "tenantSettings": "Podešavanja",
@@ -167,6 +168,9 @@
     "captcha_failed": "Provera da niste robot nije uspela. Pokušajte ponovo.",
     "rate_limited": "Previše zahteva sa ove mreže. Sačekajte minut pa pokušajte ponovo.",
     "approval_required": "Promena je poslata na odobrenje drugoj osobi (četiri oka).",
+    "file_too_large": "Fajl je prevelik (najviše 5 MB i 20.000 redova).",
+    "file_unreadable": "Fajl ne može da se pročita — sačuvajte ga kao CSV (UTF-8) ili XLSX.",
+    "no_valid_rows": "Nema nijednog ispravnog reda za uvoz.",
     "internal": "Nešto nije u redu sa naše strane. Pokušajte ponovo; ako se ponovi, pošaljte podršci ID zahteva.",
     "self_action": "Ovu radnju ne možete izvršiti nad sopstvenim nalogom — zamolite drugog administratora.",
     "last_owner": "Ovo je jedini vlasnik organizacije; prvo dodelite vlasnika nekom drugom.",
@@ -180,10 +184,118 @@
     }
   },
   "importPage": {
-    "empty": {
-      "title": "Uvoz faktura stiže uskoro",
-      "description": "Uvoz iz CSV/Excel izvoza knjigovodstva biće dostupan u sledećoj verziji. Do tada možete da pozovete kolege i podesite organizaciju.",
-      "action": "Nazad na početnu"
+    "title": "Uvoz faktura",
+    "description": "CSV ili Excel (XLSX) iz ERP-a. Kolone mapirate jednom — sledeći uvoz iz istog izvora ih pamti. Sadržaj fajla se samo proverava, nikad se ne izvršava.",
+    "wizard": {
+      "stepsLabel": "Koraci uvoza",
+      "steps": {
+        "1": "1. Fajl",
+        "2": "2. Mapiranje",
+        "3": "3. Pregled",
+        "4": "4. Izveštaj"
+      },
+      "next": "Dalje",
+      "back": "Nazad",
+      "working": "Obrađujem…",
+      "file": {
+        "title": "Izaberite fajl",
+        "hint": "CSV (UTF-8, razdvojnik ; ili ,) ili XLSX, prvi list, do 5 MB i 20.000 redova.",
+        "columns": "Potrebne kolone: ID fakture, broj, datum fakture, datum dospeća, iznos, PIB i naziv kupca. Otvoreni saldo, valuta i država su opcioni.",
+        "label": "Fajl sa fakturama"
+      },
+      "mapping": {
+        "title": "Mapiranje kolona",
+        "summary": "{rows} redova · prepoznato {recognized} od {total} polja.",
+        "template": "Primenjeno je mapiranje iz prethodnog uvoza.",
+        "decimal": "Decimalni znak u iznosima",
+        "decimalComma": "zarez (1.234,56)",
+        "decimalDot": "tačka (1,234.56)",
+        "dateOrder": "Redosled u datumima",
+        "dmy": "dan.mesec.godina",
+        "ymd": "godina-mesec-dan",
+        "none": "— ne uvozi —",
+        "column": "Kolona {n}",
+        "missing": "Nedostaje obavezno polje: {fields}"
+      },
+      "fields": {
+        "external_id": "ID fakture u ERP-u",
+        "number": "Broj fakture",
+        "issue_date": "Datum fakture",
+        "due_date": "Datum dospeća",
+        "currency": "Valuta",
+        "amount_total": "Iznos fakture",
+        "amount_open": "Otvoreni saldo",
+        "amount_net": "Osnovica",
+        "amount_tax": "PDV",
+        "customer_tax_id": "PIB kupca",
+        "customer_name": "Naziv kupca",
+        "customer_country": "Država kupca",
+        "customer_registration_number": "Matični broj kupca",
+        "customer_external_id": "Šifra kupca u ERP-u",
+        "buyer_reference": "Referenca kupca",
+        "order_reference": "Broj narudžbenice"
+      },
+      "codes": {
+        "required": "obavezno polje je prazno",
+        "too_long": "predugačka vrednost",
+        "invalid_amount": "iznos nije ispravan broj",
+        "negative_amount": "negativan iznos",
+        "zero_amount": "iznos je nula",
+        "invalid_date": "datum nije ispravan",
+        "due_before_issue": "dospeće je pre datuma fakture",
+        "open_exceeds_total": "saldo je veći od iznosa",
+        "net_tax_mismatch": "osnovica + PDV ≠ iznos",
+        "invalid_currency": "valuta nije ISO kod",
+        "invalid_country": "država nije ISO kod",
+        "duplicate_in_file": "isti ID se ponavlja u fajlu",
+        "invalid_value": "neispravna vrednost"
+      },
+      "preview": {
+        "title": "Pregled",
+        "valid": "Ispravno",
+        "invalid": "Sa greškom (preskače se)",
+        "total": "Ukupno redova",
+        "first": "Prvih {n} redova",
+        "row": "Red {n}",
+        "due": "dospeva {date}",
+        "confirm": "Uvezi {n} faktura"
+      },
+      "report": {
+        "title": "Izveštaj o uvozu",
+        "processing": "Uvoz je u obradi…",
+        "failed": "Obrada uvoza nije uspela. Pokušaćemo ponovo automatski; ako se ponovi, javite podršci.",
+        "summary": "Novih faktura: {created}, ažuriranih: {updated}, bez promene: {unchanged}. Novih kupaca: {customers}. Preskočenih redova: {skipped}.",
+        "exceptions": "Za odluku ({n})",
+        "toCustomers": "Idi na kupce",
+        "another": "Novi uvoz",
+        "rollback": "Poništi ovaj uvoz",
+        "rollbackConfirm": "Poništiti uvoz? Fakture koje niko nije menjao biće uklonjene.",
+        "rollbackYes": "Da, poništi",
+        "rollbackNo": "Odustani"
+      },
+      "exceptionKinds": {
+        "paid_invoice_changed": "promena iznosa plaćene fakture",
+        "total_changed": "promenjen iznos fakture",
+        "open_amount_increased": "saldo je veći nego ranije",
+        "currency_changed": "promenjena valuta",
+        "customer_changed": "faktura je sada na drugom kupcu",
+        "rollback_blocked": "faktura je u međuvremenu menjana — nije poništena"
+      },
+      "rolledBack": "Uvoz je poništen: vraćeno {reverted}, ostalo za odluku {blocked}."
+    },
+    "history": {
+      "title": "Istorija uvoza",
+      "empty": "Još nema uvoza. Izvezite otvorene stavke kupaca iz ERP-a u CSV ili Excel i učitajte ih iznad.",
+      "counts": "{rows} redova · ispravno {valid} · novih {created} · ažuriranih {updated} · za odluku {exceptions}",
+      "status": {
+        "uploaded": "učitan",
+        "validated": "proveren",
+        "confirmed": "u obradi",
+        "completed": "završen",
+        "failed": "neuspešan",
+        "cancelled": "otkazan",
+        "rolled_back": "poništen"
+      }
     }
   },
   "admin": {
