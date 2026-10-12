@@ -22,6 +22,11 @@
  *     from the matrix (the document is the source of truth); the admin user holds `owner`.
  *     Needs migration 004 (permission catalog) — stops if a matrix key is missing in the DB.
  *
+ * Creates (1.1a):
+ *   - a Better Auth sign-in identity for each tenant admin, linked through users.auth_user_id —
+ *     only when SEED_ADMIN_PASSWORD and BETTER_AUTH_SECRET are set (never in the repo); the
+ *     authenticator (TOTP) is enrolled at the first sign-in.
+ *
  * TODO(1.6): customers, invoices etc. through the same services as manual actions, using `rng`
  * for every random value and `daysFromToday` for every business date.
  */
@@ -29,6 +34,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { Client } from 'pg';
 import { getMasterKeyring, KeyringError, type MasterKeyring } from '../src/server/crypto/keyring';
 import { createContact, createCustomer } from '../src/server/customers/repository';
+import { createAuth, createAuthPool } from '../src/server/auth/better-auth';
 import {
   grantsByRole,
   parsePermissionMatrix,
@@ -348,6 +354,51 @@ async function seedRoles(client: Client, matrix: PermissionMatrix, t: DemoTenant
   });
 }
 
+/** Sign-in identities for the tenant admins (ADR 0004). Skipped without the env values. */
+async function seedSignIn(client: Client, url: string, tenants: DemoTenant[]): Promise<void> {
+  const password = process.env.SEED_ADMIN_PASSWORD;
+  const secret = process.env.BETTER_AUTH_SECRET;
+  if (!password || !secret) {
+    console.warn(
+      'seed-demo: SEED_ADMIN_PASSWORD / BETTER_AUTH_SECRET not set — no sign-in identities.',
+    );
+    return;
+  }
+  const pool = createAuthPool(url);
+  try {
+    const auth = createAuth(
+      { connectionString: url, secret, baseURL: 'http://localhost', issuer: 'seed' },
+      pool,
+    );
+    const ctx = await auth.$context;
+    for (const t of tenants) {
+      const found = await ctx.internalAdapter.findUserByEmail(t.email);
+      let authUserId = found?.user.id;
+      if (!authUserId) {
+        const user = await ctx.internalAdapter.createUser(
+          { email: t.email, name: t.userName, emailVerified: true },
+          { method: 'admin' },
+        );
+        await ctx.internalAdapter.linkAccount({
+          userId: user.id,
+          providerId: 'credential',
+          accountId: user.id,
+          password: await ctx.password.hash(password),
+        });
+        authUserId = user.id;
+      }
+      await inTenant(client, t.tenantId, async () => {
+        await client.query(
+          `UPDATE users SET auth_user_id = $1 WHERE id = $2 AND auth_user_id IS DISTINCT FROM $1`,
+          [authUserId, t.userId],
+        );
+      });
+    }
+  } finally {
+    await pool.end();
+  }
+}
+
 function loadMatrix(): PermissionMatrix {
   return parsePermissionMatrix(
     readFileSync(new URL('../docs/permissions.md', import.meta.url), 'utf8'),
@@ -385,6 +436,7 @@ async function main(): Promise<void> {
     await seedTenant(client, DEMO_TENANT);
     for (const t of [PLATFORM_OPERATOR, DEMO_TENANT]) await seedRoles(client, matrix, t);
     await seedCustomers(client, keyring, DEMO_TENANT);
+    await seedSignIn(client, url, [PLATFORM_OPERATOR, DEMO_TENANT]);
     console.warn(`seed-demo: tenant #0 (${PLATFORM_OPERATOR.slug}) + ${DEMO_TENANT.slug} ready.`);
   } finally {
     await client.end();

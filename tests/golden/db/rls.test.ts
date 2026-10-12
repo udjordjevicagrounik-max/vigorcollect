@@ -42,7 +42,7 @@ describe('golden/db: RLS is on, forced and has a policy on every table', () => {
                 CASE WHEN NOT EXISTS (SELECT 1 FROM pg_policy p WHERE p.polrelid = c.oid) THEN 'POLICY' END
               ) AS problem
        FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-       WHERE n.nspname = 'public' AND c.relkind = 'r' AND c.relname <> 'schema_migrations'
+       WHERE n.nspname IN ('public', 'auth') AND c.relkind = 'r' AND c.relname <> 'schema_migrations'
        ORDER BY 1`,
     );
     expect(rows.length).toBeGreaterThan(0);

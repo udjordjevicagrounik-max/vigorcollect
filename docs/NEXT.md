@@ -2,56 +2,70 @@
 
 ## Aktivan zadatak
 
-**Sprint 0 zatvoren. Sledeće: 1.1** (obim iz plana sprinta 1 — Uroš potvrđuje pre početka).
-Pre toga: commit i primena migracije 004 (`!` komanda u izveštaju 0.3).
+**1.1b Pozivnice i auth ekrani** — posle Uroševog commit-a 005 i `src/server/auth/*` (`!`
+komanda u izveštaju 1.1a). Obim: pozivnica (hash tokena, 72 h, jednokratna, email u sink),
+ekrani login / MFA unos / MFA setup (QR, `qrcode` odobren) / prihvatanje pozivnice / lockout
+poruka (`mobile-full`, `t()` sr + en, prazno/greška), email servis + sink, testovi pozivnica.
 
-## Poslednja sesija — 0.3 permisije i wireframe-i (2026-10-12, noćni režim)
+### Sprint 1 plan (1.1–1.7)
 
-Podela 0.3a (A+B+D) / 0.3b (C) je predložena, ali u noćnom režimu nije čekala potvrdu: oba
-dela su urađena u jednoj sesiji, kao dva commit-a.
+1. **1.1 auth** — Better Auth (šema `auth`), lozinka + TOTP, sesija 8 h, lockout, pozivnice, ekrani.
+2. **1.2 tenant helperi** — `withTenant()` (tenant isključivo iz sesije), `requirePermission()`, `audit()`.
+3. **1.3 outbox** — `domain_events` dispatcher, `vigor_worker` (ADR 0002 „Otvoreno" 2).
+4. **1.4 security** — maker-checker kroz `approval_requests`, security review checklist, IDOR testovi.
+5. **1.5 prvi ekrani** — po wireframe-ima iz 0.3 (`docs/wireframes/`), `t()` sr + en.
+6. **1.6 timovi** — `teams` / `team_members`, `TEAM` scope prestaje da bude `OWN`.
+7. **1.7 ops** — backup + restore test, `verify-tenant` / `rls-drift` nad živom bazom, smoke posle deploya.
+
+Numeracija važi od Sprinta 1 i zamenjuje raniju (1.3 login, 1.4 maker-checker, 1.5 outbox,
+1.6 verify/backup) u starijim beleškama i komentarima.
+
+## Poslednja sesija — 1.1a autentifikacija (2026-10-12, noćni režim)
 
 ### Urađeno
 
-- **A. `docs/permissions.md`**: 11 sistemskih rola × 61 permisija (21 objekat). Role imaju
-  opis; `external_lawyer` nije rola (pravilo 34). Kritične akcije iz pravila 11 su
-  `approval.write_off|credit_limit|block_customer|legal_handover|risk_override` — samo 🅼
-  (checker), nikad `collector`/`sales_rep`.
-- **B. Migracija 004 (predlog, NIJE commit-ovana)**: `db/migrations/004_permissions_seed_{up,down}.sql`
-  — 61 ključ, `ON CONFLICT DO NOTHING`. Parser `src/server/permissions/matrix.ts`; seed pravi
-  11 rola u oba tenanta i `role_permissions` iz matrice (audit `role_permission.granted`),
-  staje ako katalog nema sve ključeve. Golden testovi: `tests/golden/permissions-matrix.test.ts`
-  (oblik matrice, pravilo 11) i `tests/golden/db/permissions-catalog.test.ts` (baza ↔ matrica,
-  oba smera). Na `collect_test`: up → down → up; seed 2× (idempotentan, audit 11 po tenantu);
-  down posle seed-a zadržava dodeljene ključeve. Mutacioni test: 3 golden testa padaju.
-- **C. `docs/wireframes/`**: `dashboard`, `customer-360`, `case` (+ approval modal
-  `#predaja`), `import` (wizard u 4 koraka), `admin-users` (+ pozivnica); `?empty=1` na svakom;
-  boje samo iz `src/styles/tokens.css`; proveren 375 px i 1280 px (bez horizontalnog skrola).
-  Test `tests/unit/wireframes.test.ts` (mobile klasa, tokeni, bez hex-a, linkovi, prazno stanje).
-- **D. `docs/BACKLOG.md`**: sekcija „Roadmap" (marketing sajt; self-service sign-up V2) i „Iz 0.3".
-- Runbook: zamena dev ključa sada `down 004` → `down 003` → `down 002`.
+- **Migracija 005 (predlog, NIJE commit-ovana)** `db/migrations/005_auth_{up,down}.sql`: šema
+  `auth` (6 tabela Better Auth-a + `failedSignInCount`/`signInLockedUntil`), ENABLE + FORCE RLS
+  bez tenant predikata, `vigor_app` samo DML; FK `users.auth_user_id` (NOT VALID);
+  `app_auth_user_id()` + politika `auth_membership_read` (SELECT, samo sopstveni redovi u
+  `users` i nazivi tih tenanta); PII registar za `auth.*`.
+- **`src/server/auth/*` (predlog, zaštićeno)**: `better-auth.ts` (konfiguracija, hook-ovi za
+  zaključavanje, `activeTenantId` + provera članstva), `memberships.ts`, `session.ts`
+  (`getAuthContext()`: anonymous / mfa_setup_required / tenant_required / ok), README.
+- Ruta `src/app/api/auth/[...all]/route.ts`; seed pravi prijavne naloge za admine (samo uz
+  `SEED_ADMIN_PASSWORD` + `BETTER_AUTH_SECRET`); `.env.example`.
+- **Testovi**: `tests/golden/db/auth.test.ts` (16): lozinka + TOTP → sesija vezana za tenant,
+  kolačić HttpOnly/SameSite, bez TOTP-a nema pristupa, pogrešan TOTP, isti odgovor za
+  nepostojeći email (prijava i reset), 5 promašaja → 15 min sa istim odgovorom i otključavanje,
+  TOTP lockout konfiguracija, 429 posle 10 pokušaja sa jednog IP-a, sesija 8 h apsolutno (fake
+  timer), izbor tenanta samo među sopstvenim članstvima, izolacija, deaktivirano članstvo.
+  Golden `rls` i `pii-registry` prošireni na šemu `auth`. DB 119/119, unit 33/33, `next build` ✔.
+  Mutacioni test: 4 pokvarene zaštite → svaka obara bar 1 test.
+- **Docs**: ADR 0004 (uz obrazloženje za pravilo 10), ADR 0002 „Otvoreno" 1 zatvoreno, runbook
+  „Auth" (tajna, otključavanje, reset MFA), javne rute u `permissions.md`, BACKLOG „Iz 1.1a".
 
-### Nije urađeno
+### Nije urađeno (1.1b)
 
-- Commit i primena 004 na `collect` — čeka Urošev `!` (pravilo 13). Bez 004 seed staje.
-- Prevodi naziva rola (`translations`) i en verzija wireframe tekstova — wireframe-i su
-  dokumentacija, a stringovi idu u `/messages` sa pravim ekranima.
-- `requirePermission` (živi u `src/server/auth/*`, zaštićen) — 1.x.
+- Pozivnice, 5 ekrana, email servis + sink, QR (`qrcode`), testovi pozivnica.
+- `BETTER_AUTH_*` u `docker-compose.yml` (zaštićen) — pre prvog deploy-a sa prijavom.
 
 ### Pretpostavke (najkonzervativnija opcija)
 
-1. `approval.<akcija>` = pravo da se **odluči** o tuđem zahtevu (checker); podnošenje je `approval.create` (imaju ga i `collector`/`sales_rep`).
-2. Akcije su iz zadatog skupa; jedini izuzetak su 5 `approval.*` ključeva iz pravila 11.
-3. Objekat `export` ima samo `export.read` (dnevnik izvoza); sam izvoz je `<objekat>.export` kroz `exportService`.
-4. `admin` nema poslovne odluke ni `contact.read` (PII), ali čita kupce/fakture/uplate radi uvoza.
-5. `decision.approve` (ljudski odobrilac, pravilo 19) imaju samo `owner`, `cfo`, `finance_manager`, `collection_manager`, `legal_manager` — 🅼.
-6. 🅼 i za `user.assign`, `role.manage` (ADR 0002, odluka 2) i `feature_flag.manage` (samo `owner`).
-7. Postojeća rola `tenant_admin` (seed 0.2a) postaje `owner` — seed menja ključ (podatak, ne šema) na istom id-ju.
-8. Seed samo dodaje grantove; uklanjanje izbačenog granta → BACKLOG.
-9. `down 004` ne može da obriše dodeljene ključeve (`role_permissions` je pod RLS-om za `vigor_migrate`): preskače ih uz NOTICE, `up` je no-op.
-10. „Demo Agro" i „Test Trgovina" nisu postojali u seed-u → dodati kao 3. i 4. demo kupac (kompanije, šifrovani kontakti).
-11. Fakture, case-ovi, obećanja i iznosi u wireframe-ima su mock (tabele još ne postoje); valuta RSD, format sr-Latn.
-12. Mobile klase: `dashboard`, `customer-360`, `case` = `mobile-full`; `admin-users` = `mobile-compact`; `import` = `desktop-only`.
-13. Faza case-a je code lista `case_stage` (naziv pretpostavljen; tabela `code_lists` postoji od 003).
+1. `auth` tabele imaju ENABLE + FORCE RLS sa politikama bez tenant uslova (ne „bez RLS-a") — golden pravilo „svaka tabela FORCE" ostaje bez izuzetka.
+2. Nazivi tabela/kolona su Better Auth-ovi (camelCase); DDL je preslikan iz `getMigrations()`.
+3. `generateId: 'uuid'` — `users.auth_user_id` je već `uuid` iz 001.
+4. Članstva se čitaju politikom `auth_membership_read` (GUC `app.auth_user_id`), ne SECURITY DEFINER funkcijom (`vigor_migrate` je pod FORCE RLS).
+5. FK `users_auth_user` je NOT VALID (dev `down 005` ostavlja viseće id-jeve koje RLS krije); VALIDATE → BACKLOG.
+6. Jedno članstvo → tenant se bira sam; više → `/update-session`, provereno hook-om; `getAuthContext()` proverava članstvo na svakom zahtevu.
+7. Zaključavanje: brojač se nulira u trenutku zaključavanja; pokušaji tokom zaključavanja ne produžavaju ga.
+8. MFA je obavezan kroz `getAuthContext()` (Better Auth sam ne tera upis TOTP-a).
+9. Rate limit: prijava i TOTP 10/min, reset 5 / 5 min, ostalo 100/min po IP-u.
+10. Lozinka min. 12 znakova; reset token 1 h; reset opoziva sve sesije; javna registracija isključena.
+11. Kolačić SameSite=Lax (Strict bi pokvario linkove iz emaila za reset i pozivnicu).
+12. Seed pravi prijavne naloge samo uz `SEED_ADMIN_PASSWORD` i `BETTER_AUTH_SECRET`; TOTP pri prvoj prijavi.
+13. Reset lozinke: `mailer` ne šalje ništa do 1.1b (odgovor je isti bez obzira).
+14. PII registar za `auth` koristi imena `auth.<tabela>`; registar golden test pokriva `public` i `auth`.
+15. Test sam računa TOTP (RFC 6238, `node:crypto`) — bez paketa.
 
 ### Odluka Uroša posle 0.2b (2026-10-12; ADR 0002, odluka 4)
 
@@ -73,19 +87,17 @@ postoji samo šifrovano na `customers`. Ulazi u migraciju 003, aditivno.
 
 ### Za Sprint 1
 
-- **Seed zahteva migraciju 004.** Bez nje `npm run seed` staje sa porukom (namerno).
-- **`requirePermission` još ne postoji**, a mora biti na svakoj ruti (pravilo 7). Mesto mu je
-  `src/server/auth/*` (zaštićeno) → prvi zadatak sa rutom traži Urošev pregled; parser matrice je
-  već u `src/server/permissions/matrix.ts`.
-- **Matrica je pretpostavka o poslovnim ulogama** (pretpostavke 1–6). Svaka izmena = izmena
-  `docs/permissions.md` + nova migracija; golden test hvata razliku.
-- **Wireframe tekst nije kroz `t()`**: pri prelasku u ekrane svi stringovi idu u
-  `/messages/sr-Latn.json` + `en.json` (pravilo 17), inače lint `no-literal-strings` pada.
-- **Tabele faktura, uplata, case-ova i obećanja ne postoje** — wireframe-i ih pretpostavljaju;
-  prva migracija 1.x mora pratiti pravila 15, 18, 26 (`numeric(18,2)` + valuta, `date` za
-  dospeće).
-- **`PII_MASTER_KEYS` nije u `docker-compose.yml`** (zaštićen) — prva ruta sa kontaktima pada
-  u kontejneru dok se ne doda.
+- **Bez `BETTER_AUTH_SECRET` u `.env` aplikacija i seed ne prave prijavu** (seed preskače uz
+  poruku; `/api/auth` vraća grešku). Generisanje: runbook „Auth".
+- **Lokalno nema HTTPS-a**: kolačić je `Secure`; za ručno testiranje u browseru treba HTTPS
+  (Elestio) ili `secureCookies: false` samo u dev konfiguraciji — odluka u 1.1b.
+- **Better Auth nadogradnja = moguća migracija** (`getMigrations()` uporediti sa 005).
+- **`requirePermission` / `withTenant()` (1.2) još ne postoje** — `getAuthContext()` je spreman
+  izvor tenanta.
+- **Matrica permisija je pretpostavka o poslovnim ulogama** (0.3); izmena = `docs/permissions.md`
+  - nova migracija.
+- **Wireframe tekst nije kroz `t()`**; tabele faktura/uplata/case-ova još ne postoje.
+- **`PII_MASTER_KEYS` i `BETTER_AUTH_*` nisu u `docker-compose.yml`** (zaštićen).
 
 ### Trajni
 
@@ -106,8 +118,11 @@ postoji samo šifrovano na `customers`. Ulazi u migraciju 003, aditivno.
 
 ## Istorija
 
-- **0.3 permisije i wireframe-i** (2026-10-12, noćni režim): 0.3a i 0.3b commit-ovi; migracija
-  004 čeka Uroša. Sprint 0 zatvoren.
+- **1.1a autentifikacija** (2026-10-12, noćni režim): commit ove sesije (testovi, ruta, seed,
+  docs); 005 i `src/server/auth/*` čekaju Uroša.
+- **0.3 permisije i wireframe-i** (2026-10-12, noćni režim): `e861e22` matrica + role,
+  `33a07a0` wireframe-i, `9f667af` migracija 004 (Uroš). 13 pretpostavki:
+  `git show 33a07a0:docs/NEXT.md`. Sprint 0 zatvoren.
 - **0.2c deljenje i governance** (2026-10-12, noćni režim): `b808e7c` kod, testovi, docs;
   `ab4972c` migracija 003 (Uroš). 15 pretpostavki: `git show b808e7c:docs/NEXT.md` (sve
   prihvaćene; `request_id` ostaje `uuid`).

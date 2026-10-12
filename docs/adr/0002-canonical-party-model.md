@@ -70,7 +70,7 @@ klijentske arhitekture — **test prolazi**.
 
 ## Otvoreno
 
-1. **Login pre tenant konteksta (zadatak 1.3).** Pre prijave tenant nije poznat, a FORCE RLS
+1. **[Zatvoreno → ADR 0004, 1.1a]** **Login pre tenant konteksta (zadatak 1.3).** Pre prijave tenant nije poznat, a FORCE RLS
    sakriva `users`. **Pravac:** Better Auth tabele (user, session, account, verification) žive u
    zasebnoj šemi `auth` **bez tenant RLS-a** (globalni identitet osobe); `users.auth_user_id` je
    most ka članstvu. Posle prijave aplikacija bira tenant među članstvima i tek tada radi

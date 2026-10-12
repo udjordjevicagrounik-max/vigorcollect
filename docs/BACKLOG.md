@@ -43,6 +43,17 @@ Ideje i tehnički dug zapisani usred zadatka (protokol: ne predlaže se usred za
 - [ ] Seed uklanja grant koji je izbačen iz matrice (danas seed samo dodaje); u produkciji izmena rola ide kroz maker-checker (1.4).
 - [ ] Wireframe → komponente: tokeni iz `tokens.css` u Tailwind temu već postoje; ekrani iz `docs/wireframes/` su referenca, ne kod.
 
+- [ ] `down 004` kompletan tek kad `vigor_migrate` dobije politiku za `role_permissions` (danas RLS sakriva grantove → dodeljeni ključevi ostaju).
+
+## Iz 1.1a
+
+- [ ] Rate limit po email-u (prijava, reset, pozivnica) — odluka 2a: u MVP-u samo po IP-u.
+- [ ] `qrcode` paket za TOTP QR (odobren, odluka 3b) — dolazi sa ekranima u 1.1b; obrazloženje u commit poruci.
+- [ ] Email servis + sink za demo tenant (reset lozinke, pozivnice) — 1.1b; do tada `mailer` ne šalje ništa.
+- [ ] `VALIDATE CONSTRAINT users_auth_user` kad nijedno okruženje nema veze iz vremena pre 005.
+- [ ] Admin tok za otključavanje i reset MFA (maker-checker, audit) umesto ručnog SQL-a iz runbook-a — 1.4.
+- [ ] Brisanje isteklih `auth.session` / `auth.verification` redova (job, 1.3 outbox ili cron).
+
 ## Roadmap
 
 ### Marketing sajt — paralelan tok uz Sprint 1

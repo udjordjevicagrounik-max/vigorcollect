@@ -53,17 +53,55 @@ Pravila:
   kompromitovanim → odmah zamena.
 
 Prvo generisanje / zamena dev ključa (samo dev baza). `migrate.sh down` vraća samo POSLEDNJU
-migraciju, pa se vraća sve od najnovije do 002 (stanje posle 004: `down 004`, `down 003`,
-`down 002`). Briše demo kupce, kontakte, ključeve i tabele deljenja/governance; `audit_log` i
+migraciju, pa se vraća sve od najnovije do 002 (stanje posle 005: `down 005`, `down 004`,
+`down 003`, `down 002`). Briše prijavne naloge (seed ih ponovo pravi), demo kupce, kontakte, ključeve i tabele
+deljenja/governance; `audit_log` i
 role ostaju, a `down 004` zadržava permisije koje su dodeljene rolama (NOTICE, `up` ih preskače):
 
 ```bash
-! cd /srv/vigor-collect && sed -i '/^PII_MASTER_KEYS=/d' .env && echo "PII_MASTER_KEYS=1:$(openssl rand -base64 32)" >> .env && ./scripts/migrate.sh down 004 && ./scripts/migrate.sh down 003 && ./scripts/migrate.sh down 002 && ./scripts/migrate.sh up && npm run seed && grep -c '^PII_MASTER_KEYS=1:' .env
+! cd /srv/vigor-collect && sed -i '/^PII_MASTER_KEYS=/d' .env && echo "PII_MASTER_KEYS=1:$(openssl rand -base64 32)" >> .env && ./scripts/migrate.sh down 005 && ./scripts/migrate.sh down 004 && ./scripts/migrate.sh down 003 && ./scripts/migrate.sh down 002 && ./scripts/migrate.sh up && npm run seed && grep -c '^PII_MASTER_KEYS=1:' .env
 ```
 
 Format: `verzija:base64(32 bajta)`, više verzija odvojeno zarezom; najviša šifruje nove ključeve.
 Rotacija na staging/prod (bez gubitka podataka): dodati `N+1:<novi>`; stari ostaje dok re-wrap
 job ne prijavi 0 redova (ADR 0003). Zamena „down → up → seed" važi **samo za dev**.
+
+## Auth (Better Auth, ADR 0004)
+
+Promenljive: `BETTER_AUTH_SECRET` (≥ 32 bajta), `BETTER_AUTH_URL` (javni origin), za dev još
+`SEED_ADMIN_PASSWORD`. Pravila kao za PII ključ: **nikad u chat, log, repo ni backup**; proverava
+se samo sa `grep -c`. Gubitak ili zamena `BETTER_AUTH_SECRET` = sve sesije prestaju i svi
+korisnici ponovo podešavaju TOTP (tajne su šifrovane njime).
+
+Dev — generisanje tajne (staging/prod: van chata, vault):
+
+```bash
+! cd /srv/vigor-collect && sed -i '/^BETTER_AUTH_SECRET=/d' .env && echo "BETTER_AUTH_SECRET=$(openssl rand -base64 32)" >> .env && grep -c '^BETTER_AUTH_SECRET=.' .env
+```
+
+`SEED_ADMIN_PASSWORD` (min. 12 znakova) Uroš upisuje sam u `.env` u editoru — ne kroz chat.
+Posle toga `npm run seed` pravi prijavne naloge za `admin@sinergista.example` i
+`admin@demo.example`; TOTP se podešava pri prvoj prijavi (ekran u 1.1b).
+
+Ručne intervencije (do admin ekrana sa maker-checker-om, 1.4) — kao `vigor_migrate`, uz zapis
+u audit tenanta #0 (`actor_type = 'system'`, razlog u `after`):
+
+```bash
+# Otključavanje posle 5 pogrešnih lozinki (inače se samo otključa posle 15 min)
+psql "$MIGRATE_DATABASE_URL" -v email='osoba@firma.example' <<'SQL'
+UPDATE auth."user" SET "failedSignInCount" = 0, "signInLockedUntil" = NULL WHERE email = lower(:'email');
+SQL
+
+# Reset MFA (izgubljen telefon i rezervni kodovi): briše TOTP i sve sesije → nova registracija
+# TOTP-a pri sledećoj prijavi. Pre toga: identitet osobe potvrđen van kanala (poziv, lično).
+psql "$MIGRATE_DATABASE_URL" -v email='osoba@firma.example' <<'SQL'
+BEGIN;
+DELETE FROM auth."twoFactor" WHERE "userId" = (SELECT id FROM auth."user" WHERE email = lower(:'email'));
+DELETE FROM auth."session"   WHERE "userId" = (SELECT id FROM auth."user" WHERE email = lower(:'email'));
+UPDATE auth."user" SET "twoFactorEnabled" = false WHERE email = lower(:'email');
+COMMIT;
+SQL
+```
 
 ## DB uloge na Elestio (staging/prod)
 

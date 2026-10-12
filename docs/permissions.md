@@ -108,7 +108,8 @@ Izvoz (`*.export`) ide samo kroz `exportService` koji piše `export_log` (pravil
 
 Izuzeci od pravila 7. Svaki izuzetak mora biti ovde, sa razlogom.
 
-| ruta                    | metoda | razlog                                               | zaštita                                |
-| ----------------------- | ------ | ---------------------------------------------------- | -------------------------------------- |
-| `/health`               | GET    | liveness probe za Docker/Elestio i post-deploy smoke | ne vraća podatke, samo `{status:"ok"}` |
-| `/manifest.webmanifest` | GET    | PWA manifest                                         | samo `productName` i boje              |
+| ruta                    | metoda    | razlog                                                              | zaštita                                                                                                            |
+| ----------------------- | --------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `/health`               | GET       | liveness probe za Docker/Elestio i post-deploy smoke                | ne vraća podatke, samo `{status:"ok"}`                                                                             |
+| `/manifest.webmanifest` | GET       | PWA manifest                                                        | samo `productName` i boje                                                                                          |
+| `/api/auth/*`           | GET, POST | Better Auth: prijava, MFA, reset lozinke (pre sesije po definiciji) | rate limit po IP-u, zaključavanje 5 / 15 min, isti odgovor za nepostojeći nalog, bez javne registracije (ADR 0004) |

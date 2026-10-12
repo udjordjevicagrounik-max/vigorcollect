@@ -6,15 +6,19 @@ import { closePools, migratePool } from './helpers';
 afterAll(closePools);
 
 describe('golden/db: pii_field_registry', () => {
-  it('every column of every public table is registered', async () => {
+  // Registry names: bare for schema public, schema-qualified otherwise (auth.user, 005).
+  const REGISTRY_NAME = `CASE WHEN c.table_schema = 'public' THEN c.table_name
+                              ELSE c.table_schema || '.' || c.table_name END`;
+
+  it('every column of every public and auth table is registered', async () => {
     const { rows } = await migratePool.query<{ column: string }>(
-      `SELECT c.table_name || '.' || c.column_name AS column
+      `SELECT ${REGISTRY_NAME} || '.' || c.column_name AS column
        FROM information_schema.columns c
        JOIN information_schema.tables t
          ON t.table_schema = c.table_schema AND t.table_name = c.table_name
        LEFT JOIN pii_field_registry r
-         ON r.table_name = c.table_name AND r.column_name = c.column_name
-       WHERE c.table_schema = 'public' AND t.table_type = 'BASE TABLE' AND r.id IS NULL
+         ON r.table_name = ${REGISTRY_NAME} AND r.column_name = c.column_name
+       WHERE c.table_schema IN ('public', 'auth') AND t.table_type = 'BASE TABLE' AND r.id IS NULL
        ORDER BY 1`,
     );
     expect(rows.map((r) => r.column)).toEqual([]);
@@ -25,7 +29,8 @@ describe('golden/db: pii_field_registry', () => {
       `SELECT r.table_name || '.' || r.column_name AS column
        FROM pii_field_registry r
        LEFT JOIN information_schema.columns c
-         ON c.table_schema = 'public' AND c.table_name = r.table_name AND c.column_name = r.column_name
+         ON c.table_schema IN ('public', 'auth') AND ${REGISTRY_NAME} = r.table_name
+        AND c.column_name = r.column_name
        WHERE c.column_name IS NULL
        ORDER BY 1`,
     );
