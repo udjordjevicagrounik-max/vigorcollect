@@ -1,4 +1,4 @@
-import { createHmac, randomBytes, randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import {
   createAuth,
@@ -9,6 +9,7 @@ import {
 } from '@/server/auth/better-auth';
 import { activeMemberships } from '@/server/auth/memberships';
 import { getAuthContext } from '@/server/auth/session';
+import { AuthClient, totp } from './auth-client';
 import { appPool, closePools, inTenant, inTenantCommit, migratePool } from './helpers';
 
 // Golden (never delete or skip): sign-in with password + mandatory TOTP, 8 h absolute session,
@@ -38,7 +39,6 @@ const auth = createAuth(
     secret: randomBytes(32).toString('base64'),
     baseURL: BASE_URL,
     issuer: 'Golden',
-    secureCookies: false,
     mailer: async (mail) => {
       mails.push(mail);
     },
@@ -46,67 +46,10 @@ const auth = createAuth(
   authPool,
 );
 
-// ---------------------------------------------------------------------------------------------
-// HTTP-level client: real Request → auth.handler, with a cookie jar and a fixed client IP.
-// ---------------------------------------------------------------------------------------------
-
-class Client {
-  private jar = new Map<string, string>();
-  constructor(private readonly ip: string) {}
-
-  async call(path: string, body?: unknown): Promise<{ status: number; json: unknown }> {
-    const headers = new Headers({ origin: BASE_URL, 'x-forwarded-for': this.ip });
-    if (this.jar.size) {
-      headers.set('cookie', [...this.jar].map(([k, v]) => `${k}=${v}`).join('; '));
-    }
-    if (body !== undefined) headers.set('content-type', 'application/json');
-    const res = await auth.handler(
-      new Request(`${BASE_URL}/api/auth${path}`, {
-        method: body === undefined ? 'GET' : 'POST',
-        headers,
-        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-      }),
-    );
-    for (const cookie of res.headers.getSetCookie()) {
-      const [pair] = cookie.split(';');
-      const [name, ...value] = (pair ?? '').split('=');
-      if (!name) continue;
-      const v = value.join('=');
-      if (v === '' || /max-age=0/i.test(cookie)) this.jar.delete(name);
-      else this.jar.set(name, v);
-    }
-    const text = await res.text();
-    return { status: res.status, json: text ? (JSON.parse(text) as unknown) : null };
-  }
-
-  headers(): Headers {
-    return new Headers({ cookie: [...this.jar].map(([k, v]) => `${k}=${v}`).join('; ') });
-  }
-}
-
 let ipCounter = 0;
-const newClient = (): Client => new Client(`198.51.100.${(ipCounter += 1)}`);
-
-// RFC 6238 TOTP (SHA-1, 6 digits, 30 s) — test-side only, to act as the authenticator app.
-function base32(secret: string): Buffer {
-  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
-  let bits = '';
-  for (const ch of secret.replace(/=+$/, '').toUpperCase()) {
-    bits += alphabet.indexOf(ch).toString(2).padStart(5, '0');
-  }
-  const bytes = bits.match(/.{8}/g) ?? [];
-  return Buffer.from(bytes.map((b) => parseInt(b, 2)));
-}
-
-function totp(otpauthUri: string, at = Date.now()): string {
-  const secret = new URL(otpauthUri).searchParams.get('secret') ?? '';
-  const counter = Buffer.alloc(8);
-  counter.writeBigUInt64BE(BigInt(Math.floor(at / 1000 / 30)));
-  const h = createHmac('sha1', base32(secret)).update(counter).digest();
-  const offset = (h[h.length - 1] ?? 0) & 0xf;
-  const code = (h.readUInt32BE(offset) & 0x7fffffff) % 1_000_000;
-  return code.toString().padStart(6, '0');
-}
+const newClient = (): AuthClient =>
+  new AuthClient(auth, BASE_URL, `198.51.100.${(ipCounter += 1)}`);
+type Client = AuthClient;
 
 // ---------------------------------------------------------------------------------------------
 // Fixtures: persistent tenants/users C, D; auth identities are per run and removed afterwards.

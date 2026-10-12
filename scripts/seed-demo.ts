@@ -27,6 +27,9 @@
  *     only when SEED_ADMIN_PASSWORD and BETTER_AUTH_SECRET are set (never in the repo); the
  *     authenticator (TOTP) is enrolled at the first sign-in.
  *
+ * Creates (1.1b):
+ *   - tenants.is_demo: demo = true (all its e-mail goes to the sink, rule 24), Sinergista = false.
+ *
  * TODO(1.6): customers, invoices etc. through the same services as manual actions, using `rng`
  * for every random value and `daysFromToday` for every business date.
  */
@@ -67,6 +70,8 @@ type DemoTenant = {
   slug: string;
   displayName: string;
   isPlatformOperator: boolean;
+  /** Rule 24: demo tenant → e-mail only to the sink (migration 006). */
+  isDemo: boolean;
   locale: string;
   legalEntityId: string;
   taxId: string;
@@ -87,6 +92,7 @@ const PLATFORM_OPERATOR: DemoTenant = {
   slug: 'sinergista',
   displayName: 'Sinergista',
   isPlatformOperator: true,
+  isDemo: false,
   locale: 'sr-Latn',
   legalEntityId: '00000000-0000-4000-8000-000000000e00',
   taxId: 'DEMO-000000000',
@@ -106,6 +112,7 @@ const DEMO_TENANT: DemoTenant = {
   slug: 'demo',
   displayName: 'Demo Company',
   isPlatformOperator: false,
+  isDemo: true,
   locale: 'en',
   legalEntityId: 'd0000000-0000-4000-8000-000000000e01',
   taxId: 'DEMO-000000001',
@@ -222,9 +229,11 @@ async function seedPlatform(client: Client): Promise<void> {
 async function seedTenant(client: Client, t: DemoTenant): Promise<void> {
   await inTenant(client, t.tenantId, async () => {
     await client.query(
-      `INSERT INTO tenants (id, slug, display_name, is_platform_operator)
-       VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO NOTHING`,
-      [t.tenantId, t.slug, t.displayName, t.isPlatformOperator],
+      `INSERT INTO tenants (id, slug, display_name, is_platform_operator, is_demo)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (id) DO UPDATE SET is_demo = EXCLUDED.is_demo
+       WHERE tenants.is_demo IS DISTINCT FROM EXCLUDED.is_demo`,
+      [t.tenantId, t.slug, t.displayName, t.isPlatformOperator, t.isDemo],
     );
     await client.query(
       `INSERT INTO tenant_settings (tenant_id, default_locale, timezone, default_currency, country_code)

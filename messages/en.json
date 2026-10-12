@@ -33,5 +33,15 @@
     "title": "Page not found",
     "description": "The address may be wrong, or this feature is not enabled for your organization.",
     "action": "Back to home"
+  },
+  "mail": {
+    "invitation": {
+      "subject": "Invitation to {tenant}",
+      "text": "You have been invited to join {tenant}.\n\nOpen the link to set your password and authenticator app. The link is valid for 72 hours and can be used once:\n{url}\n\nIf you did not expect this invitation, ignore this message."
+    },
+    "passwordReset": {
+      "subject": "Password reset",
+      "text": "A password reset was requested for your account.\n\nOpen the link to set a new password. The link is valid for 1 hour and can be used once:\n{url}\n\nIf you did not request this, ignore this message — your password stays the same."
+    }
   }
 }

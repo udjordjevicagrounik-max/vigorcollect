@@ -81,7 +81,7 @@ Dev — generisanje tajne (staging/prod: van chata, vault):
 
 `SEED_ADMIN_PASSWORD` (min. 12 znakova) Uroš upisuje sam u `.env` u editoru — ne kroz chat.
 Posle toga `npm run seed` pravi prijavne naloge za `admin@sinergista.example` i
-`admin@demo.example`; TOTP se podešava pri prvoj prijavi (ekran u 1.1b).
+`admin@demo.example`; TOTP se podešava pri prvoj prijavi (`/settings/mfa-setup`).
 
 Ručne intervencije (do admin ekrana sa maker-checker-om, 1.4) — kao `vigor_migrate`, uz zapis
 u audit tenanta #0 (`actor_type = 'system'`, razlog u `after`):
@@ -102,6 +102,37 @@ UPDATE auth."user" SET "twoFactorEnabled" = false WHERE email = lower(:'email');
 COMMIT;
 SQL
 ```
+
+### Prvi login admina na dev
+
+1. `.env` ima `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL=http://localhost:13000` i
+   `SEED_ADMIN_PASSWORD`; `npm run seed` pravi prijavni nalog za `admin@demo.example`.
+2. Lozinka je `SEED_ADMIN_PASSWORD` (pročitaj je sam u editoru) **ili** nova, jednokratno
+   ispisana — u **svom SSH terminalu, nikad kroz Claude (`!`)**:
+
+   ```bash
+   cd /srv/vigor-collect && NODE_ENV=development npx tsx scripts/dev-admin-password.ts
+   ```
+
+   Skripta odbija rad ako `NODE_ENV=production`, baza nije `collect`, `BETTER_AUTH_URL` nije
+   `http://localhost` / `http://127.0.0.1` ili izlaz nije terminal (pipe, log, chat). Gasi sve
+   sesije admina i nulira brojač promašaja; TOTP ostaje.
+
+3. `BETTER_AUTH_URL/login` → email + lozinka → `/settings/mfa-setup` (QR ili ručni unos tajne u
+   aplikaciju za autentifikaciju) → kod → **odmah `/settings/password`** (nova lozinka gasi sve
+   ostale sesije).
+
+### Ponovno slanje pozivnice
+
+- Token pozivnice se ne čuva (samo SHA-256), pa se isti link ne može poslati ponovo.
+  Ponovno slanje = **nova pozivnica za isti email** (owner/admin, `user.create`): prethodna se
+  automatski opoziva, nova važi 72 h. Ni u audit-u ni u logu nema tokena ni email adrese.
+- Istekla pozivnica kaže da je istekla; iskorišćena, opozvana i nepostojeća izgledaju isto
+  („link nije važeći"). U oba slučaja korisnik traži novu od admina.
+- Osoba koja već ima nalog (član drugog tenanta) prvo se prijavi, pa otvori link.
+- Demo tenant: mejl postoji samo u sink-u (`mail_outbox`, šifrovano, `transport = 'sink'`); nikad
+  se ne isporučuje (pravilo 24). Pregled sink-a u aplikaciji: BACKLOG.
+- Do SMTP-a (BACKLOG) i ostali tenanti pišu samo u sink.
 
 ## DB uloge na Elestio (staging/prod)
 

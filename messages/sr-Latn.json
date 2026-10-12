@@ -33,5 +33,15 @@
     "title": "Strana ne postoji",
     "description": "Adresa je možda pogrešna ili ova funkcija nije uključena za vašu organizaciju.",
     "action": "Nazad na početnu"
+  },
+  "mail": {
+    "invitation": {
+      "subject": "Poziv u {tenant}",
+      "text": "Pozvani ste da se pridružite organizaciji {tenant}.\n\nOtvorite link da postavite lozinku i aplikaciju za autentifikaciju. Link važi 72 sata i može se iskoristiti samo jednom:\n{url}\n\nAko niste očekivali ovaj poziv, zanemarite poruku."
+    },
+    "passwordReset": {
+      "subject": "Promena lozinke",
+      "text": "Zatražena je promena lozinke za vaš nalog.\n\nOtvorite link da postavite novu lozinku. Link važi 1 sat i može se iskoristiti samo jednom:\n{url}\n\nAko niste vi tražili promenu, zanemarite poruku — lozinka ostaje ista."
+    }
   }
 }

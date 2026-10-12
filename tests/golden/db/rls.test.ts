@@ -27,6 +27,8 @@ const TENANT_TABLE_COUNTS: Record<string, string> = {
   approval_requests: 'SELECT count(*)::int AS n FROM approval_requests',
   decisions: 'SELECT count(*)::int AS n FROM decisions',
   export_log: 'SELECT count(*)::int AS n FROM export_log',
+  user_invitations: 'SELECT count(*)::int AS n FROM user_invitations',
+  mail_outbox: 'SELECT count(*)::int AS n FROM mail_outbox',
 };
 
 beforeAll(ensureFixtures);

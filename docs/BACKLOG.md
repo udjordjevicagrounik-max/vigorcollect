@@ -53,6 +53,16 @@ Ideje i tehnički dug zapisani usred zadatka (protokol: ne predlaže se usred za
 - [ ] `VALIDATE CONSTRAINT users_auth_user` — **pre prvog staging deploya** (Uroš, 2026-10-12); stavka je i u runbook „Release checklist".
 - [ ] Admin tok za otključavanje i reset MFA (maker-checker, audit) umesto ručnog SQL-a iz runbook-a — 1.4.
 - [ ] Brisanje isteklih `auth.session` / `auth.verification` redova (job, 1.3 outbox ili cron).
+- [ ] `failedSignInCount` atomičan increment direktno na `auth.user` (lost update pri paralelnim promašajima), P3.
+
+## Iz 1.1b
+
+- [ ] SMTP transport: `nodemailer` nije u zavisnostima (nije instaliran, pravilo 14) — do odobrenja svi tenanti pišu samo u sink; `smtpEnabled` je svuda `false`. Demo tenant nikad ne dobija SMTP (adapter + trigger 006).
+- [ ] Retencija `mail_outbox` 7 dana — retention job u 1.3 (worker rola; app nema DELETE).
+- [ ] Pregled sink-a za demo tenant u aplikaciji (dešifrovano, samo `admin`/`owner`) — uz admin ekran korisnika (1.5).
+- [ ] Ekran za slanje/ponovno slanje pozivnice (admin-users wireframe) — 1.5; API postoji od 1.2.
+- [ ] Proširenje scope-a pozvanog korisnika (`OWN` → `TEAM`/`ORGANIZATION`) kroz `user.assign` (maker-checker, 1.4).
+- [ ] Rate limit po IP-u za prihvatanje pozivnice (token je 256-bitni, pa nije hitno) — uz rate limit po email-u.
 
 ## Roadmap
 
