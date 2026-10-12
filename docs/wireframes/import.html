@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="sr-Latn">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="mobile-class" content="desktop-only">
+  <meta name="permission" content="import.create">
+  <title>Uvoz — wireframe</title>
+  <link rel="stylesheet" href="../../src/styles/tokens.css">
+  <link rel="stylesheet" href="wireframe.css">
+</head>
+<body>
+  <div class="wf-banner"><span>Wireframe · mobile klasa: <strong>desktop-only</strong> · permisija: <code>import.create</code> · demo podaci (seed)</span><a id="wf-toggle" href="?empty=1">Prikaži prazno stanje (?empty=1)</a></div>
+  <div class="app">
+    <header class="topbar">
+      <span class="brand"><span class="brand-mark" aria-hidden="true"></span>{productName}</span>
+      <span class="who">Demo Company · Demo Admin</span>
+    </header>
+    <nav class="nav" aria-label="Glavna navigacija">
+      <a href="dashboard.html">Rad</a>
+      <a href="customer-360.html">Kupci</a>
+      <a href="case.html">Case-ovi</a>
+      <a href="import.html" aria-current="page">Uvoz</a>
+      <a href="admin-users.html">Korisnici</a>
+    </nav>
+    <main>
+      <div class="page-head">
+        <div>
+          <h1 class="accent">Uvoz faktura</h1>
+          <div class="muted small">Excel ili CSV iz ERP-a. Sadržaj fajla je nepouzdan ulaz — samo se validira, nikad se ne izvršava (pravilo 22).</div>
+        </div>
+      </div>
+
+      <div class="when-data">
+        <ol class="steps">
+          <li><a href="#korak-1">1. Fajl</a></li>
+          <li><a href="#korak-2">2. Mapiranje kolona</a></li>
+          <li><a href="#korak-3">3. Pregled</a></li>
+          <li><a href="#korak-4">4. Potvrda</a></li>
+        </ol>
+
+        <section id="korak-1" class="step card">
+          <h2>1. Izaberi fajl</h2>
+          <div class="dropzone">
+            <p><strong>Prevuci fajl ovde</strong> ili <a href="#korak-2">izaberi sa računara</a></p>
+            <p class="muted small">.xlsx ili .csv, do 10 MB, jedan list. Primer: <code>fakture_demo.xlsx</code></p>
+          </div>
+          <label for="zona">Vremenska zona izvora (ako fajl sadrži vreme)</label>
+          <select id="zona"><option>Europe/Belgrade (zona kompanije)</option><option>UTC</option></select>
+          <div class="actions" style="margin-top:16px"><a class="btn primary" href="#korak-2">Dalje</a></div>
+        </section>
+
+        <section id="korak-2" class="step card">
+          <h2>2. Mapiranje kolona</h2>
+          <p class="muted small">fakture_demo.xlsx · 128 redova · prepoznato 6 od 7 kolona</p>
+          <div class="table-wrap">
+            <table class="stack">
+              <thead><tr><th>Kolona u fajlu</th><th>Primer</th><th>Polje</th></tr></thead>
+              <tbody>
+                <tr><td data-label="Kolona">Kupac</td><td data-label="Primer">Demo Agro d.o.o.</td><td data-label="Polje"><select><option selected>Naziv kupca</option></select></td></tr>
+                <tr><td data-label="Kolona">PIB</td><td data-label="Primer">DEMO-100000003</td><td data-label="Polje"><select><option selected>Poreski broj (tax_id)</option></select></td></tr>
+                <tr><td data-label="Kolona">Br. fakture</td><td data-label="Primer">F-2026-0412</td><td data-label="Polje"><select><option selected>Broj fakture</option></select></td></tr>
+                <tr><td data-label="Kolona">Datum</td><td data-label="Primer">15.06.2026.</td><td data-label="Polje"><select><option selected>Datum fakture</option></select></td></tr>
+                <tr><td data-label="Kolona">Valuta pl.</td><td data-label="Primer">15.07.2026.</td><td data-label="Polje"><select><option selected>Datum dospeća</option></select></td></tr>
+                <tr><td data-label="Kolona">Iznos</td><td data-label="Primer">1.150.000,00</td><td data-label="Polje"><select><option selected>Iznos</option></select></td></tr>
+                <tr class="selected"><td data-label="Kolona">Val</td><td data-label="Primer">RSD</td><td data-label="Polje"><select><option>— izaberi —</option><option>Valuta (ISO 4217)</option></select> <span class="badge warning">▲ nije prepoznato</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="actions" style="margin-top:16px"><a class="btn ghost" href="#korak-1">Nazad</a><a class="btn primary" href="#korak-3">Dalje</a></div>
+        </section>
+
+        <section id="korak-3" class="step card">
+          <h2>3. Pregled</h2>
+          <div class="grid kpi">
+            <div class="card"><div class="kpi-label">Ispravno</div><div class="kpi-value">124</div><span class="badge success">✓ spremno</span></div>
+            <div class="card"><div class="kpi-label">Novi kupci</div><div class="kpi-value">2</div><span class="badge info">● Demo Agro, Test Trgovina</span></div>
+            <div class="card"><div class="kpi-label">Upozorenja</div><div class="kpi-value">3</div><span class="badge warning">▲ duplikat broja</span></div>
+            <div class="card"><div class="kpi-label">Greške</div><div class="kpi-value">1</div><span class="badge danger">✕ preskače se</span></div>
+          </div>
+          <div class="table-wrap" style="margin-top:12px">
+            <table class="stack">
+              <thead><tr><th>Red</th><th>Problem</th><th>Šta se radi</th></tr></thead>
+              <tbody>
+                <tr><td data-label="Red">17</td><td data-label="Problem"><span class="badge danger">✕ iznos nije broj</span></td><td data-label="Šta se radi">red se preskače; ispravi u fajlu i uvezi ponovo</td></tr>
+                <tr><td data-label="Red">42</td><td data-label="Problem"><span class="badge warning">▲ faktura već postoji</span></td><td data-label="Šta se radi">postojeća se ne menja</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="actions" style="margin-top:16px"><a class="btn ghost" href="#korak-2">Nazad</a><a class="btn primary" href="#korak-4">Uvezi 124 fakture</a></div>
+        </section>
+
+        <section id="korak-4" class="step card">
+          <h2>4. Potvrda</h2>
+          <p><span class="badge success">✓ Uvezeno</span> 124 fakture, 2 nova kupca (Demo Agro d.o.o., Test Trgovina d.o.o.). Preskočen 1 red.</p>
+          <p class="muted small">Uvoz je zabeležen u audit log-u; izveštaj o greškama je u istoriji uvoza.</p>
+          <div class="actions"><a class="btn primary" href="dashboard.html">Idi na Rad</a><a class="btn secondary" href="customer-360.html">Otvori Demo Agro d.o.o.</a></div>
+        </section>
+      </div>
+
+      <section class="when-empty empty">
+        <div class="icon" aria-hidden="true">◎</div>
+        <h2>Prvi uvoz: fakture iz tvog ERP-a</h2>
+        <p>Izvezi otvorene stavke kupaca iz ERP-a u Excel ili CSV i učitaj ih ovde. Kolone mapiraš jednom, sledeći uvoz ih pamti.</p>
+        <div class="actions" style="justify-content:center"><a class="btn primary" href="import.html#korak-1">Započni uvoz</a><a class="btn ghost" href="#">Preuzmi primer fajla</a></div>
+      </section>
+    </main>
+  </div>
+  <script src="wireframe.js"></script>
+</body>
+</html>

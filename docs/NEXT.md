@@ -2,68 +2,56 @@
 
 ## Aktivan zadatak
 
-**Nema aktivnog zadatka — čeka Uroša:** commit i primena migracije 003 (`!` komanda u izveštaju
-0.2c), zatim izbor sledećeg zadatka (Schema v1 je ovim kompletna; sledeći koraci iz sprinta 1:
-1.3 login → `auth` šema, 1.4 maker-checker + timovi, 1.5 outbox worker, 1.6 verify/backup).
+**Sprint 0 zatvoren. Sledeće: 1.1** (obim iz plana sprinta 1 — Uroš potvrđuje pre početka).
+Pre toga: commit i primena migracije 004 (`!` komanda u izveštaju 0.3).
 
-## Poslednja sesija — 0.2c deljenje i governance (2026-10-12, noćni režim)
+## Poslednja sesija — 0.3 permisije i wireframe-i (2026-10-12, noćni režim)
+
+Podela 0.3a (A+B+D) / 0.3b (C) je predložena, ali u noćnom režimu nije čekala potvrdu: oba
+dela su urađena u jednoj sesiji, kao dva commit-a.
 
 ### Urađeno
 
-- **Migracija 003 (predlog, NIJE commit-ovana, NIJE primenjena na `collect`):**
-  `db/migrations/003_sharing_governance_{up,down}.sql`:
-  - potrošač: `customers.legal_entity_id` DROP NOT NULL + CHECK `customers_identity_required`
-    (NULL samo za `is_natural_person`); preduzetnik: `exception_reason` na uslovnim redovima
-    `legal_entities.*` i `tenant_companies.display_name`;
-  - `code_lists` (+ `requires_flag`, pravilo 31) i FK `customers.segment_code` →
-    `code_lists` (`customer_segment`) preko generisane kolone `segment_list_key`;
-  - `translations` (`role` / `code_list`, po locale-u i polju);
-  - `external_parties` (tip iz pravila 34; postojanje ≠ pristup);
-  - `access_grants` (jedan resurs po redu, `grant_batch_id`, `permission_keys` provereni u
-    `permissions`, rok obavezan, četiri oka, opoziv sa razlogom, opseg zamrznut posle odluke —
-    trigger; samo vlasnik tenant vidi grant);
-  - `data_sources` (7 prava iz pravila 35, sve najstrože po default-u + 2 CHECK-a);
-  - `approval_requests` (maker ≠ checker, sadržaj zamrznut, odluka konačna);
-  - `decisions` (pravilo 19: fizičko lice + pravno dejstvo → `approved` samo uz čoveka; rule/AI
-    samo predlaže; odobrena odluka može samo `superseded`);
-  - `export_log` (INSERT-only: REVOKE + trigger `block_mutation()`; veza na grant);
-  - `request_id uuid` na `access_grants`, `approval_requests`, `decisions`, `export_log`.
-  - Na `collect_test`: up → down → up bez greške; seed prolazi sa 003.
-- **Repozitorijum**: `createConsumer` (nikad `find_or_create`, `legal_entity_id = NULL`, ime
-  šifrovano).
-- **Testovi**: golden DB 102 (bilo 70): `sharing` (grantovi, data_sources), `governance`
-  (maker-checker, pravilo 19, export_log), potrošač + segment FK u `customers`, registar
-  (uslovni P1+ ⇒ `encrypted` ili `exception_reason`). Helper `savepointState` za više provera u
-  jednoj transakciji. Mutacioni test: 6 pokvarenih zaštita → 9 testova pada.
-- **Docs**: ADR 0002 odluka 4, ADR 0003 (pravila rukovanja ključem, slobodne beleške),
-  runbook (pravila za ključeve; zamena dev ključa sada `down 003` → `down 002`), `schema-v1.md`.
+- **A. `docs/permissions.md`**: 11 sistemskih rola × 61 permisija (21 objekat). Role imaju
+  opis; `external_lawyer` nije rola (pravilo 34). Kritične akcije iz pravila 11 su
+  `approval.write_off|credit_limit|block_customer|legal_handover|risk_override` — samo 🅼
+  (checker), nikad `collector`/`sales_rep`.
+- **B. Migracija 004 (predlog, NIJE commit-ovana)**: `db/migrations/004_permissions_seed_{up,down}.sql`
+  — 61 ključ, `ON CONFLICT DO NOTHING`. Parser `src/server/permissions/matrix.ts`; seed pravi
+  11 rola u oba tenanta i `role_permissions` iz matrice (audit `role_permission.granted`),
+  staje ako katalog nema sve ključeve. Golden testovi: `tests/golden/permissions-matrix.test.ts`
+  (oblik matrice, pravilo 11) i `tests/golden/db/permissions-catalog.test.ts` (baza ↔ matrica,
+  oba smera). Na `collect_test`: up → down → up; seed 2× (idempotentan, audit 11 po tenantu);
+  down posle seed-a zadržava dodeljene ključeve. Mutacioni test: 3 golden testa padaju.
+- **C. `docs/wireframes/`**: `dashboard`, `customer-360`, `case` (+ approval modal
+  `#predaja`), `import` (wizard u 4 koraka), `admin-users` (+ pozivnica); `?empty=1` na svakom;
+  boje samo iz `src/styles/tokens.css`; proveren 375 px i 1280 px (bez horizontalnog skrola).
+  Test `tests/unit/wireframes.test.ts` (mobile klasa, tokeni, bez hex-a, linkovi, prazno stanje).
+- **D. `docs/BACKLOG.md`**: sekcija „Roadmap" (marketing sajt; self-service sign-up V2) i „Iz 0.3".
+- Runbook: zamena dev ključa sada `down 004` → `down 003` → `down 002`.
 
 ### Nije urađeno
 
-- Commit i primena migracije 003 na `collect` — čeka Urošev `!` (pravilo 13).
-- Iz 0.2b i dalje: `PII_MASTER_KEYS` u `docker-compose.yml` (zaštićen), re-wrap/re-encrypt/erasure
-  jobovi, `audit()`/`requirePermission` oko repozitorijuma (1.x).
-- Seed bez code lista, prevoda, partnera, grantova i odluka (nije traženo; dodaje se sa prvim
-  ekranom koji ih koristi).
-- Identitetska polja potrošača osim imena (lični broj, adresa) — BACKLOG, aditivno.
+- Commit i primena 004 na `collect` — čeka Urošev `!` (pravilo 13). Bez 004 seed staje.
+- Prevodi naziva rola (`translations`) i en verzija wireframe tekstova — wireframe-i su
+  dokumentacija, a stringovi idu u `/messages` sa pravim ekranima.
+- `requirePermission` (živi u `src/server/auth/*`, zaštićen) — 1.x.
 
-### Pretpostavke (najkonzervativnija opcija, bez DROP/RENAME rizika)
+### Pretpostavke (najkonzervativnija opcija)
 
-1. `request_id` je `uuid`, ne `text`: isti tip kao `audit_log.request_id`, a `resolveRequestId()` uvek daje UUID; prelaz na `text` bi bio samo ALTER TYPE.
-2. `access_grants.resource_type` i `purpose` su kodovi (regex), bez FK — resursi (fakture, case-ovi) još ne postoje; servis proverava postojanje resursa.
-3. Status granta je samo `pending`/`active`/`rejected`/`revoked`; „isteklo" se računa iz `valid_until`, ne čuva se.
-4. Posle odluke opseg granta je zamrznut; `valid_until` sme samo da se skrati; `rejected`/`revoked` su konačni.
-5. Aktivaciju granta odobrava drugi korisnik (četiri oka); opoziv sme svako ovlašćen, i sam autor — opoziv samo smanjuje pristup.
-6. Permisije granta moraju postojati u `permissions` (katalog je danas prazan → nijedan grant se ne može napraviti dok se katalog ne popuni — namerno).
-7. `data_sources`: `retention_days = 0` znači „ne čuva se posle obrade"; `delete_on_termination` default `true`; onward-sharing traži redistribuciju.
-8. `decisions.has_legal_effect` default `true`; pravilo 19 važi za `approved`, a odobrena odluka se samo zamenjuje (`superseded`).
-9. Čovek koji predloži odluku ne sme je sam odobriti (četiri oka i za ljudske odluke).
-10. `approval_requests`: `cancelled`/`expired` ne traže odlučioca; sadržaj zahteva je zamrznut i dok je `pending`.
-11. `export_log.actor_type` uključuje `external_party` (izvoz kroz grant u V2).
-12. Slobodni tekst (`decision_note`, `rationale`, `revoke_reason`) je P1 sa `exception_reason` (bez PII, UI napomena) — ne šifruje se jer nema subjekta.
-13. `external_parties.display_name` je P0, uslovno P1 za advokata pojedinca (javni registar).
-14. `code_lists` se ne brišu (samo `is_active`), `translations` smeju (nema referenci).
-15. `external_parties` i `data_sources` su tenant tabele; primalac granta nema pristup bazi do V2 (potvrdio Uroš).
+1. `approval.<akcija>` = pravo da se **odluči** o tuđem zahtevu (checker); podnošenje je `approval.create` (imaju ga i `collector`/`sales_rep`).
+2. Akcije su iz zadatog skupa; jedini izuzetak su 5 `approval.*` ključeva iz pravila 11.
+3. Objekat `export` ima samo `export.read` (dnevnik izvoza); sam izvoz je `<objekat>.export` kroz `exportService`.
+4. `admin` nema poslovne odluke ni `contact.read` (PII), ali čita kupce/fakture/uplate radi uvoza.
+5. `decision.approve` (ljudski odobrilac, pravilo 19) imaju samo `owner`, `cfo`, `finance_manager`, `collection_manager`, `legal_manager` — 🅼.
+6. 🅼 i za `user.assign`, `role.manage` (ADR 0002, odluka 2) i `feature_flag.manage` (samo `owner`).
+7. Postojeća rola `tenant_admin` (seed 0.2a) postaje `owner` — seed menja ključ (podatak, ne šema) na istom id-ju.
+8. Seed samo dodaje grantove; uklanjanje izbačenog granta → BACKLOG.
+9. `down 004` ne može da obriše dodeljene ključeve (`role_permissions` je pod RLS-om za `vigor_migrate`): preskače ih uz NOTICE, `up` je no-op.
+10. „Demo Agro" i „Test Trgovina" nisu postojali u seed-u → dodati kao 3. i 4. demo kupac (kompanije, šifrovani kontakti).
+11. Fakture, case-ovi, obećanja i iznosi u wireframe-ima su mock (tabele još ne postoje); valuta RSD, format sr-Latn.
+12. Mobile klase: `dashboard`, `customer-360`, `case` = `mobile-full`; `admin-users` = `mobile-compact`; `import` = `desktop-only`.
+13. Faza case-a je code lista `case_stage` (naziv pretpostavljen; tabela `code_lists` postoji od 003).
 
 ### Odluka Uroša posle 0.2b (2026-10-12; ADR 0002, odluka 4)
 
@@ -83,29 +71,47 @@ postoji samo šifrovano na `customers`. Ulazi u migraciju 003, aditivno.
 
 ## Rizik
 
+### Za Sprint 1
+
+- **Seed zahteva migraciju 004.** Bez nje `npm run seed` staje sa porukom (namerno).
+- **`requirePermission` još ne postoji**, a mora biti na svakoj ruti (pravilo 7). Mesto mu je
+  `src/server/auth/*` (zaštićeno) → prvi zadatak sa rutom traži Urošev pregled; parser matrice je
+  već u `src/server/permissions/matrix.ts`.
+- **Matrica je pretpostavka o poslovnim ulogama** (pretpostavke 1–6). Svaka izmena = izmena
+  `docs/permissions.md` + nova migracija; golden test hvata razliku.
+- **Wireframe tekst nije kroz `t()`**: pri prelasku u ekrane svi stringovi idu u
+  `/messages/sr-Latn.json` + `en.json` (pravilo 17), inače lint `no-literal-strings` pada.
+- **Tabele faktura, uplata, case-ova i obećanja ne postoje** — wireframe-i ih pretpostavljaju;
+  prva migracija 1.x mora pratiti pravila 15, 18, 26 (`numeric(18,2)` + valuta, `date` za
+  dospeće).
+- **`PII_MASTER_KEYS` nije u `docker-compose.yml`** (zaštićen) — prva ruta sa kontaktima pada
+  u kontejneru dok se ne doda.
+
+### Trajni
+
 - **`PII_MASTER_KEYS` gubitak = trajni gubitak svih P1–P3 podataka.** Dev ključ je potrošan
   (samo `.env`); staging/prod ključevi se generišu van Claude sesije i čuvaju u vault-u, nikad u
   backup-u (ADR 0003, runbook).
-- **`permissions` katalog je prazan.** Grantovi i `requirePermission` ne mogu da rade dok se
-  katalog ne popuni iz `docs/permissions.md` (migracija, 1.x).
 - **Dev kontejner postavlja `PIP_TARGET=/opt/app/data/.python-deps` i `PYTHONPATH` na isto.**
-  Svaka `pip install` bez očišćenog okruženja piše u `/opt/app/data/`. Tako je nastao i
-  zalutali direktorijum u 0.1; Uroš ga je obrisao 2026-10-11. `setup-tools.sh` instalira
-  semgrep kroz pipx sa očišćenim pip okruženjem.
-- **Pre-commit sada zahteva bazu** (`test:db`): bez `docker compose up -d db` commit ne prolazi
-  (namerno; poruka upućuje na runbook).
-- **`test:db` primenjuje i necommit-ovane migracije na `collect_test`.** Ako se predlog migracije
-  menja posle primene, checksum pada → reset test baze (`down` pa `up`, runbook).
-- **Docker daemon ≠ ovaj kontejner.** Bind mount-ovi iz `/srv/vigor-collect` ne rade; sve što ide
-  u kontejner mora kroz build context. Portovi: `DB_BIND_HOST=172.17.0.1`, `POSTGRES_PORT=15432`.
+  Svaka `pip install` bez očišćenog okruženja piše u `/opt/app/data/` (`setup-tools.sh` instalira
+  semgrep kroz pipx sa očišćenim okruženjem).
+- **Pre-commit zahteva bazu** (`test:db`): bez `docker compose up -d db` commit ne prolazi.
+- **`test:db` primenjuje i necommit-ovane migracije na `collect_test`.** Ako se predlog menja
+  posle primene, checksum pada → reset test baze (`down` pa `up`, runbook).
+- **Docker daemon ≠ ovaj kontejner.** Bind mount-ovi iz `/srv/vigor-collect` ne rade; portovi:
+  `DB_BIND_HOST=172.17.0.1`, `POSTGRES_PORT=15432`.
 - Login (1.3) i outbox dispatcher (1.5) ne mogu da rade dok se ne urade pravci iz ADR 0002 „Otvoreno".
 - Statički golden test je regex nad SQL-om; živa provera je `tests/golden/db/rls.test.ts`.
 - `npm audit` u hook-u zavisi od mreže — offline commit neće proći.
 
 ## Istorija
 
-- **0.2c deljenje i governance** (2026-10-12, noćni režim): commit ove sesije (kod, testovi,
-  docs); migracija 003 čeka Uroša.
+- **0.3 permisije i wireframe-i** (2026-10-12, noćni režim): 0.3a i 0.3b commit-ovi; migracija
+  004 čeka Uroša. Sprint 0 zatvoren.
+- **0.2c deljenje i governance** (2026-10-12, noćni režim): `b808e7c` kod, testovi, docs;
+  `ab4972c` migracija 003 (Uroš). 15 pretpostavki: `git show b808e7c:docs/NEXT.md` (sve
+  prihvaćene; `request_id` ostaje `uuid`).
+
 - **0.2b stranke i šifrovanje** (2026-10-12): `7fd5b9e` kod, testovi, docs; `4fafbe7` migracija
   002 (Uroš). 12 pretpostavki: `git show 7fd5b9e:docs/NEXT.md`. Dev ključ procureo u chat i
   zamenjen istog dana. Na `collect`: migracije 000–002; demo tenant 2 kupca, 2 kontakta, 3 ključa

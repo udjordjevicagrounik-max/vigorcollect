@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="sr-Latn">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="mobile-class" content="mobile-full">
+  <meta name="permission" content="case.read">
+  <title>Case — wireframe</title>
+  <link rel="stylesheet" href="../../src/styles/tokens.css">
+  <link rel="stylesheet" href="wireframe.css">
+</head>
+<body>
+  <div class="wf-banner"><span>Wireframe · mobile klasa: <strong>mobile-full</strong> · permisija: <code>case.read</code> · demo podaci (seed)</span><a id="wf-toggle" href="?empty=1">Prikaži prazno stanje (?empty=1)</a></div>
+  <div class="app">
+    <header class="topbar">
+      <span class="brand"><span class="brand-mark" aria-hidden="true"></span>{productName}</span>
+      <span class="who">Demo Company · Demo Admin</span>
+    </header>
+    <nav class="nav" aria-label="Glavna navigacija">
+      <a href="dashboard.html">Rad</a>
+      <a href="customer-360.html">Kupci</a>
+      <a href="case.html" aria-current="page">Case-ovi</a>
+      <a href="import.html">Uvoz</a>
+      <a href="admin-users.html">Korisnici</a>
+    </nav>
+    <main>
+      <div class="when-data">
+        <div class="page-head">
+          <div>
+            <div class="muted small"><a href="dashboard.html">Rad</a> / <a href="customer-360.html">Demo Agro d.o.o.</a> / Case</div>
+            <h1>C-2026-014 · Demo Agro d.o.o.</h1>
+            <div class="actions" style="margin-top:6px">
+              <span class="badge danger">✕ obećanje prekršeno</span>
+              <span class="badge neutral">izvršilac: Demo Admin</span>
+            </div>
+          </div>
+          <div class="card" style="min-width:220px">
+            <div class="kpi-label">Iznos u case-u</div>
+            <div class="kpi-value">1.150.000,00 RSD</div>
+            <div class="muted small">od toga kamata: 0,00 RSD (profil RS)</div>
+          </div>
+        </div>
+
+        <div class="grid two">
+          <div class="grid">
+            <section class="card">
+              <h2>Faza</h2>
+              <label for="faza">Faza (code lista <code>case_stage</code>, tenant je uređuje)</label>
+              <select id="faza">
+                <option>Kontakt</option>
+                <option selected>Opomena</option>
+                <option>Pred utuženje</option>
+                <option>Pravna služba</option>
+                <option>Zatvoreno — naplaćeno</option>
+              </select>
+              <p class="muted small">Prelaz u „Pravna služba“ ide samo kroz odobren zahtev (pravilo 11).</p>
+            </section>
+
+            <section class="card">
+              <h2>Fakture u case-u</h2>
+              <div class="table-wrap">
+                <table class="stack">
+                  <thead><tr><th>Broj</th><th>Dospeće</th><th class="num">Otvoreno</th><th>Kašnjenje</th></tr></thead>
+                  <tbody>
+                    <tr><td data-label="Broj">F-2026-0412</td><td data-label="Dospeće" data-days="-100"></td><td data-label="Otvoreno" class="num">1.150.000,00 RSD</td><td data-label="Kašnjenje"><span class="badge danger">▲ 100 dana</span></td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <section class="card">
+              <h2>Aktivnosti</h2>
+              <ul class="list small">
+                <li><span>Poziv — obećao 500.000,00 RSD, nije uplaćeno</span><span class="muted" data-days="-3"></span></li>
+                <li><span>Email — opomena 1</span><span class="muted" data-days="-8"></span></li>
+                <li><span>Case otvoren (pravilo: 90+ dana)</span><span class="muted" data-days="-12"></span></li>
+              </ul>
+              <label for="beleska">Nova beleška</label>
+              <textarea id="beleska" rows="2" placeholder="Šta je dogovoreno?"></textarea>
+            </section>
+          </div>
+
+          <div class="grid" style="align-content:start">
+            <section class="card">
+              <h2>Obećanje</h2>
+              <ul class="list small">
+                <li><span>500.000,00 RSD do <span data-days="-1"></span></span><span class="badge danger">✕ prekršeno</span></li>
+                <li><span>650.000,00 RSD do <span data-days="14"></span></span><span class="badge info">● aktivno</span></li>
+              </ul>
+              <a class="btn ghost" href="#" style="margin-top:8px">Novo obećanje</a>
+            </section>
+
+            <section class="card">
+              <h2>Akcije</h2>
+              <div class="grid" style="gap:8px">
+                <a class="btn primary" href="#">Zabeleži poziv</a>
+                <a class="btn secondary" href="#">Pošalji opomenu</a>
+                <a class="btn danger" href="#predaja">Predaj pravnoj</a>
+              </div>
+              <p class="muted small">„Predaj pravnoj“ pravi zahtev za odobrenje; odluku donosi drugi korisnik.</p>
+            </section>
+
+            <div class="ai small">✦ AI predlog: 2 prekršena obećanja u 60 dana. Predlog je samo preporuka — akcija ide kroz isti tok kao ručna (pravilo 22).</div>
+          </div>
+        </div>
+      </div>
+
+      <section class="when-empty empty">
+        <div class="icon" aria-hidden="true">◎</div>
+        <h2>Case vodi naplatu jednog duga od početka do kraja</h2>
+        <p>Case okuplja dospele fakture, obećanja i aktivnosti jednog kupca i prati fazu naplate. Još nema otvorenih case-ova — otvori ga iz kartice kupca.</p>
+        <div class="actions" style="justify-content:center"><a class="btn primary" href="customer-360.html">Izaberi kupca</a></div>
+      </section>
+
+      <div id="predaja" class="modal" role="dialog" aria-modal="true" aria-labelledby="predaja-naslov">
+        <div class="dialog">
+          <h2 id="predaja-naslov">Zahtev: predaja pravnoj službi</h2>
+          <p class="small muted">Kritična akcija (pravilo 11). Zahtev odobrava drugi korisnik sa permisijom <code>approval.legal_handover</code> — ti ga ne možeš sam odobriti.</p>
+          <ul class="list small">
+            <li><span>Kupac</span><strong>Demo Agro d.o.o.</strong></li>
+            <li><span>Case</span><strong>C-2026-014</strong></li>
+            <li><span>Iznos</span><strong>1.150.000,00 RSD</strong></li>
+          </ul>
+          <label for="razlog">Razlog (obavezno)</label>
+          <textarea id="razlog" rows="3">Dva prekršena obećanja; opomena 1 bez odgovora.</textarea>
+          <label for="checker">Predloži odobrioca (opciono)</label>
+          <select id="checker"><option>Bilo ko sa pravom odobrenja</option><option>Demo Pravna (legal_manager)</option><option>Demo Naplata (collection_manager)</option></select>
+          <p class="note small">● Kupac je pravno lice — ljudsko odobrenje ide kroz maker-checker; za fizičko lice dodatno kroz <code>decisions</code> (pravilo 19).</p>
+          <div class="actions">
+            <a class="btn primary" href="#">Podnesi zahtev</a>
+            <a class="btn ghost" href="#">Odustani</a>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+  <script src="wireframe.js"></script>
+</body>
+</html>

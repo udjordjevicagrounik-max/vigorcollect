@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="sr-Latn">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="mobile-class" content="mobile-full">
+  <meta name="permission" content="customer.read">
+  <title>Kupac 360 — wireframe</title>
+  <link rel="stylesheet" href="../../src/styles/tokens.css">
+  <link rel="stylesheet" href="wireframe.css">
+</head>
+<body>
+  <div class="wf-banner"><span>Wireframe · mobile klasa: <strong>mobile-full</strong> · permisija: <code>customer.read</code> · demo podaci (seed)</span><a id="wf-toggle" href="?empty=1">Prikaži prazno stanje (?empty=1)</a></div>
+  <div class="app">
+    <header class="topbar">
+      <span class="brand"><span class="brand-mark" aria-hidden="true"></span>{productName}</span>
+      <span class="who">Demo Company · Demo Admin</span>
+    </header>
+    <nav class="nav" aria-label="Glavna navigacija">
+      <a href="dashboard.html">Rad</a>
+      <a href="customer-360.html" aria-current="page">Kupci</a>
+      <a href="case.html">Case-ovi</a>
+      <a href="import.html">Uvoz</a>
+      <a href="admin-users.html">Korisnici</a>
+    </nav>
+    <main>
+      <div class="when-data">
+        <div class="page-head">
+          <div>
+            <div class="muted small"><a href="dashboard.html">Rad</a> / Kupci</div>
+            <h1>Demo Agro d.o.o.</h1>
+            <div class="small muted">PIB DEMO-100000003 · RS · segment: Ključni · vlasnik: Demo Admin · jezik: sr-Latn</div>
+            <div class="actions" style="margin-top:8px">
+              <span class="badge warning">▲ Kreditni status: žut</span>
+              <span class="badge neutral">Kupac</span>
+            </div>
+          </div>
+          <div class="actions">
+            <a class="btn primary" href="case.html">Otvori case</a>
+            <a class="btn secondary" href="#pregled">Nova aktivnost</a>
+          </div>
+        </div>
+
+        <nav class="tabs" aria-label="Kupac">
+          <a href="#pregled" aria-selected="true">Pregled</a>
+          <a href="#fakture">Fakture (7)</a>
+          <a href="#case">Case (1)</a>
+          <a href="#obecanja">Obećanja (2)</a>
+          <a href="#aktivnosti">Aktivnosti</a>
+          <a href="#dokumenti">Dokumenti</a>
+        </nav>
+
+        <section id="pregled" class="grid kpi">
+          <div class="card"><div class="kpi-label">Otvoreno</div><div class="kpi-value">1.840.500,00 RSD</div></div>
+          <div class="card"><div class="kpi-label">Dospelo</div><div class="kpi-value">1.150.000,00 RSD</div><span class="badge danger">▲ 90+ dana</span></div>
+          <div class="card"><div class="kpi-label">Kreditni limit</div><div class="kpi-value">2.000.000,00 RSD</div></div>
+          <div class="card"><div class="kpi-label">Prosečno kašnjenje</div><div class="kpi-value">38 dana</div></div>
+        </section>
+
+        <section id="fakture" class="card" style="margin-top:16px">
+          <h2>Fakture</h2>
+          <div class="table-wrap">
+            <table class="stack">
+              <thead><tr><th>Broj</th><th>Datum</th><th>Dospeće</th><th class="num">Iznos</th><th class="num">Otvoreno</th><th>Status</th></tr></thead>
+              <tbody>
+                <tr><td data-label="Broj">F-2026-0412</td><td data-label="Datum" data-days="-130"></td><td data-label="Dospeće" data-days="-100"></td><td data-label="Iznos" class="num">1.150.000,00 RSD</td><td data-label="Otvoreno" class="num">1.150.000,00 RSD</td><td data-label="Status"><span class="badge danger">▲ 90+</span></td></tr>
+                <tr><td data-label="Broj">F-2026-0533</td><td data-label="Datum" data-days="-40"></td><td data-label="Dospeće" data-days="-10"></td><td data-label="Iznos" class="num">450.500,00 RSD</td><td data-label="Otvoreno" class="num">450.500,00 RSD</td><td data-label="Status"><span class="badge warning">▲ 1–30</span></td></tr>
+                <tr><td data-label="Broj">F-2026-0601</td><td data-label="Datum" data-days="-5"></td><td data-label="Dospeće" data-days="25"></td><td data-label="Iznos" class="num">240.000,00 RSD</td><td data-label="Otvoreno" class="num">240.000,00 RSD</td><td data-label="Status"><span class="badge neutral">○ nije dospelo</span></td></tr>
+                <tr><td data-label="Broj">F-2026-0377</td><td data-label="Datum" data-days="-160"></td><td data-label="Dospeće" data-days="-130"></td><td data-label="Iznos" class="num">300.000,00 RSD</td><td data-label="Otvoreno" class="num">0,00 RSD</td><td data-label="Status"><span class="badge success">✓ plaćeno</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <div class="grid two" style="margin-top:16px">
+          <section id="case" class="card">
+            <h2>Case</h2>
+            <ul class="list">
+              <li><div><a href="case.html"><strong>C-2026-014</strong></a> · 1.150.000,00 RSD<div class="muted small">faza: Opomena · izvršilac: Demo Admin</div></div><span class="badge danger">✕ obećanje prekršeno</span></li>
+            </ul>
+          </section>
+          <section id="obecanja" class="card">
+            <h2>Obećanja</h2>
+            <ul class="list small">
+              <li><span>500.000,00 RSD do <span data-days="-1"></span></span><span class="badge danger">✕ prekršeno</span></li>
+              <li><span>650.000,00 RSD do <span data-days="14"></span></span><span class="badge info">● aktivno</span></li>
+            </ul>
+          </section>
+        </div>
+
+        <div class="grid two" style="margin-top:16px">
+          <section id="aktivnosti" class="card">
+            <h2>Aktivnosti</h2>
+            <ul class="list small">
+              <li><span>Poziv — obećao uplatu dela duga, ostatak posle žetve</span><span class="muted" data-days="-3"></span></li>
+              <li><span>Email — poslata opomena (šablon RS, opomena 1)</span><span class="muted" data-days="-8"></span></li>
+              <li><span>Beleška — kontakt: Demo Contact Three (računovodstvo)</span><span class="muted" data-days="-20"></span></li>
+            </ul>
+          </section>
+          <section id="dokumenti" class="card">
+            <h2>Dokumenti</h2>
+            <ul class="list small">
+              <li><span>IOS na dan <span data-days="-30"></span> (PDF)</span><span class="badge success">✓ potvrđen</span></li>
+              <li><span>Opomena 1 (PDF)</span><span class="badge neutral">○ poslato</span></li>
+            </ul>
+          </section>
+        </div>
+      </div>
+
+      <section class="when-empty empty">
+        <div class="icon" aria-hidden="true">◎</div>
+        <h2>Kupac 360 — sve o jednom kupcu na jednom mestu</h2>
+        <p>Ovde se vide fakture, case-ovi, obećanja, aktivnosti i dokumenti kupca. Još nema nijednog kupca — dodaj ga ručno ili uvezi listu kupaca sa fakturama.</p>
+        <div class="actions" style="justify-content:center"><a class="btn primary" href="import.html">Uvezi kupce i fakture</a><a class="btn ghost" href="dashboard.html">Nazad na Rad</a></div>
+      </section>
+    </main>
+  </div>
+  <script src="wireframe.js"></script>
+</body>
+</html>

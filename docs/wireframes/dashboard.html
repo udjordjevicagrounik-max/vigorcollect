@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="sr-Latn">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="mobile-class" content="mobile-full">
+  <meta name="permission" content="report.read">
+  <title>Rad — wireframe</title>
+  <link rel="stylesheet" href="../../src/styles/tokens.css">
+  <link rel="stylesheet" href="wireframe.css">
+</head>
+<body>
+  <div class="wf-banner"><span>Wireframe · mobile klasa: <strong>mobile-full</strong> · permisija: <code>report.read</code> · demo podaci (seed)</span><a id="wf-toggle" href="?empty=1">Prikaži prazno stanje (?empty=1)</a></div>
+  <div class="app">
+    <header class="topbar">
+      <span class="brand"><span class="brand-mark" aria-hidden="true"></span>{productName}</span>
+      <span class="who">Demo Company · Demo Admin</span>
+    </header>
+    <nav class="nav" aria-label="Glavna navigacija">
+      <a href="dashboard.html" aria-current="page">Rad</a>
+      <a href="customer-360.html">Kupci</a>
+      <a href="case.html">Case-ovi</a>
+      <a href="import.html">Uvoz</a>
+      <a href="admin-users.html">Korisnici</a>
+    </nav>
+    <main>
+      <div class="page-head">
+        <div>
+          <h1>Rad</h1>
+          <div class="muted small">Danas je <span data-today>danas</span> · prikaz: moj portfolio (scope OWN)</div>
+        </div>
+        <div class="actions"><a class="btn secondary" href="import.html">Uvezi fakture</a></div>
+      </div>
+
+      <section class="when-data">
+        <div class="grid kpi">
+          <a class="card" href="customer-360.html#fakture" style="text-decoration:none;color:inherit">
+            <div class="kpi-label">Dospelo neplaćeno</div>
+            <div class="kpi-value">4.812.300,00 RSD</div>
+            <span class="badge danger">▲ 90+ dana: 1.150.000,00 RSD</span>
+          </a>
+          <div class="card">
+            <div class="kpi-label">DSO (90 dana)</div>
+            <div class="kpi-value">47 dana</div>
+            <span class="badge warning">▲ +5 u odnosu na prošli mesec</span>
+          </div>
+          <a class="card" href="customer-360.html#obecanja" style="text-decoration:none;color:inherit">
+            <div class="kpi-label">Obećanja ove nedelje</div>
+            <div class="kpi-value">6 · 1.240.000,00 RSD</div>
+            <span class="badge danger">✕ 1 prekršeno</span>
+          </a>
+          <a class="card" href="case.html" style="text-decoration:none;color:inherit">
+            <div class="kpi-label">Otvoreni case-ovi</div>
+            <div class="kpi-value">12</div>
+            <span class="badge info">● 2 čekaju odobrenje</span>
+          </a>
+        </div>
+
+        <div class="grid two" style="margin-top:16px">
+          <div class="card">
+            <h2>Moj rad danas</h2>
+            <ul class="list">
+              <li>
+                <div><a href="case.html"><strong>Demo Agro d.o.o.</strong></a> — pozvati: obećanje prekršeno juče<div class="muted small">Case C-2026-014 · faza: Opomena</div></div>
+                <span class="badge danger">✕ prekršeno</span>
+              </li>
+              <li>
+                <div><a href="customer-360.html"><strong>Test Trgovina d.o.o.</strong></a> — obećanje dospeva danas, 320.000,00 RSD<div class="muted small">Case C-2026-021 · faza: Kontakt</div></div>
+                <span class="badge warning">▲ rok danas</span>
+              </li>
+              <li>
+                <div><a href="customer-360.html"><strong>Demo Kupac d.o.o.</strong></a> — poslati IOS pre zatvaranja meseca<div class="muted small">bez case-a · 3 fakture 31–60 dana</div></div>
+                <span class="badge warning">▲ 31–60</span>
+              </li>
+              <li>
+                <div><a href="case.html#predaja"><strong>Demo Partner a.d.</strong></a> — predaja pravnoj čeka odobrenje<div class="muted small">zahtev podnet <span data-days="-1"></span></div></div>
+                <span class="badge info">● čeka checker-a</span>
+              </li>
+            </ul>
+          </div>
+          <div class="card">
+            <h2>Starosna struktura</h2>
+            <ul class="list small">
+              <li><span>Nije dospelo</span><strong>6.120.000,00</strong></li>
+              <li><span>1–30</span><strong>2.204.300,00</strong></li>
+              <li><span>31–60</span><strong>1.058.000,00</strong></li>
+              <li><span>61–90</span><strong>400.000,00</strong></li>
+              <li><span>90+</span><strong>1.150.000,00</strong></li>
+            </ul>
+            <div class="ai small" style="margin-top:12px">✦ Predlog: Demo Agro d.o.o. ima 2 prekršena obećanja u 60 dana — razmotri predlog blokade (zahteva odobrenje).</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="when-empty empty">
+        <div class="icon" aria-hidden="true">◎</div>
+        <h2>Ovde vidiš šta danas treba naplatiti</h2>
+        <p>Rad prikazuje dospele fakture, obećanja i case-ove iz tvog portfolija. Još nema faktura — uvezi ih iz Excel/CSV fajla ili poveži ERP.</p>
+        <div class="actions" style="justify-content:center"><a class="btn primary" href="import.html">Uvezi fakture</a><a class="btn ghost" href="admin-users.html">Pozovi kolege</a></div>
+      </section>
+    </main>
+  </div>
+  <script src="wireframe.js"></script>
+</body>
+</html>

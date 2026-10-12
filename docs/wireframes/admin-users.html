@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="sr-Latn">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="mobile-class" content="mobile-compact">
+  <meta name="permission" content="user.read">
+  <title>Korisnici — wireframe</title>
+  <link rel="stylesheet" href="../../src/styles/tokens.css">
+  <link rel="stylesheet" href="wireframe.css">
+</head>
+<body>
+  <div class="wf-banner"><span>Wireframe · mobile klasa: <strong>mobile-compact</strong> · permisija: <code>user.read</code> · demo podaci (seed)</span><a id="wf-toggle" href="?empty=1">Prikaži prazno stanje (?empty=1)</a></div>
+  <div class="app">
+    <header class="topbar">
+      <span class="brand"><span class="brand-mark" aria-hidden="true"></span>{productName}</span>
+      <span class="who">Demo Company · Demo Admin</span>
+    </header>
+    <nav class="nav" aria-label="Glavna navigacija">
+      <a href="dashboard.html">Rad</a>
+      <a href="customer-360.html">Kupci</a>
+      <a href="case.html">Case-ovi</a>
+      <a href="import.html">Uvoz</a>
+      <a href="admin-users.html" aria-current="page">Korisnici</a>
+    </nav>
+    <main>
+      <div class="page-head">
+        <div>
+          <h1 class="accent">Korisnici i role</h1>
+          <div class="muted small">Dodela admin rola ide kroz maker-checker (od 1.4). Spoljne strane (advokat, faktor) nisu korisnici — dobijaju pristup kroz grant.</div>
+        </div>
+        <div class="actions"><a class="btn primary" href="#pozivnica">Pozovi korisnika</a></div>
+      </div>
+
+      <section class="when-data card">
+        <div class="table-wrap">
+          <table class="stack">
+            <thead><tr><th>Korisnik</th><th>Rola</th><th>Scope</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+              <tr><td data-label="Korisnik"><strong>Demo Admin</strong><div class="muted small">admin@demo.example</div></td><td data-label="Rola">owner</td><td data-label="Scope"><span class="badge neutral">Organizacija</span></td><td data-label="Status"><span class="badge success">✓ aktivan</span></td><td><a href="#">Izmeni</a></td></tr>
+              <tr><td data-label="Korisnik"><strong>Demo Naplata</strong><div class="muted small">naplata@demo.example</div></td><td data-label="Rola">collection_manager</td><td data-label="Scope"><span class="badge neutral">Tim</span></td><td data-label="Status"><span class="badge success">✓ aktivan</span></td><td><a href="#">Izmeni</a></td></tr>
+              <tr><td data-label="Korisnik"><strong>Demo Terenac</strong><div class="muted small">teren@demo.example</div></td><td data-label="Rola">collector</td><td data-label="Scope"><span class="badge neutral">Svoji</span></td><td data-label="Status"><span class="badge success">✓ aktivan</span></td><td><a href="#">Izmeni</a></td></tr>
+              <tr><td data-label="Korisnik"><strong>Demo Pravna</strong><div class="muted small">pravna@demo.example</div></td><td data-label="Rola">legal_manager</td><td data-label="Scope"><span class="badge neutral">Organizacija</span></td><td data-label="Status"><span class="badge info">● pozvan</span></td><td><a href="#">Pošalji ponovo</a></td></tr>
+              <tr class="selected"><td data-label="Korisnik"><strong>Demo Finansije</strong><div class="muted small">cfo@demo.example</div></td><td data-label="Rola">admin → <strong>cfo</strong></td><td data-label="Scope"><span class="badge neutral">Organizacija</span></td><td data-label="Status"><span class="badge warning">▲ promena čeka odobrenje</span></td><td><a href="#">Zahtev</a></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="muted small">Scope: Svoji (OWN) · Tim (TEAM, do 1.4 radi kao Svoji) · Organizacija (ORGANIZATION). Permisije role: <a href="../permissions.md">matrica permisija</a>.</p>
+      </section>
+
+      <section class="when-empty empty">
+        <div class="icon" aria-hidden="true">◎</div>
+        <h2>Pozovi tim</h2>
+        <p>Za sada si jedini korisnik. Pozovi kolege iz naplate, finansija i prodaje — svako dobija rolu i obim (svoji kupci, tim ili cela organizacija).</p>
+        <div class="actions" style="justify-content:center"><a class="btn primary" href="#pozivnica">Pozovi korisnika</a></div>
+      </section>
+
+      <div id="pozivnica" class="modal" role="dialog" aria-modal="true" aria-labelledby="pozivnica-naslov">
+        <div class="dialog">
+          <h2 id="pozivnica-naslov">Pozivnica</h2>
+          <label for="email">Email</label>
+          <input id="email" type="email" placeholder="ime@firma.example">
+          <label for="rola">Rola</label>
+          <select id="rola">
+            <option>collector</option><option>collection_manager</option><option>finance_manager</option><option>cfo</option>
+            <option>sales_rep</option><option>sales_manager</option><option>legal_manager</option><option>auditor</option><option>read_only</option>
+            <option>admin (traži odobrenje)</option><option>owner (traži odobrenje)</option>
+          </select>
+          <label for="scope">Obim podataka</label>
+          <select id="scope"><option>Svoji kupci (OWN)</option><option>Tim (TEAM)</option><option>Cela organizacija (ORGANIZATION)</option></select>
+          <label for="jezik">Jezik</label>
+          <select id="jezik"><option>English</option><option>Srpski (latinica)</option></select>
+          <p class="small muted">Pozivnica važi 7 dana. Isti odgovor za postojeći i nepostojeći email (pravilo 27).</p>
+          <div class="actions"><a class="btn primary" href="#">Pošalji pozivnicu</a><a class="btn ghost" href="#">Odustani</a></div>
+        </div>
+      </div>
+    </main>
+  </div>
+  <script src="wireframe.js"></script>
+</body>
+</html>
