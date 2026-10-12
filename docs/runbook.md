@@ -268,13 +268,15 @@ Posle deploya: smoke (`/health` 200 + `X-App-Version` = očekivani tag).
 
 ```bash
 # feature gotov → develop
-! cd /srv/vigor-collect && git checkout develop && git merge --no-ff feature/<zadatak> -m "merge: feature/<zadatak> into develop" && git branch -d feature/<zadatak>
+! cd /srv/vigor-collect && git checkout develop && git merge --no-ff feature/<zadatak> -m "chore: merge feature/<zadatak> into develop" && git branch -d feature/<zadatak>
 # release (posle security review-a i release checkliste)
 ! cd /srv/vigor-collect && git checkout -b release/x.y develop && npm test && npm run test:db && npm run build
-! cd /srv/vigor-collect && git checkout main && git merge --no-ff release/x.y -m "release: x.y" && git tag -a vx.y -m "release x.y" && git checkout develop && git merge --no-ff release/x.y -m "merge: release/x.y back into develop"
+! cd /srv/vigor-collect && git checkout main && git merge --no-ff release/x.y -m "chore: release x.y" && git tag -a vx.y -m "release x.y" && git checkout develop && git merge --no-ff release/x.y -m "chore: merge release/x.y back into develop"
 ```
 
 Zaštićeni fajlovi (pravilo 13) i dalje idu u Uroševu `!` komandu na `feature/*` grani.
+Poruke merge commit-a prolaze commitlint: tip mora biti iz liste (`chore: merge …`,
+`chore: release x.y`) — `merge:` / `release:` hook odbija; verzija je u git tagu.
 
 ## Sentry i alarmi (zadatak 1.7)
 
