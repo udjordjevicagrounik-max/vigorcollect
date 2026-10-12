@@ -17,13 +17,23 @@
  *     contact each; contact PII is encrypted with PII_MASTER_KEYS (ADR 0003) — the seed stops
  *     before writing anything if the key is missing.
  *
+ * Creates (0.3):
+ *   - the 11 system roles of docs/permissions.md in every tenant, with role_permissions parsed
+ *     from the matrix (the document is the source of truth); the admin user holds `owner`.
+ *     Needs migration 004 (permission catalog) — stops if a matrix key is missing in the DB.
+ *
  * TODO(1.6): customers, invoices etc. through the same services as manual actions, using `rng`
  * for every random value and `daysFromToday` for every business date.
  */
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { Client } from 'pg';
 import { getMasterKeyring, KeyringError, type MasterKeyring } from '../src/server/crypto/keyring';
 import { createContact, createCustomer } from '../src/server/customers/repository';
+import {
+  grantsByRole,
+  parsePermissionMatrix,
+  type PermissionMatrix,
+} from '../src/server/permissions/matrix';
 
 const SEED = 20260101;
 
@@ -115,7 +125,7 @@ type DemoCustomer = {
   auditId: string;
 };
 
-// Companies only: natural-person customers wait for the decision on legal_entities (NEXT.md).
+// Companies only: consumers (createConsumer, ADR 0002 decision 4) are not seeded yet.
 const DEMO_CUSTOMERS: DemoCustomer[] = [
   {
     id: 'd0000000-0000-4000-8000-0000000c0001',
@@ -136,6 +146,27 @@ const DEMO_CUSTOMERS: DemoCustomer[] = [
     contactName: 'Demo Contact Two',
     contactEmail: 'finance@partner.demo.example',
     auditId: 'd0000000-0000-4000-8000-0000000a0102',
+  },
+  // 0.3: the customers shown in docs/wireframes/.
+  {
+    id: 'd0000000-0000-4000-8000-0000000c0003',
+    taxId: 'DEMO-100000003',
+    name: 'Demo Agro d.o.o.',
+    relationshipType: 'customer',
+    contactId: 'd0000000-0000-4000-8000-0000000d0003',
+    contactName: 'Demo Contact Three',
+    contactEmail: 'racunovodstvo@agro.demo.example',
+    auditId: 'd0000000-0000-4000-8000-0000000a0103',
+  },
+  {
+    id: 'd0000000-0000-4000-8000-0000000c0004',
+    taxId: 'DEMO-100000004',
+    name: 'Test Trgovina d.o.o.',
+    relationshipType: 'customer',
+    contactId: 'd0000000-0000-4000-8000-0000000d0004',
+    contactName: 'Demo Contact Four',
+    contactEmail: 'finansije@trgovina.demo.example',
+    auditId: 'd0000000-0000-4000-8000-0000000a0104',
   },
 ];
 
@@ -205,8 +236,8 @@ async function seedTenant(client: Client, t: DemoTenant): Promise<void> {
       [t.userId, t.tenantId, t.email, t.userName, t.locale, TIMEZONE],
     );
     await client.query(
-      `INSERT INTO roles (id, tenant_id, key, is_system) VALUES ($1, $2, 'tenant_admin', true)
-       ON CONFLICT (id) DO NOTHING`,
+      `INSERT INTO roles (id, tenant_id, key, is_system) VALUES ($1, $2, 'owner', true)
+       ON CONFLICT (id) DO UPDATE SET key = EXCLUDED.key WHERE roles.key IS DISTINCT FROM EXCLUDED.key`,
       [t.roleId, t.tenantId],
     );
     // Admin role over the whole tenant. Admin-role changes go through maker-checker from 1.4
@@ -278,6 +309,51 @@ async function seedCustomers(client: Client, keyring: MasterKeyring, t: DemoTena
   }
 }
 
+/** System roles + role_permissions from the matrix; inserts only what is missing. */
+async function seedRoles(client: Client, matrix: PermissionMatrix, t: DemoTenant): Promise<void> {
+  await inTenant(client, t.tenantId, async () => {
+    const { rows: known } = await client.query<{ key: string }>(
+      'SELECT key FROM permissions WHERE key = ANY($1::text[])',
+      [matrix.permissions.map((p) => p.key)],
+    );
+    if (known.length !== matrix.permissions.length) {
+      throw new Error(
+        `permissions catalog has ${known.length} of ${matrix.permissions.length} matrix keys — apply migration 004 (docs/permissions.md).`,
+      );
+    }
+    for (const [role, keys] of grantsByRole(matrix)) {
+      await client.query(
+        `INSERT INTO roles (tenant_id, key, is_system) VALUES ($1, $2, true)
+         ON CONFLICT (tenant_id, key) DO NOTHING`,
+        [t.tenantId, role],
+      );
+      const granted = await client.query(
+        `INSERT INTO role_permissions (tenant_id, role_id, permission_id)
+         SELECT $1, r.id, p.id
+         FROM roles r JOIN permissions p ON p.key = ANY($3::text[])
+         WHERE r.tenant_id = $1 AND r.key = $2
+         ON CONFLICT (tenant_id, role_id, permission_id) DO NOTHING`,
+        [t.tenantId, role, keys],
+      );
+      if (granted.rowCount) {
+        await client.query(
+          `INSERT INTO audit_log (tenant_id, actor_type, action, entity_type, entity_id, after)
+           SELECT $1, 'system', 'role_permission.granted', 'roles', r.id,
+                  jsonb_build_object('seed', true, 'count', $3::int)
+           FROM roles r WHERE r.tenant_id = $1 AND r.key = $2`,
+          [t.tenantId, role, granted.rowCount],
+        );
+      }
+    }
+  });
+}
+
+function loadMatrix(): PermissionMatrix {
+  return parsePermissionMatrix(
+    readFileSync(new URL('../docs/permissions.md', import.meta.url), 'utf8'),
+  );
+}
+
 function loadKeyring(): MasterKeyring {
   try {
     return getMasterKeyring();
@@ -295,6 +371,7 @@ async function main(): Promise<void> {
   if (!url) throw new Error('MIGRATE_DATABASE_URL is not set (vigor_migrate connection string).');
 
   const keyring = loadKeyring(); // before any write: no half-seeded database
+  const matrix = loadMatrix();
 
   const rng = createRng(SEED);
   void rng; // reserved for generated business data (1.6)
@@ -306,6 +383,7 @@ async function main(): Promise<void> {
     // Tenant #0 first: it must exist before platform actions can be audited under it.
     await seedTenant(client, PLATFORM_OPERATOR);
     await seedTenant(client, DEMO_TENANT);
+    for (const t of [PLATFORM_OPERATOR, DEMO_TENANT]) await seedRoles(client, matrix, t);
     await seedCustomers(client, keyring, DEMO_TENANT);
     console.warn(`seed-demo: tenant #0 (${PLATFORM_OPERATOR.slug}) + ${DEMO_TENANT.slug} ready.`);
   } finally {

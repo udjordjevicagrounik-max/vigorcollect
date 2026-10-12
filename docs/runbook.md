@@ -53,11 +53,12 @@ Pravila:
   kompromitovanim → odmah zamena.
 
 Prvo generisanje / zamena dev ključa (samo dev baza). `migrate.sh down` vraća samo POSLEDNJU
-migraciju, pa se vraća sve od najnovije do 002 (stanje posle 003: `down 003` pa `down 002`).
-Briše demo kupce, kontakte, ključeve i tabele deljenja/governance; `audit_log` ostaje:
+migraciju, pa se vraća sve od najnovije do 002 (stanje posle 004: `down 004`, `down 003`,
+`down 002`). Briše demo kupce, kontakte, ključeve i tabele deljenja/governance; `audit_log` i
+role ostaju, a `down 004` zadržava permisije koje su dodeljene rolama (NOTICE, `up` ih preskače):
 
 ```bash
-! cd /srv/vigor-collect && sed -i '/^PII_MASTER_KEYS=/d' .env && echo "PII_MASTER_KEYS=1:$(openssl rand -base64 32)" >> .env && ./scripts/migrate.sh down 003 && ./scripts/migrate.sh down 002 && ./scripts/migrate.sh up && npm run seed && grep -c '^PII_MASTER_KEYS=1:' .env
+! cd /srv/vigor-collect && sed -i '/^PII_MASTER_KEYS=/d' .env && echo "PII_MASTER_KEYS=1:$(openssl rand -base64 32)" >> .env && ./scripts/migrate.sh down 004 && ./scripts/migrate.sh down 003 && ./scripts/migrate.sh down 002 && ./scripts/migrate.sh up && npm run seed && grep -c '^PII_MASTER_KEYS=1:' .env
 ```
 
 Format: `verzija:base64(32 bajta)`, više verzija odvojeno zarezom; najviša šifruje nove ključeve.

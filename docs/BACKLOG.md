@@ -33,9 +33,32 @@ Ideje i tehnički dug zapisani usred zadatka (protokol: ne predlaže se usred za
 ## Iz 0.2c
 
 - [ ] Identitet potrošača osim imena: `personal_id_enc` (+ blind index po tenantu), `address_enc` — aditivno, sa prvim uvozom potrošača.
-- [ ] Popuniti `permissions` iz `docs/permissions.md` (migracija) — preduslov za grantove i `requirePermission`.
+- [x] Popuniti `permissions` iz `docs/permissions.md` (migracija) — 0.3, migracija 004 + role u seed-u.
 - [ ] Seed: code liste (`customer_segment`), prevodi naziva uloga, demo partner + grant (kad prvi ekran zatraži).
 - [ ] Job koji označava istekle `approval_requests` (`expired`) i obaveštava o grantovima pred istek.
+
+## Iz 0.3
+
+- [ ] Prevodi naziva sistemskih rola (`translations`, `entity_type = 'role'`, sr-Latn + en) — sa ekranom admin-users (1.3/1.4).
+- [ ] Seed uklanja grant koji je izbačen iz matrice (danas seed samo dodaje); u produkciji izmena rola ide kroz maker-checker (1.4).
+- [ ] Wireframe → komponente: tokeni iz `tokens.css` u Tailwind temu već postoje; ekrani iz `docs/wireframes/` su referenca, ne kod.
+
+## Roadmap
+
+### Marketing sajt — paralelan tok uz Sprint 1
+
+- Statičan sajt odvojen od aplikacije (sopstveni deploy), `{productName}` iz konfiguracije (pravilo 21), sr-Latn + en.
+- Tok: sajt → „Zatraži demo" → lead u Pipedrive → Sinergista ručno kreira tenant (provisioning pod tenantom #0, audit) → pozivnica korisniku (`user.create`).
+- Forme po pravilu 27: rate limit po IP-u i email-u, Cloudflare Turnstile, honeypot, bez upload-a fajlova, isti odgovor za postojeći/nepostojeći email.
+- Forma ne dira bazu aplikacije: šalje samo u Pipedrive (+ email u sink na demo-u); bez PII u logu (pravilo 20).
+- Otvoreno: hosting (Elestio static vs. CDN), analitika uz saglasnost (cookie banner), pravni tekstovi (privatnost, uslovi) iz `docs/legal/`.
+
+### Self-service sign-up — V2 (posle 3–5 klijenata)
+
+- Provisioning servis: tenant + podešavanja + kompanija + `owner` + sistemske role iz matrice — isti put kao seed, sa audit-om pod tenantom #0.
+- Billing: plan i `usage_meters` (`src/server/billing`), naplata kroz minimax adapter; cenovnik ne oblikuje domenske tabele (pravilo 36).
+- Email verifikacija pre aktivacije tenanta; forme po pravilu 27; anti-abuse (limit tenanta po domenu/IP-u).
+- Preduslov: 1.3 login + pozivnice, 1.4 maker-checker, runbook za gašenje i brisanje tenanta (GDPR).
 
 ## Funkcije
 
