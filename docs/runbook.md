@@ -35,6 +35,21 @@ u test bazi trajno — `audit_log` je INSERT-only.
 
 Reset test baze: `MIGRATE_DATABASE_URL=<test url> ./scripts/migrate.sh down NNN` pa `up`.
 
+E2E (`npm run test:e2e`, Playwright) diže dva procesa iz istog production build-a, oba na
+`collect_test`: app na `E2E_PORT` (podrazumevano 3100) i job worker na `E2E_WORKER_PORT`
+(podrazumevano 3191) — uvoz faktura primenjuje worker, kao u produkciji. Tenant `0e2e…` ima svoju
+kompaniju (zona UTC); podaci uvoza ostaju između pokretanja (uvoz je idempotentan).
+
+## Uvoz faktura i dnevni posao naplate (Sprint 2)
+
+- Uvoz: `/import` (CSV ili XLSX, do 5 MB i 20.000 redova). Demo fajl:
+  `npx tsx scripts/demo-import/generate.ts > scripts/demo-import/fakture-demo.csv`.
+  Potvrđen uvoz obrađuje worker (događaj `import.confirmed`); ako worker ne radi, uvoz ostaje
+  „u obradi". Rollback uvoza: dugme u izveštaju (`import.create`).
+- Dnevni posao tenanta (posle 06:00 lokalno, `tenant-daily`): evaluacija obećanja (D+`promise_grace_days`
+  u zoni kompanije → fulfilled / partial / broken) i `invoice.overdue` događaji.
+- Kursevi: `fx-rates` radnim danima 16:30 UTC (ECB). ECB nema RSD — dev ima DEMO kurseve iz seed-a.
+
 ## PII master ključ (`PII_MASTER_KEYS`)
 
 Šifruje ključeve podataka u `subject_keys` (ADR 0003). Bez njega seed i svaki rad sa

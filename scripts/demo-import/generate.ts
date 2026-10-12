@@ -43,7 +43,7 @@ function amountText(cents: bigint): string {
   return `${whole},${(cents % 100n).toString().padStart(2, '0')}`;
 }
 
-export function demoCsv(today: Date = new Date()): string {
+export function demoCsv(today: Date = new Date(), currency = 'RSD'): string {
   const rng = mulberry32(20261012);
   const base = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
   const day = 86_400_000;
@@ -64,7 +64,7 @@ export function demoCsv(today: Date = new Date()): string {
         `F-${due.getUTCFullYear()}-${String(400 + i).padStart(4, '0')}`,
         dmy(issue),
         dmy(due),
-        'RSD',
+        currency,
         amountText(total),
         amountText(open),
         customer.taxId,

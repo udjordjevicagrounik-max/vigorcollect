@@ -487,7 +487,9 @@
       "grant": "Add permission",
       "revoke": "Remove permission",
       "propose": "Send for approval",
-      "proposed": "The request was sent; the change applies only after approval."
+      "proposed": "The request was sent; the change applies only after approval.",
+      "legalHandover": "Hand a case over to legal",
+      "openCase": "Open case"
     }
   },
   "pwa": {
@@ -622,5 +624,122 @@
       "urgent": "urgent"
     },
     "caseInvoices": "{n} invoices"
+  },
+  "collections": {
+    "actionsLabel": "Customer actions",
+    "none": "— none —",
+    "due": "due {date}",
+    "priority": {
+      "low": "low",
+      "normal": "normal",
+      "high": "high",
+      "urgent": "urgent"
+    },
+    "case": {
+      "new": "Open a case",
+      "invoices": "Invoices in the case",
+      "noInvoices": "The customer has no open invoices.",
+      "priority": "Priority",
+      "create": "Open case",
+      "created": "The case is open."
+    },
+    "promise": {
+      "new": "Record a promise",
+      "amount": "Amount ({currency})",
+      "date": "Payment date",
+      "create": "Save promise",
+      "created": "The promise is recorded.",
+      "newDate": "New date",
+      "reschedule": "Move",
+      "updated": "The promise was changed.",
+      "cancel": "Cancel promise",
+      "confirmCancel": "Yes, cancel",
+      "cancelled": "The promise was cancelled."
+    },
+    "activity": {
+      "new": "Log an activity",
+      "kind": "Type",
+      "outcome": "Outcome",
+      "nextAction": "Next action",
+      "nextActionOn": "Next action date",
+      "note": "Note (stored encrypted)",
+      "create": "Save activity",
+      "created": "The activity is logged.",
+      "kinds": {
+        "call": "Call",
+        "email": "Email",
+        "note": "Note",
+        "meeting": "Meeting"
+      }
+    },
+    "payment": {
+      "new": "Mark a payment",
+      "amount": "Amount ({currency})",
+      "date": "Payment date",
+      "invoice": "Invoice",
+      "fifo": "Automatic — oldest due first",
+      "reference": "Reference / description",
+      "create": "Save payment",
+      "created": "The payment is recorded and allocated to invoices."
+    },
+    "caseScreen": {
+      "controls": "Case controls",
+      "title": "Case · {stage}",
+      "naturalPerson": "Private person",
+      "noOwner": "no owner",
+      "opened": "opened {date}",
+      "status": {
+        "open": "open",
+        "closed": "closed"
+      },
+      "priorities": {
+        "low": "low priority",
+        "normal": "normal priority",
+        "high": "high priority",
+        "urgent": "urgent"
+      },
+      "stage": "Stage",
+      "priority": "Priority",
+      "saved": "Saved.",
+      "legal": "Hand over to legal",
+      "legalReason": "Reason for the handover",
+      "legalSend": "Send for approval",
+      "legalHint": "The handover is approved by another person (four eyes). Until then the case keeps its stage.",
+      "legalRequested": "The handover request was sent for approval.",
+      "legalPending": "Handover to legal is awaiting approval.",
+      "close": "Close case",
+      "closeConfirm": "Close the case?",
+      "closeYes": "Yes, close",
+      "closed": "The case is closed.",
+      "cancel": "Cancel",
+      "invoices": "Invoices ({n})",
+      "due": "due {date}",
+      "days": "{n} d overdue",
+      "timeline": "Timeline",
+      "timelineEmpty": "No events yet.",
+      "events": {
+        "case": {
+          "opened": "Case opened",
+          "stage_changed": "Stage changed",
+          "assigned": "Owner changed",
+          "priority_changed": "Priority changed",
+          "closed": "Case closed",
+          "legal_handover_requested": "Handover to legal requested",
+          "legal_handover_rejected": "Handover to legal rejected"
+        },
+        "promise": {
+          "created": "Promise recorded",
+          "updated": "Promise changed",
+          "cancelled": "Promise cancelled",
+          "fulfilled": "Promise fulfilled",
+          "partial": "Promise partly kept",
+          "broken": "Promise broken"
+        },
+        "call": "Call",
+        "email": "Email",
+        "note": "Note",
+        "meeting": "Meeting"
+      }
+    }
   }
 }

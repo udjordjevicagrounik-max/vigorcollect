@@ -37,7 +37,13 @@ const NAV_GROUPS: NavGroup[] = [
       {
         key: 'approvals',
         href: '/admin/approvals',
-        anyOf: ['approval.read', 'role.manage', 'user.assign', 'approval.create'],
+        anyOf: [
+          'approval.read',
+          'role.manage',
+          'user.assign',
+          'approval.create',
+          'approval.legal_handover',
+        ],
       },
       { key: 'tenantSettings', href: '/admin/settings', anyOf: ['settings.read'] },
       { key: 'systemStatus', href: '/admin/status', anyOf: ['settings.read'] },

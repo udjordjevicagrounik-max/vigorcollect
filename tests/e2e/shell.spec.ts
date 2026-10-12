@@ -12,7 +12,7 @@ test.describe('app shell', () => {
     await expect(page.locator('[data-nav-group="resolution"]')).toHaveCount(0);
   });
 
-  test('home shows an empty state with a next-step action and a declared mobile class', async ({
+  test('home: empty state with a next step before the first import, otherwise the dashboard', async ({
     page,
   }) => {
     await page.goto('/');
@@ -20,9 +20,18 @@ test.describe('app shell', () => {
       'data-mobile-class',
       /^(mobile-full|mobile-compact|desktop-only)$/,
     );
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    // The tenant is shared with receivables.spec.ts (import in parallel): either state is valid.
     const emptyState = page.locator('section[aria-labelledby="empty-state-title"]');
-    await expect(emptyState.getByRole('heading', { level: 1 })).toBeVisible();
-    await expect(emptyState.getByRole('link')).toBeVisible();
+    if (await emptyState.count()) {
+      await expect(emptyState.getByRole('link')).toBeVisible();
+    } else {
+      await expect(page.locator('[data-kpi="overdue_total"]')).toBeVisible();
+      await expect(page.locator('[data-kpi="overdue_total"] a')).toHaveAttribute(
+        'href',
+        /\/customers/,
+      );
+    }
   });
 
   test('no horizontal overflow', async ({ page }) => {

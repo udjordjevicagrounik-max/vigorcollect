@@ -487,7 +487,9 @@
       "grant": "Dodaj dozvolu",
       "revoke": "Ukloni dozvolu",
       "propose": "Pošalji na odobrenje",
-      "proposed": "Zahtev je poslat; promena važi tek posle odobrenja."
+      "proposed": "Zahtev je poslat; promena važi tek posle odobrenja.",
+      "legalHandover": "Predaja case-a pravnoj službi",
+      "openCase": "Otvori case"
     }
   },
   "pwa": {
@@ -622,5 +624,122 @@
       "urgent": "hitno"
     },
     "caseInvoices": "{n} faktura"
+  },
+  "collections": {
+    "actionsLabel": "Akcije nad kupcem",
+    "none": "— bez —",
+    "due": "dospeće {date}",
+    "priority": {
+      "low": "nizak",
+      "normal": "normalan",
+      "high": "visok",
+      "urgent": "hitno"
+    },
+    "case": {
+      "new": "Otvori case",
+      "invoices": "Fakture u case-u",
+      "noInvoices": "Kupac nema otvorenih faktura.",
+      "priority": "Prioritet",
+      "create": "Otvori case",
+      "created": "Case je otvoren."
+    },
+    "promise": {
+      "new": "Zabeleži obećanje",
+      "amount": "Iznos ({currency})",
+      "date": "Datum plaćanja",
+      "create": "Sačuvaj obećanje",
+      "created": "Obećanje je zabeleženo.",
+      "newDate": "Novi datum",
+      "reschedule": "Pomeri",
+      "updated": "Obećanje je izmenjeno.",
+      "cancel": "Otkaži obećanje",
+      "confirmCancel": "Da, otkaži",
+      "cancelled": "Obećanje je otkazano."
+    },
+    "activity": {
+      "new": "Zabeleži aktivnost",
+      "kind": "Vrsta",
+      "outcome": "Rezultat",
+      "nextAction": "Sledeća akcija",
+      "nextActionOn": "Datum sledeće akcije",
+      "note": "Beleška (čuva se šifrovano)",
+      "create": "Sačuvaj aktivnost",
+      "created": "Aktivnost je zabeležena.",
+      "kinds": {
+        "call": "Poziv",
+        "email": "Email",
+        "note": "Beleška",
+        "meeting": "Sastanak"
+      }
+    },
+    "payment": {
+      "new": "Označi uplatu",
+      "amount": "Iznos ({currency})",
+      "date": "Datum uplate",
+      "invoice": "Faktura",
+      "fifo": "Automatski — najstarija dospela prva",
+      "reference": "Poziv na broj / opis",
+      "create": "Sačuvaj uplatu",
+      "created": "Uplata je zabeležena i povezana sa fakturama."
+    },
+    "caseScreen": {
+      "controls": "Upravljanje case-om",
+      "title": "Case · {stage}",
+      "naturalPerson": "Fizičko lice",
+      "noOwner": "bez vlasnika",
+      "opened": "otvoren {date}",
+      "status": {
+        "open": "otvoren",
+        "closed": "zatvoren"
+      },
+      "priorities": {
+        "low": "nizak prioritet",
+        "normal": "normalan prioritet",
+        "high": "visok prioritet",
+        "urgent": "hitno"
+      },
+      "stage": "Faza",
+      "priority": "Prioritet",
+      "saved": "Izmena je sačuvana.",
+      "legal": "Predaj pravnoj službi",
+      "legalReason": "Razlog predaje",
+      "legalSend": "Pošalji na odobrenje",
+      "legalHint": "Predaja ide na odobrenje drugoj osobi (četiri oka). Do odobrenja case ostaje u trenutnoj fazi.",
+      "legalRequested": "Zahtev za predaju je poslat na odobrenje.",
+      "legalPending": "Predaja pravnoj čeka odobrenje.",
+      "close": "Zatvori case",
+      "closeConfirm": "Zatvoriti case?",
+      "closeYes": "Da, zatvori",
+      "closed": "Case je zatvoren.",
+      "cancel": "Odustani",
+      "invoices": "Fakture ({n})",
+      "due": "dospeće {date}",
+      "days": "{n} d kašnjenja",
+      "timeline": "Hronologija",
+      "timelineEmpty": "Još nema događaja.",
+      "events": {
+        "case": {
+          "opened": "Case otvoren",
+          "stage_changed": "Promenjena faza",
+          "assigned": "Promenjen vlasnik",
+          "priority_changed": "Promenjen prioritet",
+          "closed": "Case zatvoren",
+          "legal_handover_requested": "Zatražena predaja pravnoj",
+          "legal_handover_rejected": "Predaja pravnoj odbijena"
+        },
+        "promise": {
+          "created": "Obećanje zabeleženo",
+          "updated": "Obećanje izmenjeno",
+          "cancelled": "Obećanje otkazano",
+          "fulfilled": "Obećanje ispunjeno",
+          "partial": "Obećanje delimično ispunjeno",
+          "broken": "Obećanje prekršeno"
+        },
+        "call": "Poziv",
+        "email": "Email",
+        "note": "Beleška",
+        "meeting": "Sastanak"
+      }
+    }
   }
 }

@@ -4,10 +4,12 @@ import { getLocale, getTranslations } from 'next-intl/server';
 import { z } from 'zod';
 import { ForbiddenState } from '@/components/admin/forbidden-state';
 import { AgingBars } from '@/components/receivables/aging-bars';
+import { CustomerActions, PromiseActions } from '@/components/receivables/customer-actions';
 import { Screen } from '@/components/shell/screen';
 import { formatAmount } from '@/lib/format-amount';
 import { PermissionDeniedError, permissionKeys } from '@/server/auth/permissions';
 import { NotFoundError, withTenantPage } from '@/server/auth/with-tenant';
+import { localToday } from '@/server/collections/service';
 import {
   codeLabels,
   customerActivities,
@@ -59,11 +61,25 @@ export default async function Customer360Page({
       const keys = await permissionKeys(ctx.db, ctx.userId);
       const allowed = TABS.filter((x) => keys.has(TAB_PERMISSION[x]));
       const active: Tab = allowed.includes(tab) ? tab : 'overview';
+      const invoicesAll = keys.has('invoice.read') ? await customerInvoices(ctx, id) : [];
       return {
         customer,
         allowed,
         active,
-        invoices: active === 'invoices' ? await customerInvoices(ctx, id) : [],
+        keys: [...keys],
+        today: (await localToday(ctx.db, customer.companyId)).today,
+        openInvoices: invoicesAll
+          .filter(
+            (i) => i.amountOpen !== '0.00' && i.status !== 'credited' && i.status !== 'cancelled',
+          )
+          .map((i) => ({
+            id: i.id,
+            number: i.number,
+            amountOpen: i.amountOpen,
+            currency: i.currency,
+            dueDate: i.dueDate,
+          })),
+        invoices: active === 'invoices' ? invoicesAll : [],
         payments: active === 'payments' ? await customerPayments(ctx, id) : [],
         promises: active === 'promises' ? await customerPromises(ctx, id) : [],
         activities: active === 'activities' ? await customerActivities(ctx, id) : [],
@@ -130,6 +146,16 @@ export default async function Customer360Page({
       {c.missingFx ? (
         <p className="mt-2 text-xs text-status-warning-fg">{t('missingFx', { n: c.missingFx })}</p>
       ) : null}
+
+      <CustomerActions
+        customerId={c.id}
+        currency={data.openInvoices[0]?.currency ?? c.currency}
+        today={data.today}
+        permissions={data.keys}
+        openInvoices={data.openInvoices}
+        outcomes={data.outcomes}
+        nextActions={data.nextActions}
+      />
 
       <nav
         aria-label={t('tabsLabel')}
@@ -201,15 +227,34 @@ export default async function Customer360Page({
           />
         ) : null}
         {data.active === 'promises' ? (
-          <List
-            empty={t('empty.promises')}
-            items={data.promises.map((p) => ({
-              key: p.id,
-              attr: p.status,
-              title: `${p.promisedOn} · ${money(p.amount, p.currency)}`,
-              line: `${t(`promiseStatus.${p.status as 'pending'}`)}${p.paidAmount ? ` · ${t('paid', { amount: money(p.paidAmount, p.currency) })}` : ''}`,
-            }))}
-          />
+          data.promises.length === 0 ? (
+            <p className="rounded-lg border border-border bg-surface p-4 text-text-muted">
+              {t('empty.promises')}
+            </p>
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {data.promises.map((p) => (
+                <li
+                  key={p.id}
+                  data-row={p.status}
+                  className="rounded-lg border border-border bg-surface p-3"
+                >
+                  <span className="font-medium text-text">
+                    {p.promisedOn} · {money(p.amount, p.currency)}
+                  </span>
+                  <span className="block text-sm text-text-muted" data-promise-status={p.status}>
+                    {t(`promiseStatus.${p.status as 'pending'}`)}
+                    {p.paidAmount
+                      ? ` · ${t('paid', { amount: money(p.paidAmount, p.currency) })}`
+                      : ''}
+                  </span>
+                  {p.status === 'pending' && data.keys.includes('promise.update') ? (
+                    <PromiseActions promiseId={p.id} today={data.today} />
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          )
         ) : null}
         {data.active === 'activities' ? (
           <List

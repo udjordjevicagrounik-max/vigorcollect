@@ -11,6 +11,9 @@ import { Client } from 'pg';
 export const E2E = {
   tenantId: '0e2e0000-0000-4000-8000-0000000000e2',
   userId: '3e2e0000-0000-4000-8000-0000000000e2',
+  // The invoicing company (task 2.4 flow: import → case → promise → payment).
+  legalEntityId: '1e2e0000-0000-4000-8000-0000000000e2',
+  companyId: '2e2e0000-0000-4000-8000-0000000000e2',
 } as const;
 
 async function inTenant(client: Client, tenantId: string | null, fn: () => Promise<void>) {
@@ -37,6 +40,11 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
       `INSERT INTO jurisdiction_profiles (country_code, default_currency, default_locale, default_timezone)
        VALUES ('XX', 'EUR', 'en', 'UTC') ON CONFLICT (country_code) DO NOTHING`,
     );
+    await client.query(
+      `INSERT INTO legal_entities (id, country_code, tax_id, legal_name, normalized_name, timezone)
+       VALUES ($1, 'XX', 'E2E-COMPANY', 'E2E Company', 'e2e company', 'UTC') ON CONFLICT (id) DO NOTHING`,
+      [E2E.legalEntityId],
+    );
   });
   await inTenant(client, E2E.tenantId, async () => {
     await client.query(
@@ -50,6 +58,11 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
       [E2E.tenantId],
     );
     await client.query('SELECT provision_receivables_defaults()');
+    await client.query(
+      `INSERT INTO tenant_companies (id, tenant_id, legal_entity_id, display_name, is_default)
+       VALUES ($1, $2, $3, 'E2E Company', true) ON CONFLICT (id) DO NOTHING`,
+      [E2E.companyId, E2E.tenantId, E2E.legalEntityId],
+    );
     await client.query(
       `INSERT INTO users (id, tenant_id, email, display_name, timezone, status)
        VALUES ($1, $2, 'owner@golden-e2e.example.test', 'E2E Owner', 'UTC', 'active')

@@ -16,15 +16,17 @@ function toTestDb(url: string | undefined): string {
   return parsed.toString();
 }
 
-export function e2eDatabaseUrls(): { app: string; migrate: string } {
+export function e2eDatabaseUrls(): { app: string; migrate: string; worker: string } {
   loadDotEnv();
   const app = process.env.TEST_DATABASE_URL ?? toTestDb(process.env.DATABASE_URL);
   const migrate =
     process.env.TEST_MIGRATE_DATABASE_URL ?? toTestDb(process.env.MIGRATE_DATABASE_URL);
-  if (!/_test(\?|$)/.test(new URL(app).pathname) || !/_test$/.test(new URL(migrate).pathname)) {
+  // The worker (task 2.4 e2e: the import is applied by the job worker, as in production).
+  const worker = process.env.TEST_WORKER_DATABASE_URL ?? toTestDb(process.env.WORKER_DATABASE_URL);
+  if (![app, migrate, worker].every((url) => /_test(\?|$)/.test(new URL(url).pathname))) {
     throw new Error('E2E must run against a *_test database.');
   }
-  return { app, migrate };
+  return { app, migrate, worker };
 }
 
 /** Waits until the Turnstile widget has produced a token (test keys solve automatically). */

@@ -129,13 +129,27 @@ Ideje i tehnički dug zapisani usred zadatka (protokol: ne predlaže se usred za
 ## Iz 2.1
 
 - [ ] NBS adapter u `fxRatesJob` (srednji kurs, baza RSD) — sada skelet koji samo loguje. ECB ne
-  objavljuje RSD; dok adapter ne postoji, profil RS ostaje `fx_source = ECB`, a dev ima DEMO kurseve.
+      objavljuje RSD; dok adapter ne postoji, profil RS ostaje `fx_source = ECB`, a dev ima DEMO kurseve.
 - [x] exceljs uklonjen u 2.2: numeričke XLSX ćelije pretvara u JS `number` (float) — iznosi ne smeju
-  kroz float (pravilo 18). Zamena: `src/server/imports/xlsx.ts` (zlib + XML tekst, bez paketa).
+      kroz float (pravilo 18). Zamena: `src/server/imports/xlsx.ts` (zlib + XML tekst, bez paketa).
 - [ ] XLSX čitač: šifrovani fajlovi, ZIP64 i više listova se odbijaju; datum kao Excel serijski broj
-  se prepoznaje samo u kolonama datuma. Proširiti ako klijent pošalje takav izvoz.
+      se prepoznaje samo u kolonama datuma. Proširiti ako klijent pošalje takav izvoz.
 - [ ] Valute sa 0 ili 3 decimale (JPY, KWD): `numeric(18,2)` i `SCALE = 2` u `money.ts` važe za
-  sve valute; uvesti minor units po ISO 4217 kad prvi takav klijent bude realan.
+      sve valute; uvesti minor units po ISO 4217 kad prvi takav klijent bude realan.
+
+## Iz 2.2 – 2.4
+
+- [ ] Retencija `import_runs.payload_enc` za napuštene uvoze (status `uploaded` / `validated` duže
+      od N dana) — sada se payload briše tek na kraju, otkazivanju ili obradi.
+- [ ] Posebna dozvola za rollback uvoza (`import.rollback`) — sada ga pokriva `import.create`.
+- [ ] Rollback ne vraća kupce koje je uvoz napravio ni izmene metapodataka (dospeće, reference).
+- [ ] Obećanja istog kupca se ocenjuju nezavisno (ista uplata može pokriti više obećanja);
+      raspodela uplata po obećanjima kad se pojavi realan slučaj.
+- [ ] Ručna uplata ide u izvor `file-import`; poseban izvor „ručni unos" kad stignu bankovni izvodi.
+- [ ] `fx_convert()` zaokružuje half-away-from-zero (PostgreSQL `round`), `money.ts` half-even —
+      uskladiti pre izveštaja sa pravnim dejstvom.
+- [ ] Dashboard/360 računaju „danas" po kompaniji fakture; „Moj rad danas" po podrazumevanoj
+      kompaniji — proveriti kad tenant ima kompanije u više zona.
 
 ## Roadmap
 
