@@ -7,6 +7,7 @@ import { apiError, type ApiErrorCode } from '@/lib/api-error';
 import { logEvent } from '@/lib/log';
 import { APP_VERSION_HEADER, REQUEST_ID_HEADER, resolveRequestId } from '@/lib/request-id';
 import { getAppVersion } from '@/lib/version';
+import { reportError } from '@/server/observability/sentry';
 import { writeAudit, type AuditEntry } from './audit';
 import { getAuth, getAuthAppPool, getAuthBaseURL, getAuthPool } from './better-auth';
 import {
@@ -66,6 +67,8 @@ export type TenantContext = {
   authUserId: string;
   requestId: string;
   requirePermission(key: string): Promise<PermissionGrant>;
+  /** The first of `keys` the member holds (e.g. different checkers per request type). */
+  requireAnyPermission(keys: readonly string[]): Promise<PermissionGrant>;
   audit(entry: AuditEntry): Promise<void>;
 };
 
@@ -84,6 +87,17 @@ export function createTenantContext(
     async requirePermission(key) {
       tracking.permissionChecked = true;
       return checkPermission(db, identity.userId, key);
+    },
+    async requireAnyPermission(keys) {
+      tracking.permissionChecked = true;
+      for (const key of keys) {
+        try {
+          return await checkPermission(db, identity.userId, key);
+        } catch (error) {
+          if (!(error instanceof PermissionDeniedError)) throw error;
+        }
+      }
+      throw new PermissionDeniedError();
     },
     async audit(entry) {
       await writeAudit(db, { type: 'user', id: identity.userId }, entry, identity.requestId);
@@ -198,6 +212,7 @@ export function withTenant<P = Record<string, never>>(
         logEvent('error.unknown_permission', { level: 'error', requestId, permission: error.key });
         return fail(500, 'internal', requestId);
       }
+      reportError(error, { request_id: requestId, path: request.nextUrl.pathname });
       logEvent('error.unhandled', {
         level: 'error',
         requestId,
