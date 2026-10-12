@@ -1,10 +1,15 @@
 import { NextResponse } from 'next/server';
+import { healthReport, liveHealthDeps } from '@/server/health';
 
 export const dynamic = 'force-dynamic';
 
-// Public liveness probe (see docs/permissions.md, "Public routes").
+// Public liveness/readiness probe (docs/permissions.md, "Javne rute"): database reachability and
+// job aggregates (pending, failed, oldest pending age, last retention run) — never data.
 // Correlation and version headers are added by src/proxy.ts.
-// TODO(1.6): add DB readiness check (SELECT 1 as vigor_app) without leaking details.
-export function GET(): NextResponse {
-  return NextResponse.json({ status: 'ok' }, { headers: { 'cache-control': 'no-store' } });
+export async function GET(): Promise<NextResponse> {
+  const report = await healthReport(liveHealthDeps);
+  return NextResponse.json(report, {
+    status: report.db === 'ok' ? 200 : 503,
+    headers: { 'cache-control': 'no-store' },
+  });
 }

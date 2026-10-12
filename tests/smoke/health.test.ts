@@ -1,16 +1,34 @@
 import { NextRequest } from 'next/server';
 import { describe, expect, it } from 'vitest';
-import { GET } from '@/app/health/route';
 import { proxy } from '@/proxy';
+import { healthReport } from '@/server/health';
 import pkg from '../../package.json' with { type: 'json' };
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 describe('/health smoke', () => {
-  it('handler returns 200 with status ok', async () => {
-    const res = GET();
-    expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ status: 'ok' });
+  const jobs = { pending: 0, failed: 0, oldestPendingSeconds: null, lastRetentionAt: null };
+
+  it('status ok with the database up; job aggregates are reported', async () => {
+    const report = await healthReport({ pingDb: async () => {}, jobs: async () => jobs });
+    expect(report).toEqual({ status: 'ok', db: 'ok', jobs });
+  });
+
+  it('database down → degraded (the route answers 503); a job error is not fatal', async () => {
+    const down = await healthReport({
+      pingDb: async () => {
+        throw new Error('connection refused');
+      },
+      jobs: async () => jobs,
+    });
+    expect(down).toEqual({ status: 'degraded', db: 'down', jobs: null });
+    const noJobs = await healthReport({
+      pingDb: async () => {},
+      jobs: async () => {
+        throw new Error('x');
+      },
+    });
+    expect(noJobs).toEqual({ status: 'ok', db: 'ok', jobs: null });
   });
 
   it('proxy adds X-Request-Id and X-App-Version to the response', () => {

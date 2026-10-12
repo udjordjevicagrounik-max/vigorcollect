@@ -1,7 +1,9 @@
 import { Pool, type PoolClient } from 'pg';
 
 // Connections to the golden-test database ONLY (collect_test). Never the dev database.
-function requireEnv(name: 'TEST_DATABASE_URL' | 'TEST_MIGRATE_DATABASE_URL'): string {
+function requireEnv(
+  name: 'TEST_DATABASE_URL' | 'TEST_MIGRATE_DATABASE_URL' | 'TEST_WORKER_DATABASE_URL',
+): string {
   const value = process.env[name];
   if (!value) throw new Error(`${name} is not set — run the DB tests via "npm run test:db".`);
   if (!/_test(\?|$)/.test(value)) throw new Error(`${name} must point at a *_test database.`);
@@ -16,7 +18,16 @@ export const migratePool = new Pool({
   max: 2,
 });
 
+/** vigor_worker — the job runner (migration 007); created lazily, only worker tests use it. */
+let worker: Pool | undefined;
+export function workerPool(): Pool {
+  worker ??= new Pool({ connectionString: requireEnv('TEST_WORKER_DATABASE_URL'), max: 4 });
+  return worker;
+}
+
 export async function closePools(): Promise<void> {
+  await worker?.end();
+  worker = undefined;
   await Promise.all([appPool.end(), migratePool.end()]);
 }
 

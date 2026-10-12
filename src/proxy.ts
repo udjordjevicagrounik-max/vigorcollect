@@ -7,6 +7,14 @@ import { APP_VERSION_HEADER, REQUEST_ID_HEADER, resolveRequestId } from '@/lib/r
 export function proxy(request: NextRequest): NextResponse {
   const requestId = resolveRequestId(request.headers.get(REQUEST_ID_HEADER));
 
+  // The worker process (PROCESS_ROLE=worker) serves nothing but its own /health.
+  if (process.env.PROCESS_ROLE === 'worker' && request.nextUrl.pathname !== '/health') {
+    const notFound = new NextResponse(null, { status: 404 });
+    notFound.headers.set(REQUEST_ID_HEADER, requestId);
+    notFound.headers.set(APP_VERSION_HEADER, getAppVersion());
+    return notFound;
+  }
+
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set(REQUEST_ID_HEADER, requestId);
 

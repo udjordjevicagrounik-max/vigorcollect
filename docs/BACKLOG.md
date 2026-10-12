@@ -69,7 +69,7 @@ Ideje i tehnički dug zapisani usred zadatka (protokol: ne predlaže se usred za
 - [ ] **Cloudflare Turnstile (pravilo 27) na login, reset i pozivnici — BLOKADA pre staging-a** (release checklist). Traži Turnstile ključeve (tajna → vault, van chata). Do tada: honeypot + rate limit po IP-u + zaključavanje.
 - [ ] Ekrani za reset lozinke (zahtev + nova lozinka); API i mail (sink) postoje od 1.1a/1.1b.
 - [ ] Unos rezervnog koda na `/login/mfa` (Better Auth `/two-factor/verify-backup-code` postoji).
-- [ ] `qrcode` (1.5.4) — poslednje izdanje 2024-08 (izuzetak od pravila 14 odobren u 3b): pratiti; zamena = sopstveni QR enkoder ili ručni unos ključa.
+- [ ] `qrcode` (1.5.4) — poslednje izdanje 2024-08 (izuzetak od pravila 14 odobren u 3b). **Zameniti kad postoji održavana alternativa** (Uroš, 2026-10-12); do tada ručni unos ključa ostaje na ekranu.
 - [ ] Posle prihvatanja pozivnice postojećim nalogom: povratak na pozivnicu posle prijave (`?next=`), umesto „otvorite link ponovo".
 
 ## Iz 1.2
@@ -78,6 +78,17 @@ Ideje i tehnički dug zapisani usred zadatka (protokol: ne predlaže se usred za
 - [ ] Sentry: `logEvent(level: 'error')` je JSON na stdout sa `requestId`; povezivanje sa Sentry-jem u 1.7 (ops).
 - [ ] `withTenant` za server komponente (stranice čitaju podatke tenanta) — uz prve ekrane sa podacima (1.5); do tada stranice samo proveravaju sesiju (`requireTenantSession`).
 - [ ] Postojeći audit redovi iz seed-a i 0.x testova nisu prošli redakciju (pišu samo id-jeve i P0) — bez akcije, napomena.
+
+## Iz 1.1b — privremeni ključ za `mail_outbox`
+
+- [ ] Ujediniti ključ `mail_outbox` sa `subject_keys` posle go-live (expand → contract); rotacija master ključa do tada mora pokriti i HKDF put (ADR 0003, „Privremeno").
+
+## Iz 1.3
+
+- [ ] Oporavak događaja zaglavljenih u `processing` (pg-boss posao izgubljen ručnim brisanjem) — periodični job koji ih vraća u `pending` posle N minuta.
+- [ ] SMTP slanje u `mail-dispatch` kad se odobri `nodemailer` (dešifrovanje kroz keyring tenanta u worker-u).
+- [ ] pg-boss tabele su van RLS konvencije (šema `pgboss`, bez tenant podataka) — pregledati pri nadogradnji pg-boss-a.
+- [ ] Dnevni posao tenanta (`tenant-daily`) još nema poslovne korake — podsetnici i aging u Sprintu 2; poslovi po kompaniji (ključ tenant + kompanija + lokalni datum) kad prvi zatreba.
 
 ## Roadmap
 

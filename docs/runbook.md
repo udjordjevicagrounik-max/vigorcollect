@@ -135,6 +135,36 @@ SQL
   se ne isporučuje (pravilo 24). Pregled sink-a u aplikaciji: BACKLOG.
 - Do SMTP-a (BACKLOG) i ostali tenanti pišu samo u sink.
 
+## Worker (ADR 0005)
+
+Rola `vigor_worker` se pravi **jednom po klasteru, pre migracije 007** (migracija bez nje odbija
+rad). Dev: `WORKER_DB_PASSWORD` i `WORKER_DATABASE_URL` u `.env` (generisani, nikad u chat), pa:
+
+```bash
+! cd /srv/vigor-collect && ./scripts/create-worker-role.sh && ./scripts/migrate.sh up
+```
+
+Staging/prod: na Elestio hostu, sa vrednostima iz vault-a eksportovanim u shell (van Claude
+sesije), isti skript (`POSTGRES_USER`/`POSTGRES_PASSWORD` = superuser). Provera:
+`SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = 'vigor_worker';` → `f`, `f`.
+
+Pokretanje: servis `worker` u `docker-compose.yml` (isti image, `node worker.mjs`, port nije
+objavljen; `/health` na 3001 unutar mreže). Lokalno: `npm run build` pa
+`cd .next/standalone && node worker.mjs` (iz `.env`: `DATABASE_URL`, `WORKER_DATABASE_URL`).
+
+Neuspeli događaji (`status = 'failed'`, `last_error` = kod greške) ostaju u `domain_events`.
+Ponovno slanje posle ispravke — kao `vigor_migrate`, u kontekstu tenanta, uz audit tenanta #0:
+
+```sql
+BEGIN;
+SELECT set_config('app.tenant_id', '<tenant uuid>', true);
+UPDATE domain_events SET status = 'pending', last_error = NULL WHERE id = '<event uuid>' AND status = 'failed';
+COMMIT;
+```
+
+`/health` → `jobs.failed` > 0 ili `jobs.oldestPendingSeconds` > 300 = proveriti worker log
+(`outbox.failed`, `worker.error`). `jobs` = `null` → worker još nije startovao na toj bazi.
+
 ## DB uloge na Elestio (staging/prod)
 
 Lokalno ih kreira `db/init/01-roles.sh`. Na Elestio instanci izvršiti iste naredbe ručno kao

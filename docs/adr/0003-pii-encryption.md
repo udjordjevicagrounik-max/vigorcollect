@@ -106,3 +106,14 @@ kroz `access_grants` (0.2c) dobija dešifrovan podatak samo kroz servis koji po�
 - **Fizičko lice u `legal_entities`** — ADR 0002, odluka 4: preduzetnik ostaje u
   `legal_entities` uz `exception_reason`; potrošač nikad ne ulazi, a njegov identitet postoji
   samo šifrovano na `customers` (migracija 003).
+
+## Privremeno: ključ za `mail_outbox` (Uroš, 2026-10-12, posle 1.1b)
+
+`mail_outbox.recipient_enc` / `body_enc` koriste ključ **izveden** iz master ključa (HKDF-SHA256
+po tenantu, `src/server/mail/crypto.ts`), ne ključ iz `subject_keys` — CHECK
+`subject_keys_purpose_subject` ne dozvoljava `tenant` + `data`. Ovo je **privremeno**:
+
+- posle go-live ujediniti sa `subject_keys` po obrascu expand → contract (nova kolona/ključ,
+  dvojno čitanje, re-encrypt job, tek onda uklanjanje starog puta — nikad DROP pre toga);
+- **rotacija master ključa mora pokriti oba puta**: re-wrap `subject_keys` **i** ponovno šifrovanje
+  živih `mail_outbox` redova (ili sačekati 7 dana retencije pre povlačenja stare verzije).
