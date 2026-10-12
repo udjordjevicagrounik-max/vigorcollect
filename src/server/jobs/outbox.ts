@@ -1,5 +1,6 @@
 import type { Pool, PoolClient } from 'pg';
 import { logEvent } from '@/lib/log';
+import { reportError } from '@/server/observability/sentry';
 import { withTenantJob, type TenantJobContext } from './tenant-job';
 
 /**
@@ -115,6 +116,13 @@ export async function processEvent(
        WHERE id = $1 AND status = 'processing'`,
       [row.id, code, final],
     );
+    if (final) {
+      reportError(error, {
+        event_id: row.id,
+        tenant_id: row.tenant_id,
+        event_type: row.event_type,
+      });
+    }
     logEvent(final ? 'outbox.failed' : 'outbox.retry', {
       level: final ? 'error' : 'warn',
       eventId: row.id,

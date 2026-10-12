@@ -4,6 +4,7 @@ import { logEvent } from '@/lib/log';
 import { DAILY_QUEUE, runTenantDaily, tenantClockTick, type DailyJob } from './clock';
 import { EVENT_HANDLERS } from './handlers';
 import { dispatchMail } from './mail-dispatch';
+import { alertsCheck, runOpsScript } from './ops';
 import {
   dispatchPending,
   EVENT_QUEUE,
@@ -50,7 +51,9 @@ export async function startWorker(
     .catch(() => logEvent('worker.health_grant_failed', { level: 'warn' }));
 
   for (const name of [EVENT_QUEUE, DAILY_QUEUE, 'retention']) await boss.createQueue(name, RETRY);
-  for (const name of ['tenant-clock', 'mail-dispatch']) await boss.createQueue(name);
+  for (const name of ['tenant-clock', 'mail-dispatch', 'backup', 'restore-test', 'alerts-check']) {
+    await boss.createQueue(name);
+  }
 
   await boss.work<{ eventId: string }, unknown, { includeMetadata: true }>(
     EVENT_QUEUE,
@@ -76,11 +79,24 @@ export async function startWorker(
     await dispatchMail(workerPool);
   });
   await boss.work('retention', async () => runRetention({ workerPool, appPool }));
+  // Ops (task 1.7): scripts need pg_dump + superuser credentials; without them they log why.
+  await boss.work('backup', async () => {
+    await runOpsScript('backup');
+  });
+  await boss.work('restore-test', async () => {
+    await runOpsScript('restore-test');
+  });
+  await boss.work('alerts-check', async () => {
+    await alertsCheck({ workerPool, appPool });
+  });
 
   // Schedules in UTC; tenant-local times are resolved by tenant-clock (rule 26).
   await boss.schedule('tenant-clock', '*/15 * * * *');
   await boss.schedule('mail-dispatch', '* * * * *');
   await boss.schedule('retention', '30 2 * * *');
+  await boss.schedule('backup', '0 2 * * *');
+  await boss.schedule('restore-test', '0 3 * * 0');
+  await boss.schedule('alerts-check', '*/5 * * * *');
 
   const enqueue = (client: PoolClient, event: { id: string; tenantId: string }) =>
     boss

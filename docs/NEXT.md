@@ -2,8 +2,13 @@
 
 ## Aktivan zadatak
 
-**1.6 timovi** — `teams` / `team_members`, `TEAM` scope prestaje da bude `OWN`; posle Uroševe
-`!` komande za 007, 008 i `src/server/auth/*` (izveštaj lanca 1.3 → 1.5) i `docker-compose.yml`.
+**Sprint 1 zatvoren.** Sledeće: plan Sprinta 2 (uvoz faktura, Customer 360, case-ovi) — posle
+Uroševe `!` komande za 009, 010, `src/server/auth/*` i `docker-compose.yml`.
+
+**Blokade za staging** (sve u runbook „Release checklist"): Turnstile ključevi · Sentry DSN ·
+off-site storage (+ `rclone`/`aws` na hostu) · kanal za alarme (Telegram/Slack) · rola
+`vigor_worker` na Elestio pre 007 · `VALIDATE CONSTRAINT users_auth_user` · GitHub remote
+(`/code-review`, CI) · host cron za backup dok image nema `pg_dump`.
 
 ### Sprint 1 plan (1.1–1.7)
 
@@ -18,46 +23,44 @@
 Numeracija važi od Sprinta 1 i zamenjuje raniju (1.3 login, 1.4 maker-checker, 1.5 outbox,
 1.6 verify/backup) u starijim beleškama i komentarima.
 
-## Poslednja sesija — lanac 1.3 → 1.4 → 1.5 (2026-10-12, noćni režim)
+## Poslednja sesija — lanac 1.6 → 1.7 (2026-10-12, noćni režim)
 
 ### Urađeno po bloku
 
-- **1.3 outbox — `6ea8b99`** (+ predlog 007): rola `vigor_worker` (skripta kao superuser, ne
-  migracija — `vigor_migrate` je NOCREATEROLE); politike samo na `domain_events` i `mail_outbox`;
-  worker proces (isti image, `node worker.mjs`, `PROCESS_ROLE=worker` kroz `instrumentation.ts`);
-  pg-boss (`id` posla = id događaja), `withTenantJob()`, 3 ponavljanja → `failed` vidljiv;
-  `tenant_clock()` + dnevni posao u 06:00 po zoni tenanta (ključ tenant + lokalni datum, DST);
-  retention; `/health` sa zbirovima poslova. ADR 0005.
-- **1.4 security — `c207067`** (+ predlog 008): nonce CSP bez `unsafe-inline` za skripte, HSTS
-  (prod), XFO DENY, no-referrer, Permissions-Policy, CORS samo naš origin; CSRF (Better Auth
-  provere eksplicitno uključene, `withTenant` traži naš Origin); rate limit 120/min po IP-u u bazi;
-  Turnstile (Better Auth `captcha` plugin + adapter za pozivnicu; prod bez ključeva izlazi sa 1);
-  Zod golden nad svim rutama; greška uvek `{code, message_key, request_id}`. ADR 0006.
-- **1.5 prvi ekrani — commit ove sesije**: shell (navigacija po permisijama, oznaka organizacije,
-  promena, odjava, PWA install), Admin → Korisnici (pozivnica, ponovo, promena role sa četiri oka
-  za owner/admin, deaktivacija), Admin → Podešavanja (audit + događaj), Admin → Status sistema,
-  dashboard sa praznim stanjem, PWA ikone. `withTenantPage()` za server komponente.
-- **Stanje testova:** DB 186, unit 102, e2e 30 (+1 namerno preskočen), `next build` ✔. Mutacije:
-  14 pokvarenih zaštita (5 + 5 + 4), svaka obara bar 1 test.
+- **1.6 timovi i scope — `3aca0ba`** (+ predlog 009): `teams`, `team_members` (jedan primarni
+  tim po osobi), `customers.owner_team_id`; `scopeFilter()` jedini prevodi scope u predikat
+  (golden statički test); Admin → Timovi; maker-checker za matricu (`approval.create` →
+  `role.manage`); Admin → Odobrenja; 2 demo tima u seed-u.
+- **1.7 ops — commit ove sesije** (+ predlog 010 i compose): Sentry (`@sentry/nextjs` 10.75.3,
+  app + worker, `request_id` tag, release = verzija, PII scrubbing kroz `pii_field_registry`);
+  alarmi (Telegram/Slack, bez env samo log, dedupe 1 h); `backup.sh` (sve baze, globals bez
+  lozinki, git bundle, 30 + 12, off-site ako klijent postoji), `restore-test.sh` (broj redova iz
+  dump-a vs. vraćena baza), `ops_runs`; `smoke.sh`; Status sistema sa backup / restore / Sentry /
+  alarmima; worker cron za backup, restore test i alarme.
+- **Stanje testova:** DB 200, unit 113, e2e 30 (+1 namerno preskočen), `next build` ✔. Mutacije:
+  10 (4 + 6), svaka obara bar 1 test. Dev: backup 2 baze ✔, restore test ✔ (37 tabela / 1246 redova).
 
 ### Pretpostavke (najkonzervativnija opcija)
 
-1. `vigor_worker` se pravi `scripts/create-worker-role.sh` (superuser); 007 odbija rad bez nje.
-2. pg-boss tabele pravi pg-boss kao `vigor_worker` u šemi `pgboss` (iz migracije); van RLS konvencije, bez tenant podataka.
-3. `tenant_clock()`: SECURITY DEFINER (vlasnik `vigor_migrate`) + politika za vlasnika aktivna samo uz GUC unutar funkcije — worker nema politiku na `tenants`/`tenant_settings`.
-4. Dnevni posao je po tenantu (zona `tenant_settings.timezone`); kompanije u drugim zonama ne menjaju dan tenanta. Poslovi po kompaniji → kad zatrebaju.
-5. Sink → „poslato" nije urađeno: CHECK iz 006 bi tražio DROP CONSTRAINT; uhvaćen sink red je već isporuka.
-6. Trigger iz 006 (demo → samo sink) zamenjen u 007 kroz `CREATE OR REPLACE` (bez DROP): proverava INSERT i promenu `transport`; worker ne može da menja `transport`.
-7. `/health` je javna i vraća zbirove poslova (bez podataka); app ih čita kroz `job_health()` (SECURITY DEFINER), worker pri startu daje `SELECT ON pgboss.job` vlasniku.
-8. Worker se pakuje kroz Next `instrumentation.ts` (esbuild nije direktna zavisnost).
-9. Semgrep pravilo „Vigor" dozvoljava i `vigor_worker` (ime role iz tvog zadatka i ADR 0002).
-10. Vitest uvek radi sa `NODE_ENV=test` (ovaj kontejner ima `NODE_ENV=production` u shell-u).
-11. Better Auth origin/CSRF provere eksplicitno uključene (inače su isključene pod `NODE_ENV=test`).
-12. `style-src-attr 'unsafe-inline'` ostaje (style atributi Next-a i Turnstile-a ne izvršavaju kod).
-13. Rate limit: propušta ako baza ne odgovori (log); `X-Forwarded-For` se veruje (iza proksija).
-14. Promena role: `user.update` podnosi, `user.assign` (🅼) odlučuje; obične role bez odobrenja, scope ostaje.
-15. Deaktivacija: ne sebe, admin ne owner-a; pozivnice te osobe se opozivaju.
-16. Dev `.env` dobio Cloudflare-ove javne Turnstile test ključeve (nisu tajna) da compose radi lokalno; `WORKER_DB_PASSWORD`/`WORKER_DATABASE_URL` generisani, nisu ispisani.
+1. Timovi koriste `user.read` / `user.update` — matrica nema `team.*`; novi ključ traži tvoje odobrenje i migraciju kataloga.
+2. „Jedan tim po korisniku" = parcijalni UNIQUE indeks nad `kind = 'primary'` (enum sa jednom vrednošću); proširenje je `ALTER TYPE … ADD VALUE` (aditivno), ne CHECK koji bi kasnije tražio DROP.
+3. Matrica: predlaže `approval.create` (maker), odlučuje `role.manage` (🅼); admin ne može da predlaže (nema `approval.create`). Dozvole role `owner` se ne menjaju ovim tokom.
+4. Odluka o zahtevu: ruta traži `user.assign` ILI `role.manage` (`requireAnyPermission`), servis proverava tačan ključ po vrsti zahteva.
+5. Kupci bez vlasnika vidljivi samo uz `ORGANIZATION`; `TEAM` bez tima = `OWN`.
+6. `@sentry/nextjs` 10.75.3 (ne 11.0.0 — novi major star 3 nedelje); samo server (app + worker), bez tracinga i replay-a.
+7. Backup traži superuser (`pg_dump` i FORCE RLS); `BACKUP_DATABASE_URL` ili `POSTGRES_*`.
+8. Worker image nema `pg_dump`, `rclone` ni `aws`: isto pravilo kao tvoje za rclone/aws — ne dodajem paket; worker posao loguje razlog, alarm „backup do 06:00" to vidi; do odluke host cron.
+9. Rezultati backup-a i restore testa u `ops_runs` (platformska tabela, piše samo skripta kao superuser, app čita) — worker i dalje nema politike van `domain_events`/`mail_outbox`.
+10. Restore test broji redove iz COPY blokova dump-a (bez trke sa izmenama) i poredi sa listovima vraćene baze (particije uključene).
+11. Smoke „upit kroz test korisnika" = upit kao `vigor_app` sa `SMOKE_TENANT_ID` (0 bez tenanta, > 0 sa njim): prijava kroz UI je u production-u iza Turnstile-a i TOTP-a.
+12. Alarm dedupe u memoriji worker-a (restart ga resetuje) — BACKLOG.
+13. Scrubber maskira email, nizove od 8–13 cifara (PIB, MB, JMBG) i IBAN u tekstu; imena se hvataju po ključu (registar + osnovna lista), ne iz slobodnog teksta.
+
+### Odluke Uroša za lanac 1.6 → 1.7 (2026-10-12)
+
+- BACKLOG P2: hook pada ako je broj preskočenih testova veći od očekivanog (1).
+- Release checklist: `scripts/create-worker-role.sh` kao superuser PRE migracije 007 — blokirajuće.
+- `@sentry/nextjs` odobren kao jedini novi paket u 1.7.
 
 ### Odluke Uroša za lanac 1.3 → 1.5 (2026-10-12)
 
@@ -130,6 +133,9 @@ postoji samo šifrovano na `customers`. Ulazi u migraciju 003, aditivno.
 - `npm audit` u hook-u zavisi od mreže — offline commit neće proći.
 
 ## Istorija
+
+- **Lanac 1.3 → 1.4 → 1.5** (2026-10-12): `6ea8b99`, `c207067`, `a18b6c5`; `cc26a28` migracije
+  007 + 008, `src/server/auth/*`, compose (Uroš). 16 pretpostavki: `git show a18b6c5:docs/NEXT.md`.
 
 - **Lanac 1.1b → 1.1c → 1.2** (2026-10-12): `273f1ad`, `431ec69`, `e41fa02`; `0633c3b` migracija
   006 + `src/server/auth/*` (Uroš). 15 pretpostavki: `git show e41fa02:docs/NEXT.md`.

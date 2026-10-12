@@ -118,6 +118,14 @@ Ideje i tehnički dug zapisani usred zadatka (protokol: ne predlaže se usred za
 - [ ] Više timova po osobi: `ALTER TYPE team_membership_kind ADD VALUE 'secondary'` (aditivno) + `scopeFilter` već čita sve članstvo.
 - [ ] Dozvole role `owner` menjati samo kroz platformski proces (sada zabranjeno u toku odobrenja).
 
+## Iz 1.7
+
+- [ ] `postgresql-client-16` u runtime image (Dockerfile) da worker sam radi backup / restore test — traži odobrenje (novi sistemski paket); do tada host cron.
+- [ ] Off-site klijent (`rclone` ili `aws` cli) na hostu ili u image-u — nije instaliran; bez njega nema off-site kopije.
+- [ ] Sentry u browseru (client-side) i upload source map-a — sada samo server (app + worker).
+- [ ] Šifrovanje backup-a pre off-site slanja (npr. `age`) — dump sadrži P1 kolone sa izuzetkom (`users.email`).
+- [ ] Alarmi u bazi umesto u memoriji worker-a (dedupe preživljava restart).
+
 ## Roadmap
 
 ### Marketing sajt — paralelan tok uz Sprint 1

@@ -195,9 +195,42 @@ Posle deploya: smoke (`/health` 200 + `X-App-Version` = očekivani tag).
       (kao `vigor_migrate`). Ako padne — postoje viseći `auth_user_id`: očistiti, pa ponoviti.
 - [ ] `BETTER_AUTH_URL` je `https://…`; Secure kolačić se ne isključuje nikakvim env flagom.
 - [ ] **Turnstile ključevi** (`TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET`) u vault-u i env-u — bez njih production ne startuje (ADR 0006).
+- [ ] `scripts/smoke.sh` posle deploya zelen (exit 0).
+- [ ] Sentry DSN, kanal za alarme i off-site storage podešeni (Admin → Status sistema: sve „povezan”).
+- [ ] Host cron za `backup.sh` / `restore-test.sh` (dok image nema `pg_dump`); prvi backup + restore test zeleni.
 - [ ] Release notes + rollback korak zapisani.
 
-## Backup / restore
+## Backup / restore (pravilo 28, zadatak 1.7)
 
-TODO(1.6): `scripts/backup.sh`, restore test (baza + fajlovi + `PII_MASTER_KEYS` iz vault-a,
-nikad iz backup-a).
+- **Backup:** `scripts/backup.sh` — `pg_dump -Fc` svih baza klastera (superuser, jer FORCE RLS),
+  role bez lozinki, repo kao `git bundle`; `$BACKUP_DIR/daily/YYYY-MM-DD` (30) i
+  `monthly/YYYY-MM` (12). `.env` i ključevi nikad (skripta staje ako je `.env` ili ključ u git-u).
+  Rezultat → `ops_runs` (Admin → Status sistema, alarmi).
+- **Gde radi:** worker ga zakazuje u 02:00 UTC, ali image još nema `pg_dump` (BACKLOG) — do tada
+  **host cron** na Elestio-u:
+
+  ```bash
+  0 2 * * *  cd /srv/vigor-collect && ./scripts/backup.sh >>/var/log/backup.log 2>&1
+  0 3 * * 0  cd /srv/vigor-collect && ./scripts/restore-test.sh >>/var/log/backup.log 2>&1
+  ```
+
+- **Off-site:** `BACKUP_S3_*` + `rclone` ili `aws` na hostu; bez klijenta → `offsite: skipped_no_client`
+  u `ops_runs` (blokada za staging).
+- **Restore test:** `scripts/restore-test.sh` vraća poslednji dump glavne baze u
+  `<db>_restore_test`, poredi broj redova svake tabele sa dump-om, briše kopiju, upisuje rezultat.
+- **Pravi restore (incident):** `createdb collect_new && pg_restore -d collect_new <dump>`, pa
+  `PII_MASTER_KEYS` iz vault-a (bez ključa šifrovani podaci su izgubljeni), promena `DATABASE_URL`.
+
+## Sentry i alarmi (zadatak 1.7)
+
+- `SENTRY_DSN` (app + worker): greške sa tagom `request_id`, `release` = verzija; PII se čisti pre
+  slanja (ključevi iz `pii_field_registry` + email/dugi brojevi/IBAN u tekstu). Bez DSN → isključen.
+- Alarmi (worker, svakih 5 min): backup nije gotov do 06:00 po zoni tenanta #0, neuspeli poslovi,
+  pending stariji od 15 min, health crven 2× zaredom, neuspešan restore test. Telegram
+  (`ALERT_TELEGRAM_*`) i/ili Slack (`ALERT_SLACK_WEBHOOK_URL`); bez njih samo log (`"event":"alert"`).
+  Isti alarm najviše jednom na sat dok traje.
+
+## Smoke posle deploya
+
+`SMOKE_TENANT_ID=<tenant> ./scripts/smoke.sh https://<domen>` → `/health`, `/login`, upit po tenantu
+(RLS), worker heartbeat. Exit ≠ 0 = rollback po release checklisti.

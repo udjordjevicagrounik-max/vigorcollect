@@ -264,7 +264,18 @@
       "never": "još nije rađeno",
       "notStarted": "Worker još nije pokrenut na ovoj bazi.",
       "seconds": "{count} s",
-      "version": "Verzija"
+      "version": "Verzija",
+      "ops": "Rezervne kopije i nadzor",
+      "lastBackup": "Poslednji uspešan backup",
+      "lastRestore": "Poslednji test vraćanja",
+      "restoreOk": "uspešan ({date})",
+      "restoreFailed": "neuspešan ({date})",
+      "sentry": "Sentry (greške)",
+      "alerts": "Alarmi",
+      "connected": "povezan",
+      "notConnected": "nije povezan",
+      "channels": "povezani: {channels}",
+      "logOnly": "samo log"
     },
     "teams": {
       "title": "Timovi",

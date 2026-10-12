@@ -264,7 +264,18 @@
       "never": "not run yet",
       "notStarted": "The worker has not started on this database yet.",
       "seconds": "{count} s",
-      "version": "Version"
+      "version": "Version",
+      "ops": "Backups and monitoring",
+      "lastBackup": "Last successful backup",
+      "lastRestore": "Last restore test",
+      "restoreOk": "passed ({date})",
+      "restoreFailed": "failed ({date})",
+      "sentry": "Sentry (errors)",
+      "alerts": "Alarms",
+      "connected": "connected",
+      "notConnected": "not connected",
+      "channels": "connected: {channels}",
+      "logOnly": "log only"
     },
     "teams": {
       "title": "Teams",
