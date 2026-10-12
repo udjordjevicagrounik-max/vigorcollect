@@ -3,22 +3,38 @@ import { getTranslations } from 'next-intl/server';
 import { isAnySettlementFlagEnabled } from '@/lib/feature-flags';
 
 type NavGroupKey = 'work' | 'resolution' | 'intelligence' | 'admin';
-type NavItem = { key: 'home'; href: string };
+type NavItemKey = 'home' | 'users' | 'tenantSettings' | 'systemStatus';
+/** `permission` null = every member; otherwise the item exists only with that permission. */
+type NavItem = { key: NavItemKey; href: string; permission: string | null };
 type NavGroup = { key: NavGroupKey; items: NavItem[] };
 
-// Items are added per task; groups without items render only their heading.
+// Navigation follows PERMISSIONS, never role names (task 1.5). Groups render their heading even
+// when empty, except Resolution, which is hidden (not disabled) while settlement flags are off.
 const NAV_GROUPS: NavGroup[] = [
-  { key: 'work', items: [{ key: 'home', href: '/' }] },
+  { key: 'work', items: [{ key: 'home', href: '/', permission: null }] },
   { key: 'resolution', items: [] },
   { key: 'intelligence', items: [] },
-  { key: 'admin', items: [] },
+  {
+    key: 'admin',
+    items: [
+      { key: 'users', href: '/admin/users', permission: 'user.read' },
+      { key: 'tenantSettings', href: '/admin/settings', permission: 'settings.read' },
+      { key: 'systemStatus', href: '/admin/status', permission: 'settings.read' },
+    ],
+  },
 ];
 
-export async function AppNav() {
+export async function AppNav({ permissions }: { permissions: readonly string[] }) {
   const t = await getTranslations('nav');
   // Rule 31: Resolution is hidden (not disabled) while every settlement flag is off.
   const showResolution = await isAnySettlementFlagEnabled();
-  const groups = NAV_GROUPS.filter((group) => group.key !== 'resolution' || showResolution);
+  const allowed = new Set(permissions);
+  const groups = NAV_GROUPS.filter((group) => group.key !== 'resolution' || showResolution).map(
+    (group) => ({
+      ...group,
+      items: group.items.filter((item) => item.permission === null || allowed.has(item.permission)),
+    }),
+  );
 
   return (
     <nav aria-label={t('label')} className="flex flex-col gap-4">
@@ -32,6 +48,7 @@ export async function AppNav() {
               <li key={item.key}>
                 <Link
                   href={item.href}
+                  data-nav-item={item.key}
                   className="flex min-h-11 items-center rounded-md px-3 text-text hover:bg-brand-purple-soft"
                 >
                   {t(`items.${item.key}`)}

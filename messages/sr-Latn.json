@@ -13,15 +13,14 @@
     },
     "items": {
       "home": "Početna",
-      "settingsPassword": "Lozinka"
-    }
-  },
-  "empty": {
-    "home": {
-      "title": "Ovde će biti vaš radni red",
-      "description": "Kada povežete izvor podataka i uvezete fakture, ovde ćete videti kupce i stavke koje traže vašu pažnju, poređane po prioritetu.",
-      "action": "Proveri status sistema"
-    }
+      "settingsPassword": "Lozinka",
+      "users": "Korisnici",
+      "tenantSettings": "Podešavanja",
+      "systemStatus": "Status sistema"
+    },
+    "tenant": "Organizacija",
+    "switchTenant": "Promeni organizaciju",
+    "account": "Nalog"
   },
   "error": {
     "title": "Nešto nije u redu",
@@ -164,6 +163,110 @@
     "captcha_failed": "Provera da niste robot nije uspela. Pokušajte ponovo.",
     "rate_limited": "Previše zahteva sa ove mreže. Sačekajte minut pa pokušajte ponovo.",
     "approval_required": "Promena je poslata na odobrenje drugoj osobi (četiri oka).",
-    "internal": "Nešto nije u redu sa naše strane. Pokušajte ponovo; ako se ponovi, pošaljte podršci ID zahteva."
+    "internal": "Nešto nije u redu sa naše strane. Pokušajte ponovo; ako se ponovi, pošaljte podršci ID zahteva.",
+    "self_action": "Ovu radnju ne možete izvršiti nad sopstvenim nalogom — zamolite drugog administratora.",
+    "last_owner": "Ovo je jedini vlasnik organizacije; prvo dodelite vlasnika nekom drugom.",
+    "unsupported": "Ova vrsta zahteva se još ne odlučuje na ovom mestu."
+  },
+  "dashboard": {
+    "empty": {
+      "title": "Još nema faktura",
+      "description": "Kada uvezete fakture iz knjigovodstva, ovde vidite kupce i stavke koje traže pažnju, poređane po prioritetu. Prvi korak je uvoz.",
+      "action": "Uvezi fakture"
+    }
+  },
+  "importPage": {
+    "empty": {
+      "title": "Uvoz faktura stiže uskoro",
+      "description": "Uvoz iz CSV/Excel izvoza knjigovodstva biće dostupan u sledećoj verziji. Do tada možete da pozovete kolege i podesite organizaciju.",
+      "action": "Nazad na početnu"
+    }
+  },
+  "admin": {
+    "forbidden": {
+      "title": "Nemate pristup ovoj stranici",
+      "description": "Za ovu stranicu potrebna je dozvola koju vaša rola nema. Ako vam treba, obratite se administratoru organizacije.",
+      "action": "Nazad na početnu"
+    },
+    "users": {
+      "title": "Korisnici",
+      "description": "Ko radi u organizaciji, sa kojom rolom i obimom. Novi korisnici dolaze isključivo pozivnicom; deaktivacija ne briše ništa.",
+      "invite": {
+        "title": "Pozovi korisnika",
+        "email": "Email",
+        "name": "Ime i prezime",
+        "role": "Rola",
+        "submit": "Pošalji pozivnicu",
+        "sent": "Pozivnica je poslata. Važi 72 sata.",
+        "none": "Nemate dozvolu da pozivate korisnike."
+      },
+      "status": {
+        "invited": "Pozvan",
+        "active": "Aktivan",
+        "disabled": "Deaktiviran"
+      },
+      "scope": {
+        "OWN": "svoje",
+        "TEAM": "tim",
+        "ORGANIZATION": "cela organizacija"
+      },
+      "roleWithScope": "{role} — {scope}",
+      "noRole": "bez role",
+      "you": "vi",
+      "invitationExpired": "pozivnica istekla",
+      "invitationPending": "pozivnica poslata",
+      "resend": "Pošalji ponovo",
+      "resent": "Nova pozivnica je poslata; prethodni link više ne važi.",
+      "deactivate": "Deaktiviraj",
+      "confirmDeactivate": "Potvrdi deaktivaciju",
+      "cancel": "Odustani",
+      "deactivated": "Korisnik je deaktiviran i više nema pristup.",
+      "changeRole": "Promeni rolu",
+      "applyRole": "Sačuvaj rolu",
+      "roleChanged": "Rola je promenjena.",
+      "approvalRequested": "Promena role vlasnika/administratora čeka odobrenje druge osobe.",
+      "pendingApproval": "Čeka odobrenje: {role}",
+      "approve": "Odobri",
+      "reject": "Odbij",
+      "approved": "Promena je odobrena i primenjena.",
+      "rejected": "Promena je odbijena.",
+      "emptyTitle": "Za sada ste sami",
+      "emptyDescription": "Pozovite kolege iz finansija i naplate — svako dobija samo rolu koja mu treba."
+    },
+    "settings": {
+      "title": "Podešavanja organizacije",
+      "description": "Jezik, vremenska zona, valuta i zemlja važe za celu organizaciju: od zone zavise rokovi i dnevni poslovi (npr. 06:00 po vašem vremenu), od zemlje pravni parametri.",
+      "locale": "Jezik",
+      "timezone": "Vremenska zona",
+      "currency": "Valuta",
+      "country": "Zemlja",
+      "save": "Sačuvaj",
+      "saved": "Podešavanja su sačuvana.",
+      "readOnly": "Podešavanja može da menja vlasnik ili administrator.",
+      "locales": {
+        "sr-Latn": "Srpski (latinica)",
+        "en": "English"
+      }
+    },
+    "status": {
+      "title": "Status sistema",
+      "description": "Stanje baze i pozadinskih poslova (slanje poruka, obrada događaja, čišćenje starih podataka). Samo za čitanje.",
+      "db": "Baza podataka",
+      "dbOk": "Radi",
+      "dbDown": "Ne odgovara",
+      "jobs": "Pozadinski poslovi",
+      "pending": "Na čekanju",
+      "failed": "Neuspešni",
+      "oldestPending": "Najstariji na čekanju",
+      "lastRetention": "Poslednje čišćenje",
+      "never": "još nije rađeno",
+      "notStarted": "Worker još nije pokrenut na ovoj bazi.",
+      "seconds": "{count} s",
+      "version": "Verzija"
+    }
+  },
+  "pwa": {
+    "install": "Instaliraj aplikaciju",
+    "installHint": "Radi i sa početnog ekrana telefona."
   }
 }

@@ -1,3 +1,4 @@
+import { isApiErrorCode, type ApiErrorCode } from './api-error-codes';
 import type { PostResult } from './post-json';
 
 /**
@@ -7,13 +8,14 @@ import type { PostResult } from './post-json';
  */
 export function apiProblem(
   res: PostResult,
-  tErrors: (key: string) => string,
+  tErrors: (key: ApiErrorCode) => string,
 ): { message: string; requestId: string | null } {
   const body = res.json as { message_key?: unknown; request_id?: unknown } | null;
-  const key =
-    typeof body?.message_key === 'string' && /^errors\.[a-z_]+$/.test(body.message_key)
+  const raw =
+    typeof body?.message_key === 'string' && body.message_key.startsWith('errors.')
       ? body.message_key.slice('errors.'.length)
-      : 'internal';
+      : '';
+  const key: ApiErrorCode = isApiErrorCode(raw) ? raw : 'internal';
   const requestId = typeof body?.request_id === 'string' ? body.request_id : res.requestId;
   return { message: tErrors(key), requestId };
 }

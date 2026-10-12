@@ -1,5 +1,7 @@
 import { randomBytes, randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { createAuth, createAuthPool } from '../../src/server/auth/better-auth';
+import { grantsByRole, parsePermissionMatrix } from '../../src/server/permissions/matrix';
 import { e2eDatabaseUrls } from './e2e-env';
 import { Client } from 'pg';
 
@@ -53,11 +55,21 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
        ON CONFLICT (id) DO NOTHING`,
       [E2E.userId, E2E.tenantId],
     );
-    await client.query(
-      `INSERT INTO roles (tenant_id, key, is_system) VALUES ($1, 'owner', true)
-       ON CONFLICT (tenant_id, key) DO NOTHING`,
-      [E2E.tenantId],
-    );
+    // All system roles with their grants from docs/permissions.md (navigation follows them).
+    const grants = grantsByRole(parsePermissionMatrix(readFileSync('docs/permissions.md', 'utf8')));
+    for (const [role, keys] of grants) {
+      await client.query(
+        `INSERT INTO roles (tenant_id, key, is_system) VALUES ($1, $2, true)
+         ON CONFLICT (tenant_id, key) DO NOTHING`,
+        [E2E.tenantId, role],
+      );
+      await client.query(
+        `INSERT INTO role_permissions (tenant_id, role_id, permission_id)
+         SELECT $1, r.id, p.id FROM roles r JOIN permissions p ON p.key = ANY($3::text[])
+         WHERE r.key = $2 ON CONFLICT DO NOTHING`,
+        [E2E.tenantId, role, keys],
+      );
+    }
     await client.query(
       `INSERT INTO user_roles (tenant_id, user_id, role_id, scope)
        SELECT $1, $2, id, 'ORGANIZATION' FROM roles WHERE key = 'owner'
@@ -98,6 +110,16 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
     await inTenant(client, E2E.tenantId, async () => {
       await client.query('UPDATE users SET auth_user_id = NULL WHERE id = $1', [E2E.userId]);
     });
+    await inTenant(client, E2E.tenantId, async () => {
+      // People invited during this run (tests/e2e/admin-users.spec.ts).
+      const invited = `SELECT id FROM users WHERE email::text LIKE 'e2e-invite-%'`;
+      await client.query(`DELETE FROM user_invitations WHERE user_id IN (${invited})`);
+      await client.query(`DELETE FROM approval_requests WHERE entity_id IN (${invited})`);
+      await client.query(`DELETE FROM user_roles WHERE user_id IN (${invited})`);
+      await client.query(`DELETE FROM users WHERE id IN (${invited})`);
+      await client.query('DELETE FROM mail_outbox');
+    });
+    await client.query(`DELETE FROM auth."user" WHERE email LIKE 'e2e-invite-%'`);
     await client.query(`DELETE FROM auth."user" WHERE id = $1`, [user.id]);
     await client.query(
       `DELETE FROM auth."rateLimit" WHERE key LIKE '127.0.0.1%' OR key LIKE '::%'`,

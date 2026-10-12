@@ -13,5 +13,6 @@ describe('design tokens', () => {
   it('theme-colors.ts mirrors tokens.css', () => {
     expect(themeColors.brandGreen).toBe(token('color-brand-green'));
     expect(themeColors.background).toBe(token('color-background'));
+    expect(themeColors.brandGold).toBe(token('color-brand-gold'));
   });
 });

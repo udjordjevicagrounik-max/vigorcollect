@@ -10,6 +10,9 @@ process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
 process.env.BETTER_AUTH_SECRET = randomBytes(32).toString('base64');
 process.env.BETTER_AUTH_URL = 'http://localhost:3000';
 process.env.PII_MASTER_KEYS = `1:${randomBytes(32).toString('base64')}`;
+// Turnstile is covered by captcha.test.ts; here it is off even if .env has keys.
+process.env.TURNSTILE_SITE_KEY = '';
+process.env.TURNSTILE_SECRET = '';
 
 import { POST as revokeInvitation } from '@/app/api/invitations/[id]/revoke/route';
 import { POST as createInvitationRoute } from '@/app/api/invitations/route';

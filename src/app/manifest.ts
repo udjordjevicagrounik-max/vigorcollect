@@ -4,7 +4,8 @@ import { themeColors } from '@/styles/theme-colors';
 
 export const dynamic = 'force-dynamic';
 
-// PWA manifest. No service worker yet; when added, nothing financial is cached (rule 16).
+// PWA manifest (installable: name, start_url, standalone, 192 + 512 icons — scripts/generate-icons.ts).
+// No service worker yet; when added, nothing financial is cached (rule 16).
 export default function manifest(): MetadataRoute.Manifest {
   const { productName } = getProductConfig();
   return {
@@ -14,6 +15,10 @@ export default function manifest(): MetadataRoute.Manifest {
     display: 'standalone',
     background_color: themeColors.background,
     theme_color: themeColors.brandGreen,
-    icons: [],
+    icons: [
+      { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+      { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+      { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+    ],
   };
 }

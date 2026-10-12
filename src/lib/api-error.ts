@@ -1,32 +1,12 @@
 import { NextResponse } from 'next/server';
+import type { ApiErrorCode } from './api-error-codes';
 
 /**
  * The ONE error shape of our API (task 1.4): {code, message_key, request_id}. Never a stack, a
  * SQL message or a value. The UI shows t(message_key) + the request id for support (rule 29).
  * Every code has a message under `errors.*` in messages/*.json (unit test).
  */
-export const API_ERROR_CODES = [
-  'unauthorized',
-  'forbidden',
-  'forbidden_origin',
-  'not_found',
-  'invalid_request',
-  'conflict',
-  'not_pending',
-  'already_member',
-  'user_disabled',
-  'unknown_role',
-  'invalid',
-  'expired',
-  'sign_in_required',
-  'wrong_account',
-  'weak_password',
-  'captcha_failed',
-  'rate_limited',
-  'approval_required',
-  'internal',
-] as const;
-export type ApiErrorCode = (typeof API_ERROR_CODES)[number];
+export { API_ERROR_CODES, isApiErrorCode, type ApiErrorCode } from './api-error-codes';
 
 export type ApiErrorBody = { code: ApiErrorCode; message_key: string; request_id: string | null };
 
@@ -43,8 +23,4 @@ export function apiError(
     status,
     headers: { 'cache-control': 'no-store' },
   });
-}
-
-export function isApiErrorCode(value: string): value is ApiErrorCode {
-  return (API_ERROR_CODES as readonly string[]).includes(value);
 }

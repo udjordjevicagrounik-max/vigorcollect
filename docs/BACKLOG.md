@@ -97,6 +97,15 @@ Ideje i tehnički dug zapisani usred zadatka (protokol: ne predlaže se usred za
 - [ ] `style-src-attr 'unsafe-inline'` — ukloniti kad Next i Turnstile prestanu da koriste style atribute (hash-evi).
 - [ ] Rate limit po email-u (već u „Iz 1.1a") i po tenantu za skupe rute (izvoz, uvoz).
 
+## Iz 1.5
+
+- [ ] Reaktivacija deaktiviranog korisnika (ekran + `user.update`, audit).
+- [ ] Red zahteva za odobrenje (`approval.read`) za sve vrste — sada se odlučuje samo promena role, na ekranu Korisnici.
+- [ ] Promena role pozvanog (još neprihvaćenog) korisnika = nova pozivnica; posebno dugme.
+- [ ] Pregled sink-a za demo tenant (već u „Iz 1.1b").
+- [ ] Feature flag-ovi (`isFlagEnabled`) čitati kroz `withTenantPage` — sada su svi isključeni (pravilo 31 drži Resolution skrivenim).
+- [ ] `docker-compose.yml`: `app` i `worker` grade isti image dvaput — zajednički `image:` tag pri prvom deploy-u.
+
 ## Roadmap
 
 ### Marketing sajt — paralelan tok uz Sprint 1

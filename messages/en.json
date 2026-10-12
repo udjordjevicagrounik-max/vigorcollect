@@ -13,15 +13,14 @@
     },
     "items": {
       "home": "Home",
-      "settingsPassword": "Password"
-    }
-  },
-  "empty": {
-    "home": {
-      "title": "Your work queue will appear here",
-      "description": "Once you connect a data source and import invoices, you will see the customers and items that need your attention here, ordered by priority.",
-      "action": "Check system status"
-    }
+      "settingsPassword": "Password",
+      "users": "Users",
+      "tenantSettings": "Settings",
+      "systemStatus": "System status"
+    },
+    "tenant": "Organization",
+    "switchTenant": "Switch organization",
+    "account": "Account"
   },
   "error": {
     "title": "Something went wrong",
@@ -164,6 +163,110 @@
     "captcha_failed": "The check that you are not a robot failed. Please try again.",
     "rate_limited": "Too many requests from this network. Wait a minute and try again.",
     "approval_required": "The change was sent for approval by another person (four eyes).",
-    "internal": "Something went wrong on our side. Please try again; if it persists, send the request ID to support."
+    "internal": "Something went wrong on our side. Please try again; if it persists, send the request ID to support.",
+    "self_action": "You cannot do this to your own account — ask another administrator.",
+    "last_owner": "This is the organization’s only owner; make someone else owner first.",
+    "unsupported": "This kind of request cannot be decided here yet."
+  },
+  "dashboard": {
+    "empty": {
+      "title": "No invoices yet",
+      "description": "Once you import invoices from your accounting system, the customers and items that need attention appear here, ordered by priority. The first step is the import.",
+      "action": "Import invoices"
+    }
+  },
+  "importPage": {
+    "empty": {
+      "title": "Invoice import is coming soon",
+      "description": "Importing CSV/Excel exports from your accounting system arrives in the next version. Meanwhile you can invite colleagues and set up your organization.",
+      "action": "Back to home"
+    }
+  },
+  "admin": {
+    "forbidden": {
+      "title": "You do not have access to this page",
+      "description": "This page needs a permission your role does not have. If you need it, contact your organization’s administrator.",
+      "action": "Back to home"
+    },
+    "users": {
+      "title": "Users",
+      "description": "Who works in the organization, with which role and scope. New users join only by invitation; deactivation deletes nothing.",
+      "invite": {
+        "title": "Invite a user",
+        "email": "Email",
+        "name": "Full name",
+        "role": "Role",
+        "submit": "Send invitation",
+        "sent": "The invitation was sent. It is valid for 72 hours.",
+        "none": "You are not allowed to invite users."
+      },
+      "status": {
+        "invited": "Invited",
+        "active": "Active",
+        "disabled": "Deactivated"
+      },
+      "scope": {
+        "OWN": "own",
+        "TEAM": "team",
+        "ORGANIZATION": "whole organization"
+      },
+      "roleWithScope": "{role} — {scope}",
+      "noRole": "no role",
+      "you": "you",
+      "invitationExpired": "invitation expired",
+      "invitationPending": "invitation sent",
+      "resend": "Resend",
+      "resent": "A new invitation was sent; the previous link no longer works.",
+      "deactivate": "Deactivate",
+      "confirmDeactivate": "Confirm deactivation",
+      "cancel": "Cancel",
+      "deactivated": "The user was deactivated and no longer has access.",
+      "changeRole": "Change role",
+      "applyRole": "Save role",
+      "roleChanged": "The role was changed.",
+      "approvalRequested": "Changing an owner/administrator role waits for approval by another person.",
+      "pendingApproval": "Awaiting approval: {role}",
+      "approve": "Approve",
+      "reject": "Reject",
+      "approved": "The change was approved and applied.",
+      "rejected": "The change was rejected.",
+      "emptyTitle": "It is just you for now",
+      "emptyDescription": "Invite colleagues from finance and collection — everyone gets only the role they need."
+    },
+    "settings": {
+      "title": "Organization settings",
+      "description": "Language, time zone, currency and country apply to the whole organization: deadlines and daily jobs (e.g. 06:00 your time) follow the time zone, legal parameters follow the country.",
+      "locale": "Language",
+      "timezone": "Time zone",
+      "currency": "Currency",
+      "country": "Country",
+      "save": "Save",
+      "saved": "Settings saved.",
+      "readOnly": "Settings can be changed by the owner or an administrator.",
+      "locales": {
+        "sr-Latn": "Srpski (latinica)",
+        "en": "English"
+      }
+    },
+    "status": {
+      "title": "System status",
+      "description": "Database and background jobs (sending messages, processing events, cleaning old data). Read-only.",
+      "db": "Database",
+      "dbOk": "Running",
+      "dbDown": "Not responding",
+      "jobs": "Background jobs",
+      "pending": "Pending",
+      "failed": "Failed",
+      "oldestPending": "Oldest pending",
+      "lastRetention": "Last cleanup",
+      "never": "not run yet",
+      "notStarted": "The worker has not started on this database yet.",
+      "seconds": "{count} s",
+      "version": "Version"
+    }
+  },
+  "pwa": {
+    "install": "Install the app",
+    "installHint": "Works from your phone’s home screen too."
   }
 }

@@ -2,9 +2,8 @@
 
 ## Aktivan zadatak
 
-**1.3 outbox** — `domain_events` dispatcher, rola `vigor_worker` (ADR 0002 „Otvoreno" 2),
-retention job za `mail_outbox` (7 dana) i isteklih `auth.session` / `auth.verification`.
-Pre toga: Uroševa `!` komanda za 006 + `src/server/auth/*` (izveštaj lanca 1.1b → 1.2).
+**1.6 timovi** — `teams` / `team_members`, `TEAM` scope prestaje da bude `OWN`; posle Uroševe
+`!` komande za 007, 008 i `src/server/auth/*` (izveštaj lanca 1.3 → 1.5) i `docker-compose.yml`.
 
 ### Sprint 1 plan (1.1–1.7)
 
@@ -19,47 +18,52 @@ Pre toga: Uroševa `!` komanda za 006 + `src/server/auth/*` (izveštaj lanca 1.1
 Numeracija važi od Sprinta 1 i zamenjuje raniju (1.3 login, 1.4 maker-checker, 1.5 outbox,
 1.6 verify/backup) u starijim beleškama i komentarima.
 
-## Poslednja sesija — lanac 1.1b → 1.1c → 1.2 (2026-10-12, noćni režim)
+## Poslednja sesija — lanac 1.3 → 1.4 → 1.5 (2026-10-12, noćni režim)
 
 ### Urađeno po bloku
 
-- **1.1b backend — `273f1ad`** (+ predlozi): migracija 006 (`tenants.is_demo`, `user_invitations`
-  sa hešom tokena + trigger za konačnost/istek + politika `invite_token_lookup` samo pre tenanta,
-  `mail_outbox` šifrovan + trigger „demo samo sink"); `src/server/mail` (adapter, sink, HKDF
-  ključ, auth mailer); `invitations.ts`; Secure kolačić po odluci; `storeIdentifier: 'hashed'`;
-  promena lozinke gasi ostale sesije; `scripts/dev-admin-password.ts`; runbook „Prvi login" i
-  „Ponovno slanje pozivnice". Testovi: 16 DB (pozivnice, sink, reset, sesije) + 36 unit.
-- **1.1c ekrani — `431ec69`**: `/login`, `/login/mfa`, `/settings/mfa-setup` (QR + ručni ključ +
-  rezervni kodovi), `/invite/[token]`, `/settings/password`, `/select-tenant`, generička poruka
-  (pogrešna lozinka = nepostojeći = zaključan nalog); shell traži punu sesiju; honeypot;
-  `qrcode` 1.5.4. Playwright na `collect_test`: login → MFA setup → MFA → shell na 375 px.
-- **1.2 tenant helperi — commit ove sesije** (+ predlozi): `withTenant()` (tenant samo iz
-  sesije, `RESET app.auth_user_id`, fail-closed bez `requirePermission()` / mutacija bez
-  `audit()`), `requirePermission()` (najširi scope), `audit()` sa redakcijom kroz
-  `pii_field_registry`; rute `POST /api/invitations`, `POST /api/invitations/[id]/revoke`,
-  `GET /api/users/[id]`. Golden: statički test ruta, IDOR → 404, audit po mutaciji.
-- **Stanje testova:** DB 154/154, unit 73/73, e2e 23/23, `next build` ✔. Mutacije: 11 namerno
-  pokvarenih zaštita (5 u 1.1b, 6 u 1.2) — svaka obara bar 1 test.
+- **1.3 outbox — `6ea8b99`** (+ predlog 007): rola `vigor_worker` (skripta kao superuser, ne
+  migracija — `vigor_migrate` je NOCREATEROLE); politike samo na `domain_events` i `mail_outbox`;
+  worker proces (isti image, `node worker.mjs`, `PROCESS_ROLE=worker` kroz `instrumentation.ts`);
+  pg-boss (`id` posla = id događaja), `withTenantJob()`, 3 ponavljanja → `failed` vidljiv;
+  `tenant_clock()` + dnevni posao u 06:00 po zoni tenanta (ključ tenant + lokalni datum, DST);
+  retention; `/health` sa zbirovima poslova. ADR 0005.
+- **1.4 security — `c207067`** (+ predlog 008): nonce CSP bez `unsafe-inline` za skripte, HSTS
+  (prod), XFO DENY, no-referrer, Permissions-Policy, CORS samo naš origin; CSRF (Better Auth
+  provere eksplicitno uključene, `withTenant` traži naš Origin); rate limit 120/min po IP-u u bazi;
+  Turnstile (Better Auth `captcha` plugin + adapter za pozivnicu; prod bez ključeva izlazi sa 1);
+  Zod golden nad svim rutama; greška uvek `{code, message_key, request_id}`. ADR 0006.
+- **1.5 prvi ekrani — commit ove sesije**: shell (navigacija po permisijama, oznaka organizacije,
+  promena, odjava, PWA install), Admin → Korisnici (pozivnica, ponovo, promena role sa četiri oka
+  za owner/admin, deaktivacija), Admin → Podešavanja (audit + događaj), Admin → Status sistema,
+  dashboard sa praznim stanjem, PWA ikone. `withTenantPage()` za server komponente.
+- **Stanje testova:** DB 186, unit 102, e2e 30 (+1 namerno preskočen), `next build` ✔. Mutacije:
+  14 pokvarenih zaštita (5 + 5 + 4), svaka obara bar 1 test.
 
 ### Pretpostavke (najkonzervativnija opcija)
 
-1. Ključ za `mail_outbox`: HKDF iz `PII_MASTER_KEYS` po tenantu, ne `subject_keys` — CHECK
-   `subject_keys_purpose_subject` ne dozvoljava `tenant`+`data`, a izmena bi bila DROP CONSTRAINT.
-2. SMTP ne postoji (`nodemailer` nije u zavisnostima): svi tenanti pišu u sink; `smtpEnabled = false`.
-3. Reset lozinke ide u sink tenanta u kome je osoba član — demo članstvo ima prednost; bez
-   članstva se ništa ne šalje (odgovor isti).
-4. Pozvani korisnik dobija scope `OWN`; širi scope = `user.assign` (maker-checker, 1.4).
-5. Osoba koja već ima nalog prihvata pozivnicu samo prijavljena (nema postavljanja lozinke tuđem nalogu).
-6. Pozivnica: tenant se nalazi preko heša tokena (pre tenanta), nikad iz zahteva; prihvatanje je van `withTenant()` jer osoba još nema tenant sesiju.
-7. Re-send = nova pozivnica; prethodna `revoked` (token se ne može povratiti).
-8. `dev-admin-password.ts`: „host" = `BETTER_AUTH_URL` (baza je na 172.17.0.1 i u dev-u i na Elestio, pa ne razlikuje okruženja); dodat uslov „izlaz je terminal" da lozinka ne uđe u chat ni log; ovaj kontejner ima `NODE_ENV=production` → runbook kaže `NODE_ENV=development`.
-9. `qrcode` zadržan iako je poslednje izdanje 2024-08 (pravilo 14: 12 meseci) — izričito odobren u 3b; obrazloženje u commit poruci, praćenje u BACKLOG-u.
-10. Turnstile (pravilo 27) nije urađen: traži Cloudflare ključeve → BACKLOG + blokada u release checklisti; honeypot + rate limit po IP-u do tada.
-11. Ekrani za reset lozinke i unos rezervnog koda → BACKLOG (nisu među 7 traženih).
-12. `audit()` čuva vrednost samo za kolone registrovane kao P0 bez uslova; sve ostalo, i nepoznati ključevi, postaje `[redacted]`.
-13. `requirePermission` vraća najširi scope; 🅼 (samo checker) se još ne razlikuje → 1.4.
-14. Neuspeh tenant rute: 401 za nepotpunu sesiju, 403 `{"error":"forbidden"}`, 404 i za tuđ id, 409 sa kodom, 400 `invalid_request`, 500 `internal` + JSON log.
-15. E2E radi na `collect_test` sa identitetom napravljenim za svako pokretanje; sesija iz setup projekta se deli (8 h, briše se u teardown-u).
+1. `vigor_worker` se pravi `scripts/create-worker-role.sh` (superuser); 007 odbija rad bez nje.
+2. pg-boss tabele pravi pg-boss kao `vigor_worker` u šemi `pgboss` (iz migracije); van RLS konvencije, bez tenant podataka.
+3. `tenant_clock()`: SECURITY DEFINER (vlasnik `vigor_migrate`) + politika za vlasnika aktivna samo uz GUC unutar funkcije — worker nema politiku na `tenants`/`tenant_settings`.
+4. Dnevni posao je po tenantu (zona `tenant_settings.timezone`); kompanije u drugim zonama ne menjaju dan tenanta. Poslovi po kompaniji → kad zatrebaju.
+5. Sink → „poslato" nije urađeno: CHECK iz 006 bi tražio DROP CONSTRAINT; uhvaćen sink red je već isporuka.
+6. Trigger iz 006 (demo → samo sink) zamenjen u 007 kroz `CREATE OR REPLACE` (bez DROP): proverava INSERT i promenu `transport`; worker ne može da menja `transport`.
+7. `/health` je javna i vraća zbirove poslova (bez podataka); app ih čita kroz `job_health()` (SECURITY DEFINER), worker pri startu daje `SELECT ON pgboss.job` vlasniku.
+8. Worker se pakuje kroz Next `instrumentation.ts` (esbuild nije direktna zavisnost).
+9. Semgrep pravilo „Vigor" dozvoljava i `vigor_worker` (ime role iz tvog zadatka i ADR 0002).
+10. Vitest uvek radi sa `NODE_ENV=test` (ovaj kontejner ima `NODE_ENV=production` u shell-u).
+11. Better Auth origin/CSRF provere eksplicitno uključene (inače su isključene pod `NODE_ENV=test`).
+12. `style-src-attr 'unsafe-inline'` ostaje (style atributi Next-a i Turnstile-a ne izvršavaju kod).
+13. Rate limit: propušta ako baza ne odgovori (log); `X-Forwarded-For` se veruje (iza proksija).
+14. Promena role: `user.update` podnosi, `user.assign` (🅼) odlučuje; obične role bez odobrenja, scope ostaje.
+15. Deaktivacija: ne sebe, admin ne owner-a; pozivnice te osobe se opozivaju.
+16. Dev `.env` dobio Cloudflare-ove javne Turnstile test ključeve (nisu tajna) da compose radi lokalno; `WORKER_DB_PASSWORD`/`WORKER_DATABASE_URL` generisani, nisu ispisani.
+
+### Odluke Uroša za lanac 1.3 → 1.5 (2026-10-12)
+
+- `mail_outbox` ključ izveden iz master ključa — u ADR 0003 kao privremen; ujediniti sa
+  `subject_keys` posle go-live (expand → contract); rotacija mora pokriti oba puta.
+- `qrcode`: BACKLOG — zameniti kad postoji održavana alternativa.
 
 ### Odluke Uroša za lanac (2026-10-12)
 
@@ -100,14 +104,13 @@ postoji samo šifrovano na `customers`. Ulazi u migraciju 003, aditivno.
 
 ### Za Sprint 1
 
-- **Turnstile nedostaje (pravilo 27)** — blokada pre staging-a (release checklist).
-- **`qrcode` bez izdanja od 2024-08** — izuzetak od pravila 14; zamena = ručni ključ (već na ekranu).
-- **Nema SMTP-a**: pozivnice i reset za ne-demo tenante ostaju u sink-u dok se ne odobri `nodemailer`.
-- **Prihvatanje pozivnice nema rate limit po IP-u** (token 256 bita) — BACKLOG.
-- **`BETTER_AUTH_*` i `PII_MASTER_KEYS` nisu u `docker-compose.yml`** (zaštićen) — pre deploya sa prijavom.
+- **Worker traži ručni korak po klasteru** (rola) pre 007 — bez toga migracija stoji.
+- **Turnstile zavisi od Cloudflare mreže**: kad CF ne radi, prijava ne radi (pada zatvoreno).
+- **e2e traži mrežu** (Turnstile test ključevi) i `collect_test` sa 007/008.
+- **Nema SMTP-a**: sve u sink do odobrenja `nodemailer`.
+- **`qrcode` bez izdanja od 2024-08** — izuzetak od pravila 14 (BACKLOG).
 - **Better Auth nadogradnja = moguća migracija** (`getMigrations()` uporediti sa 005).
 - **Matrica permisija je pretpostavka o poslovnim ulogama** (0.3); izmena = `docs/permissions.md` + nova migracija.
-- **Stranice još ne čitaju podatke tenanta** (`withTenant` je za API); server komponente sa podacima u 1.5.
 
 ### Trajni
 
@@ -127,6 +130,9 @@ postoji samo šifrovano na `customers`. Ulazi u migraciju 003, aditivno.
 - `npm audit` u hook-u zavisi od mreže — offline commit neće proći.
 
 ## Istorija
+
+- **Lanac 1.1b → 1.1c → 1.2** (2026-10-12): `273f1ad`, `431ec69`, `e41fa02`; `0633c3b` migracija
+  006 + `src/server/auth/*` (Uroš). 15 pretpostavki: `git show e41fa02:docs/NEXT.md`.
 
 - **1.1a autentifikacija** (2026-10-12): `a08c05f` testovi, ruta, seed, docs; `ded50d5` ispravka
   politike + odluke; `9ab892e` migracija 005 + `src/server/auth/*` (Uroš). 15 pretpostavki:

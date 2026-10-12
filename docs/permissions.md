@@ -104,6 +104,17 @@ Izvoz (`*.export`) ide samo kroz `exportService` koji piše `export_log` (pravil
 | `feature_flag.read`       | Feature flag-ovi tenanta                          | ✅      | ✅      | ➖    | ➖                | ➖                   | ➖          | ➖              | ➖          | ➖              | ➖        | ➖          |
 | `feature_flag.manage`     | Uključivanje flag-a tenanta (pravilo 31)          | 🅼       | ➖      | ➖    | ➖                | ➖                   | ➖          | ➖              | ➖          | ➖              | ➖        | ➖          |
 
+## Korisnici: pozivnica, rola, deaktivacija (1.5)
+
+| radnja                             | potrebno                                              | napomena                                                                 |
+| ---------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------ |
+| pozivnica / ponovno slanje         | `user.create`                                         | owner poziva sve role, admin sve osim owner-a                            |
+| deaktivacija                       | `user.update`                                         | status `disabled`, nikad DELETE; ne sebe; admin ne dira owner-a          |
+| promena role (obične role)         | `user.update`                                         | odmah, uz audit; scope ostaje (širenje = `user.assign`)                  |
+| promena role koja dira owner/admin | `user.update` (podnosilac) + `user.assign` (odlučuje) | `approval_requests` `user_role.change`; podnosilac ≠ odlučilac (baza); 🅼 |
+| podešavanja tenanta                | `settings.read` / `settings.manage`                   | audit + `domain_events` `tenant_settings.updated`                        |
+| status sistema                     | `settings.read`                                       | isto što `/health`, samo čitanje                                         |
+
 ## Javne rute (bez `requirePermission`)
 
 Izuzeci od pravila 7. Svaki izuzetak mora biti ovde, sa razlogom. Ekrani i rute tenanta (sve ostalo) traže punu sesiju (lozinka + TOTP + aktivno članstvo) i `requirePermission` (1.2).

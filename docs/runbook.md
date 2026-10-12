@@ -148,7 +148,7 @@ Staging/prod: na Elestio hostu, sa vrednostima iz vault-a eksportovanim u shell 
 sesije), isti skript (`POSTGRES_USER`/`POSTGRES_PASSWORD` = superuser). Provera:
 `SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = 'vigor_worker';` → `f`, `f`.
 
-Pokretanje: servis `worker` u `docker-compose.yml` (isti image, `node worker.mjs`, port nije
+Pokretanje: servis `worker` u `docker-compose.yml` (od 1.5 i `app` traži `PII_MASTER_KEYS`, `BETTER_AUTH_*`, `TURNSTILE_*` — compose odbija start bez njih; lokalno rade Cloudflare-ovi javni test ključevi) (isti image, `node worker.mjs`, port nije
 objavljen; `/health` na 3001 unutar mreže). Lokalno: `npm run build` pa
 `cd .next/standalone && node worker.mjs` (iz `.env`: `DATABASE_URL`, `WORKER_DATABASE_URL`).
 

@@ -9,9 +9,18 @@ export async function postJSON(
   body: unknown,
   headers: Record<string, string> = {},
 ): Promise<PostResult> {
+  return sendJSON('POST', path, body, headers);
+}
+
+export async function sendJSON(
+  method: 'POST' | 'PUT' | 'PATCH' | 'DELETE',
+  path: string,
+  body: unknown,
+  headers: Record<string, string> = {},
+): Promise<PostResult> {
   try {
     const res = await fetch(path, {
-      method: 'POST',
+      method,
       headers: { 'content-type': 'application/json', ...headers },
       credentials: 'same-origin',
       body: JSON.stringify(body),
