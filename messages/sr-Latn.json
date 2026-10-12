@@ -21,6 +21,7 @@
       "systemStatus": "Status sistema",
       "teams": "Timovi",
       "rules": "Pravila",
+      "templates": "Šabloni",
       "approvals": "Odobrenja"
     },
     "tenant": "Organizacija",
@@ -585,7 +586,8 @@
       "payments": "Uplate",
       "promises": "Obećanja",
       "activities": "Aktivnosti",
-      "cases": "Case-ovi"
+      "cases": "Case-ovi",
+      "documents": "Dokumenti"
     },
     "aging": "Aging",
     "openCases": "Otvoreni case-ovi ({n})",
@@ -594,7 +596,8 @@
       "payments": "Nema uplata.",
       "promises": "Nema obećanja.",
       "activities": "Nema aktivnosti — zabeležite prvi kontakt.",
-      "cases": "Nema case-ova."
+      "cases": "Nema case-ova.",
+      "documents": "Nema dokumenata — napravite opomenu ili IOS dugmetom iznad."
     },
     "invoiceLine": "iznos {total} · dospeće {due}",
     "invoiceStatus": {
@@ -634,7 +637,11 @@
       "high": "visok prioritet",
       "urgent": "hitno"
     },
-    "caseInvoices": "{n} faktura"
+    "caseInvoices": "{n} faktura",
+    "documentKind": {
+      "dunning_letter": "Opomena",
+      "statement": "IOS"
+    }
   },
   "collections": {
     "actionsLabel": "Akcije nad kupcem",
@@ -913,5 +920,72 @@
       "failed": "greška"
     },
     "versionLabel": "v{version}"
+  },
+  "documents": {
+    "back": "← Dokumenti kupca",
+    "previewTitle": "Pregled dokumenta",
+    "unsafe": "Dokument sadrži nedozvoljen sadržaj i ne prikazuje se.",
+    "downloadLater": "Preuzimanje dokumenta (PDF) biće dostupno kad se uključi PDF generator; svako preuzimanje se beleži u dnevnik izvoza.",
+    "generated": "Dokument je napravljen.",
+    "generate": {
+      "dunning_letter": "Napravi opomenu",
+      "statement": "Napravi IOS"
+    }
+  },
+  "attention": {
+    "title": "Zahteva pažnju",
+    "description": "Prekršena obećanja, kupci bez aktivnosti, velike dospele fakture, odobrenja, zadaci, greške pravila i exception-i iz uvoza — sa sledećim korakom.",
+    "empty": "Trenutno ništa ne čeka na vas.",
+    "markRead": "Pročitano",
+    "taskDone": "Urađeno",
+    "doneNotice": "Zabeleženo.",
+    "exceptions": "za odluku: {n}",
+    "kinds": {
+      "approval_pending": "Odobrenje čeka vas",
+      "promise_broken": "Prekršeno obećanje",
+      "workflow_failed": "Pravilo nije uspelo",
+      "large_overdue": "Velika dospela faktura",
+      "import_exception": "Uvoz traži odluku",
+      "task_due": "Zadatak za danas",
+      "no_activity": "Nema aktivnosti",
+      "unassigned_case": "Case bez vlasnika",
+      "notification": "Obaveštenje"
+    },
+    "actions": {
+      "approval_pending": "Odluči",
+      "promise_broken": "Otvori",
+      "workflow_failed": "Pogledaj pravilo",
+      "large_overdue": "Otvori kupca",
+      "import_exception": "Otvori uvoz",
+      "task_due": "Otvori",
+      "no_activity": "Kontaktiraj",
+      "unassigned_case": "Dodeli",
+      "notification": "Otvori"
+    },
+    "messages": {
+      "rule_attention": "kupac traži pažnju",
+      "rule_case_opened": "otvoren je case",
+      "rule_task_created": "dodeljen je zadatak",
+      "rule_escalation": "eskalacija",
+      "rule_decision_proposed": "predlog odluke čeka čoveka",
+      "rule_legal_proposed": "predlog predaje pravnoj"
+    }
+  },
+  "templatesAdmin": {
+    "title": "Šabloni",
+    "description": "Tekstovi emailova i dokumenata (opomena, IOS) po jeziku. Svaka izmena je nova verzija; dokumenti pamte verziju po kojoj su napravljeni.",
+    "variables": "Dozvoljene promenljive:",
+    "loop": "lista faktura: {{#invoices}} … {{/invoices}}",
+    "empty": "Nema šablona — podrazumevani se dodaju pri podešavanju organizacije.",
+    "channel": {
+      "email": "email",
+      "document": "dokument"
+    },
+    "version": "verzija {version}",
+    "legalEffect": "sa pravnim dejstvom — pravilo ga ne šalje fizičkom licu",
+    "subject": "Naslov ({locale})",
+    "body": "Tekst ({locale}) — dozvoljeni tagovi: p, br, strong, em, h1–h3, ul, ol, li, table, span, div; bez atributa",
+    "save": "Sačuvaj kao novu verziju",
+    "saved": "Sačuvana je nova verzija šablona."
   }
 }

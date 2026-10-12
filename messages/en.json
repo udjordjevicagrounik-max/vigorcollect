@@ -21,6 +21,7 @@
       "systemStatus": "System status",
       "teams": "Teams",
       "rules": "Rules",
+      "templates": "Templates",
       "approvals": "Approvals"
     },
     "tenant": "Organization",
@@ -585,7 +586,8 @@
       "payments": "Payments",
       "promises": "Promises",
       "activities": "Activities",
-      "cases": "Cases"
+      "cases": "Cases",
+      "documents": "Documents"
     },
     "aging": "Aging",
     "openCases": "Open cases ({n})",
@@ -594,7 +596,8 @@
       "payments": "No payments.",
       "promises": "No promises.",
       "activities": "No activities — log the first contact.",
-      "cases": "No cases."
+      "cases": "No cases.",
+      "documents": "No documents — create a payment reminder or a statement with the buttons above."
     },
     "invoiceLine": "amount {total} · due {due}",
     "invoiceStatus": {
@@ -634,7 +637,11 @@
       "high": "high priority",
       "urgent": "urgent"
     },
-    "caseInvoices": "{n} invoices"
+    "caseInvoices": "{n} invoices",
+    "documentKind": {
+      "dunning_letter": "Payment reminder",
+      "statement": "Statement"
+    }
   },
   "collections": {
     "actionsLabel": "Customer actions",
@@ -913,5 +920,72 @@
       "failed": "error"
     },
     "versionLabel": "v{version}"
+  },
+  "documents": {
+    "back": "← Customer documents",
+    "previewTitle": "Document preview",
+    "unsafe": "The document contains content that is not allowed and is not shown.",
+    "downloadLater": "Downloading the document (PDF) becomes available once the PDF generator is enabled; every download is recorded in the export log.",
+    "generated": "The document was created.",
+    "generate": {
+      "dunning_letter": "Create payment reminder",
+      "statement": "Create statement"
+    }
+  },
+  "attention": {
+    "title": "Needs attention",
+    "description": "Broken promises, customers without activity, large overdue invoices, approvals, tasks, failed rules and import exceptions — each with the next step.",
+    "empty": "Nothing is waiting for you right now.",
+    "markRead": "Read",
+    "taskDone": "Done",
+    "doneNotice": "Recorded.",
+    "exceptions": "to decide: {n}",
+    "kinds": {
+      "approval_pending": "Approval waits for you",
+      "promise_broken": "Promise broken",
+      "workflow_failed": "Rule failed",
+      "large_overdue": "Large overdue invoice",
+      "import_exception": "Import needs a decision",
+      "task_due": "Task for today",
+      "no_activity": "No activity",
+      "unassigned_case": "Case without owner",
+      "notification": "Notification"
+    },
+    "actions": {
+      "approval_pending": "Decide",
+      "promise_broken": "Open",
+      "workflow_failed": "View rule",
+      "large_overdue": "Open customer",
+      "import_exception": "Open import",
+      "task_due": "Open",
+      "no_activity": "Contact",
+      "unassigned_case": "Assign",
+      "notification": "Open"
+    },
+    "messages": {
+      "rule_attention": "customer needs attention",
+      "rule_case_opened": "a case was opened",
+      "rule_task_created": "a task was assigned",
+      "rule_escalation": "escalation",
+      "rule_decision_proposed": "a proposed decision awaits a person",
+      "rule_legal_proposed": "legal handover proposed"
+    }
+  },
+  "templatesAdmin": {
+    "title": "Templates",
+    "description": "Email and document texts (payment reminder, statement) per language. Every change is a new version; documents remember the version they were made from.",
+    "variables": "Allowed variables:",
+    "loop": "invoice list: {{#invoices}} … {{/invoices}}",
+    "empty": "No templates — the defaults are added when the organization is set up.",
+    "channel": {
+      "email": "email",
+      "document": "document"
+    },
+    "version": "version {version}",
+    "legalEffect": "with legal effect — a rule never sends it to a private person",
+    "subject": "Subject ({locale})",
+    "body": "Text ({locale}) — allowed tags: p, br, strong, em, h1–h3, ul, ol, li, table, span, div; no attributes",
+    "save": "Save as a new version",
+    "saved": "A new template version was saved."
   }
 }

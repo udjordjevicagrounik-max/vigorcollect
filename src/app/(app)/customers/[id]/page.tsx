@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { getLocale, getTranslations } from 'next-intl/server';
 import { z } from 'zod';
 import { ForbiddenState } from '@/components/admin/forbidden-state';
+import { GenerateDocument } from '@/components/communication/generate-document';
 import { AgingBars } from '@/components/receivables/aging-bars';
 import { CustomerActions, PromiseActions } from '@/components/receivables/customer-actions';
 import { Screen } from '@/components/shell/screen';
@@ -10,6 +11,7 @@ import { formatAmount } from '@/lib/format-amount';
 import { PermissionDeniedError, permissionKeys } from '@/server/auth/permissions';
 import { NotFoundError, withTenantPage } from '@/server/auth/with-tenant';
 import { localToday } from '@/server/collections/service';
+import { listDocuments } from '@/server/documents/service';
 import {
   codeLabels,
   customerActivities,
@@ -22,7 +24,15 @@ import {
 
 export const dynamic = 'force-dynamic';
 
-const TABS = ['overview', 'invoices', 'payments', 'promises', 'activities', 'cases'] as const;
+const TABS = [
+  'overview',
+  'invoices',
+  'payments',
+  'promises',
+  'activities',
+  'cases',
+  'documents',
+] as const;
 type Tab = (typeof TABS)[number];
 const TAB_PERMISSION: Record<Tab, string> = {
   overview: 'customer.read',
@@ -31,6 +41,7 @@ const TAB_PERMISSION: Record<Tab, string> = {
   promises: 'promise.read',
   activities: 'activity.read',
   cases: 'case.read',
+  documents: 'document.read',
 };
 const KPIS = ['exposure', 'overdue', 'oldest', 'promises'] as const;
 const CURRENT = 'page' as const;
@@ -94,6 +105,7 @@ export default async function Customer360Page({
         outcomes: await codeLabels(ctx, 'activity_outcome', locale),
         nextActions: await codeLabels(ctx, 'next_action', locale),
         reasons: await codeLabels(ctx, 'adjustment_reason', locale),
+        documents: active === 'documents' ? await listDocuments(ctx, id) : [],
       };
     });
   } catch (error) {
@@ -291,6 +303,21 @@ export default async function Customer360Page({
               line: `${t(`priority.${k.priority as 'normal'}`)} · ${t('caseInvoices', { n: k.invoices })} · ${money(k.amountOpen)}`,
             }))}
           />
+        ) : null}
+        {data.active === 'documents' ? (
+          <div className="flex flex-col gap-3">
+            {data.keys.includes('document.create') ? <GenerateDocument customerId={c.id} /> : null}
+            <List
+              empty={t('empty.documents')}
+              items={data.documents.map((d) => ({
+                key: d.id,
+                href: `/customers/${c.id}/documents/${d.id}`,
+                attr: d.kind,
+                title: `${t(`documentKind.${d.kind}`)} v${d.version}`,
+                line: `${d.createdAt.slice(0, 10)} · ${d.format.toUpperCase()} · ${d.locale}${d.createdBy ? ` · ${d.createdBy}` : ''}`,
+              }))}
+            />
+          </div>
         ) : null}
       </section>
     </Screen>

@@ -10,6 +10,7 @@ type NavItemKey =
   | 'users'
   | 'teams'
   | 'rules'
+  | 'templates'
   | 'approvals'
   | 'tenantSettings'
   | 'systemStatus';
@@ -36,6 +37,7 @@ const NAV_GROUPS: NavGroup[] = [
       { key: 'users', href: '/admin/users', anyOf: ['user.read'] },
       { key: 'teams', href: '/admin/teams', anyOf: ['team.read'] },
       { key: 'rules', href: '/admin/rules', anyOf: ['settings.read'] },
+      { key: 'templates', href: '/admin/templates', anyOf: ['settings.read'] },
       {
         key: 'approvals',
         href: '/admin/approvals',

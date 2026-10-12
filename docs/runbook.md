@@ -49,6 +49,18 @@ kompaniju (zona UTC); podaci uvoza ostaju između pokretanja (uvoz je idempotent
 - Dnevni posao tenanta (posle 06:00 lokalno, `tenant-daily`): evaluacija obećanja (D+`promise_grace_days`
   u zoni kompanije → fulfilled / partial / broken) i `invoice.overdue` događaji.
 - Kursevi: `fx-rates` radnim danima 16:30 UTC (ECB). ECB nema RSD — dev ima DEMO kurseve iz seed-a.
+- Demo podaci za preview: `npx tsx scripts/demo-import/import-demo.ts` (uvoz kroz servis uvoza u
+  demo tenant; primenjuje ga worker) i `--report` za brojeve poslednjeg uvoza.
+
+## Pravila, šabloni, dokumenti (Sprint 3)
+
+- Pravila: Administracija → Pravila. Standardna politika (D-7 … D+90) se dodaje provisioning-om
+  (`provision_receivables_defaults()` → `provision_collection_defaults()`); objava nove verzije =
+  zahtev za odobrenje (druga osoba sa `settings.manage`). Dnevni okidači idu posle 06:00 lokalno.
+- Šabloni: Administracija → Šabloni; izmena = nova verzija; samo promenljive i tagovi sa bele liste.
+- Dokumenti (opomena, IOS): Customer 360 → Dokumenti. Sadržaj je šifrovan u `DOCUMENTS_DIR`
+  (podrazumevano `<cwd>/data/documents`; e2e `.e2e-data/documents`). U Docker-u bez volume-a se
+  gube pri rekreiranju kontejnera (BACKLOG). Preuzimanje samo kroz exportService (PDF).
 
 ## PII master ključ (`PII_MASTER_KEYS`)
 

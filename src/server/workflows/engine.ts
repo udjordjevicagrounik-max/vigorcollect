@@ -286,11 +286,18 @@ async function runAction(rc: RunContext, action: Action): Promise<Outcome> {
         : { status: 'skipped', result: { reason: 'no_recipient' } };
     }
     case 'queue_email': {
+      const tpl = await rc.db.query<{ legal: boolean }>(
+        `SELECT has_legal_effect AS legal FROM templates WHERE key = $1 AND channel = 'email' AND status = 'active'`,
+        [action.template],
+      );
+      const t = tpl.rows[0];
+      if (!t) return { status: 'skipped', result: { reason: 'template_missing', template: action.template } };
+      // Rule 19: a message with legal effect never goes to a natural person automatically.
+      if (t.legal && rc.facts.is_natural_person) {
+        return { status: 'skipped', result: { reason: 'rule_19', template: action.template } };
+      }
       // mail_outbox accepts only auth mail kinds (CHECK); widening it needs a decision (NEXT.md).
-      return {
-        status: 'skipped',
-        result: { reason: 'mail_kind_pending_decision', template: action.template },
-      };
+      return { status: 'skipped', result: { reason: 'mail_kind_pending_decision', template: action.template } };
     }
     case 'change_stage': {
       if (!rc.caseId) return { status: 'skipped', result: { reason: 'no_case' } };
