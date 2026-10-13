@@ -1,9 +1,12 @@
+import { resolve } from 'node:path';
 import { defineConfig, devices } from '@playwright/test';
 import { e2eDatabaseUrls, loadDotEnv, STORAGE_STATE } from './tests/e2e/e2e-env';
 
 const PORT = Number(process.env.E2E_PORT ?? 3100);
 const BASE_URL = `http://127.0.0.1:${PORT}`;
 const WORKER_PORT = Number(process.env.E2E_WORKER_PORT ?? 3191);
+// Generated documents (task 3.2) outside the build output, which every build replaces.
+const DOCUMENTS_DIR = resolve('.e2e-data/documents');
 
 loadDotEnv();
 const db = e2eDatabaseUrls();
@@ -62,6 +65,7 @@ export default defineConfig({
         DATABASE_URL: db.app,
         MIGRATE_DATABASE_URL: db.migrate,
         BETTER_AUTH_URL: BASE_URL,
+        DOCUMENTS_DIR,
         // Cloudflare's PUBLIC Turnstile test keys ("always passes", documented by Cloudflare) —
         // not secrets. Production refuses to start without real keys (rule 27).
         TURNSTILE_SITE_KEY: '1x00000000000000000000AA',

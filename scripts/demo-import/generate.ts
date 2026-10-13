@@ -13,11 +13,15 @@ export const DEMO_CUSTOMERS = [
   { taxId: 'DEMO-200000003', name: 'Primer Gradnja a.d.' },
   { taxId: 'DEMO-200000004', name: 'Ogled Logistika d.o.o.' },
   { taxId: 'DEMO-200000005', name: 'Uzorak Farm d.o.o.' },
+  { taxId: 'DEMO-200000006', name: 'Proba Energetika d.o.o.' },
+  { taxId: 'DEMO-200000007', name: 'Model Prehrana a.d.' },
+  { taxId: 'DEMO-200000008', name: 'Šablon Transport d.o.o.' },
 ] as const;
 
 // Days past due per invoice (negative = not due yet): covers 0, 1–30, 31–60, 61–90, 91–180, 180+.
 const PAST_DUE = [
-  -20, -5, 0, 3, 12, 25, 33, 47, 58, 64, 75, 88, 95, 120, 150, 175, 190, 240, 400, 2, 9, 40,
+  -25, -20, -12, -7, -5, -2, 0, 0, 1, 3, 5, 8, 12, 15, 19, 25, 29, 33, 38, 45, 47, 52, 58, 61, 64,
+  70, 75, 83, 88, 95, 104, 120, 135, 150, 175, 190, 220, 240, 310, 400,
 ];
 
 function mulberry32(seed: number): () => number {

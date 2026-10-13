@@ -66,7 +66,10 @@ async function exception(
   );
 }
 
-/** Settles `amount` of an invoice on behalf of the source (ERP reports it as paid). */
+/**
+ * The source lowered the open amount without a payment we know of → an ADJUSTMENT (payment_kind
+ * 'adjustment', reason 'unknown' until a person classifies it). Never counted as collected (015).
+ */
 async function settle(
   db: Db,
   run: { id: string; sourceId: string; today: string },
@@ -74,8 +77,9 @@ async function settle(
   amount: string,
 ): Promise<void> {
   const { rows } = await db.query<{ id: string }>(
-    `INSERT INTO payments (tenant_id, customer_id, source_id, kind, paid_on, amount, currency, import_run_id)
-     VALUES (app_tenant_id(), $1, $2, 'source_settlement', $3, $4, $5, $6) RETURNING id`,
+    `INSERT INTO payments (tenant_id, customer_id, source_id, kind, paid_on, amount, currency, import_run_id,
+                           adjustment_reason_code)
+     VALUES (app_tenant_id(), $1, $2, 'source_settlement', $3, $4, $5, $6, 'unknown') RETURNING id`,
     [invoice.customerId, run.sourceId, run.today, amount, invoice.currency, run.id],
   );
   await db.query(

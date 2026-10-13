@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { ForbiddenState } from '@/components/admin/forbidden-state';
 import { CaseActions } from '@/components/receivables/case-actions';
 import { CustomerActions } from '@/components/receivables/customer-actions';
+import { RunExplanation } from '@/components/rules/run-explanation';
 import { Screen } from '@/components/shell/screen';
 import { formatAmount } from '@/lib/format-amount';
 import { PermissionDeniedError, permissionKeys } from '@/server/auth/permissions';
@@ -137,13 +138,20 @@ export default async function CasePage({
         ) : (
           <ol className="mt-2 flex flex-col gap-2 border-l-2 border-brand-purple-soft pl-4">
             {d.timeline.map((e, i) => (
-              <li key={`${e.at}-${i}`} className="text-sm" data-timeline={e.type}>
+              <li
+                key={`${e.at}-${i}`}
+                className="text-sm"
+                data-timeline={e.kind === 'run' ? 'workflow.run' : e.type}
+              >
                 <span className="text-text-muted">{format.dateTime(new Date(e.at), WHEN)}</span>{' '}
-                <span className="font-medium text-text">
-                  {t.has(`events.${e.type as 'case.opened'}`)
-                    ? t(`events.${e.type as 'case.opened'}`)
-                    : e.type}
-                </span>
+                {e.kind === 'run' ? <RunExplanation explanation={e.data} status={e.type} /> : null}
+                {e.kind !== 'run' ? (
+                  <span className="font-medium text-text">
+                    {t.has(`events.${e.type as 'case.opened'}`)
+                      ? t(`events.${e.type as 'case.opened'}`)
+                      : e.type}
+                  </span>
+                ) : null}
                 {e.actorName ? <span className="text-text-muted"> · {e.actorName}</span> : null}
                 {e.kind === 'activity' && typeof e.data.outcome === 'string' ? (
                   <span className="block text-text-muted">

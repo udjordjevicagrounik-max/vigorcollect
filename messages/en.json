@@ -20,6 +20,8 @@
       "tenantSettings": "Settings",
       "systemStatus": "System status",
       "teams": "Teams",
+      "rules": "Rules",
+      "templates": "Templates",
       "approvals": "Approvals"
     },
     "tenant": "Organization",
@@ -196,7 +198,7 @@
       },
       "dso": {
         "label": "DSO",
-        "definition": "Open total ÷ average daily invoiced amount of the last {window} days."
+        "definition": "Open total (adjustments added back — they are not collections) ÷ average daily invoiced amount of the last {window} days."
       },
       "promises_today": {
         "label": "Promises today",
@@ -209,6 +211,14 @@
       "open_cases": {
         "label": "Open cases",
         "definition": "Number of open collection cases."
+      },
+      "collected_30": {
+        "label": "Collected (30 days)",
+        "definition": "Sum of payments received in the last 30 days. Adjustments (credit note, write-off, source correction) are not collections and are excluded."
+      },
+      "collection_rate": {
+        "label": "Collection rate",
+        "definition": "Collected (30 days) ÷ (collected + overdue total), in percent. Adjustments are excluded."
       }
     },
     "aging": {
@@ -231,7 +241,8 @@
       "title": "No invoices yet",
       "description": "Once you import invoices from your accounting system, the customers and items that need attention appear here, ordered by priority. The first step is the import.",
       "action": "Import invoices"
-    }
+    },
+    "percent": "{n} %"
   },
   "importPage": {
     "title": "Invoice import",
@@ -489,7 +500,8 @@
       "propose": "Send for approval",
       "proposed": "The request was sent; the change applies only after approval.",
       "legalHandover": "Hand a case over to legal",
-      "openCase": "Open case"
+      "openCase": "Open case",
+      "workflowPublish": "Publish a rule — version {version} · open"
     }
   },
   "pwa": {
@@ -574,7 +586,8 @@
       "payments": "Payments",
       "promises": "Promises",
       "activities": "Activities",
-      "cases": "Cases"
+      "cases": "Cases",
+      "documents": "Documents"
     },
     "aging": "Aging",
     "openCases": "Open cases ({n})",
@@ -583,7 +596,8 @@
       "payments": "No payments.",
       "promises": "No promises.",
       "activities": "No activities — log the first contact.",
-      "cases": "No cases."
+      "cases": "No cases.",
+      "documents": "No documents — create a payment reminder or a statement with the buttons above."
     },
     "invoiceLine": "amount {total} · due {due}",
     "invoiceStatus": {
@@ -594,8 +608,8 @@
       "cancelled": "cancelled"
     },
     "paymentKind": {
-      "received": "payment",
-      "source_settlement": "settled in ERP"
+      "payment": "payment",
+      "adjustment": "adjustment — not a collection"
     },
     "allocated": "allocated {amount}",
     "promiseStatus": {
@@ -623,7 +637,11 @@
       "high": "high priority",
       "urgent": "urgent"
     },
-    "caseInvoices": "{n} invoices"
+    "caseInvoices": "{n} invoices",
+    "documentKind": {
+      "dunning_letter": "Payment reminder",
+      "statement": "Statement"
+    }
   },
   "collections": {
     "actionsLabel": "Customer actions",
@@ -741,5 +759,233 @@
         "meeting": "Meeting"
       }
     }
+  },
+  "rules": {
+    "title": "Collection rules",
+    "description": "Rules run collections automatically: WHEN something happens, IF the conditions hold, THEN the actions run. Every change is a new version and goes live only after another person approves it.",
+    "new": "New rule",
+    "newTitle": "New rule",
+    "newDescription": "A rule starts as a draft (version 1). After saving, send it for approval — only then does it run.",
+    "emptyTitle": "No rules yet",
+    "emptyDescription": "The standard collection policy is added when the organization is set up. Create the first rule with the button above.",
+    "published": "published v{version}",
+    "notPublished": "not published",
+    "versionStatus": {
+      "draft": "draft",
+      "pending_approval": "awaiting approval",
+      "published": "published",
+      "superseded": "superseded",
+      "rejected": "rejected"
+    },
+    "runs7d": "7 days: done {succeeded} · conditions not met {skipped} · errors {failed}",
+    "back": "← Rules",
+    "pendingNotice": "This version awaits another person's approval (Administration → Approvals). Until then the published version applies.",
+    "invalidDefinition": "This version's definition is not valid — save a new version.",
+    "versions": "Versions",
+    "provisioned": "default policy",
+    "runs": "Latest runs",
+    "runsEmpty": "The rule has not run yet.",
+    "openEntity": "open",
+    "name": "Rule name",
+    "when": "WHEN",
+    "triggerType": "Trigger",
+    "triggers": {
+      "days_from_due": "Days from due date",
+      "event": "Event",
+      "no_activity": "No activity",
+      "specific_date": "Specific date"
+    },
+    "event": "Event",
+    "events": {
+      "invoice_overdue": "Invoice became overdue",
+      "payment_received": "Payment received",
+      "promise_broken": "Promise broken",
+      "case_stage_changed": "Case stage changed"
+    },
+    "offset": "Days (negative = before due)",
+    "businessDays": "Business days",
+    "days": "Days without activity",
+    "date": "Date",
+    "triggerHelp": {
+      "days_from_due": "Every day after 06:00 in the company's time zone: invoices whose due date plus the days is today.",
+      "event": "When the event happens (events caused by rules never trigger rules).",
+      "no_activity": "Every day: customers with overdue debt and no activity for that many days — once per inactive period.",
+      "specific_date": "Once, on that date: customers with open invoices."
+    },
+    "if": "IF",
+    "ifHelp": "All conditions must hold. Amounts are in the reporting currency with a dot as decimal sign (e.g. 1000.00).",
+    "field": "Field",
+    "operator": "Condition",
+    "value": "Value",
+    "fields": {
+      "policy": "policy",
+      "amount": "amount",
+      "days_overdue": "days overdue",
+      "segment": "segment",
+      "credit_status": "credit status",
+      "country": "country",
+      "currency": "currency",
+      "team": "team",
+      "owner": "owner",
+      "case_stage": "case stage",
+      "is_natural_person": "private person"
+    },
+    "ops": {
+      "eq": "=",
+      "ne": "≠",
+      "gt": ">",
+      "gte": "≥",
+      "lt": "<",
+      "lte": "≤",
+      "in": "one of"
+    },
+    "yes": "yes",
+    "no": "no",
+    "remove": "Remove",
+    "addCondition": "Add condition",
+    "then": "THEN",
+    "actionType": "Action",
+    "actions": {
+      "create_case": "Open case",
+      "assign": "Assign",
+      "create_task": "Create task",
+      "send_notification": "In-app notification",
+      "queue_email": "Email from template",
+      "change_stage": "Change stage",
+      "escalate": "Escalate to manager",
+      "create_decision": "Propose decision",
+      "create_approval": "Propose legal handover",
+      "call_webhook": "Webhook"
+    },
+    "priority": "Priority",
+    "priorities": {
+      "low": "low",
+      "normal": "normal",
+      "high": "high",
+      "urgent": "urgent"
+    },
+    "assignTo": "To",
+    "assign": {
+      "customer_owner": "customer owner",
+      "user": "user",
+      "team": "team lead"
+    },
+    "user": "User",
+    "team": "Team",
+    "choose": "— choose —",
+    "taskKind": "Task type",
+    "dueInDays": "Due in (days)",
+    "notifyTo": "To",
+    "notify": {
+      "case_owner": "case owner",
+      "customer_owner": "customer owner",
+      "team_lead": "team lead"
+    },
+    "message": "Message",
+    "messages": {
+      "rule_attention": "Customer needs attention",
+      "rule_case_opened": "A case was opened",
+      "rule_task_created": "A task was assigned"
+    },
+    "template": "Template",
+    "stage": "Stage",
+    "decisionType": "Decision type",
+    "url": "URL",
+    "actionHelp": {
+      "create_case": "An existing open case of the customer is reused.",
+      "assign": "Changes the case owner.",
+      "create_task": "The task goes to the case owner.",
+      "send_notification": "Inside the app only.",
+      "queue_email": "Sending email awaits a decision on message kinds in the mail outbox.",
+      "change_stage": "The 'Legal' stage only through an approved handover.",
+      "escalate": "Notifies managers and the team lead.",
+      "create_decision": "Always only a proposal — a person approves (rule 19).",
+      "create_approval": "A proposal; a person submits the handover request from the case (rule 11).",
+      "call_webhook": "Off until the feature flag is enabled."
+    },
+    "addAction": "Add action",
+    "saveDraft": "Save draft",
+    "submit": "Send for approval",
+    "saveAndSubmit": "Save as a new version and send for approval",
+    "saved": "Draft saved.",
+    "submitted": "Sent for approval; the rule runs once another person approves it.",
+    "runTitle": "Rule “{name}” v{version}",
+    "runFailed": "The run failed — nothing was changed.",
+    "runMatched": "Conditions: {conditions} → {actions}",
+    "runNotMatched": "Conditions not met: {conditions}",
+    "noConditions": "no conditions",
+    "actionStatus": {
+      "succeeded": "done",
+      "skipped": "skipped",
+      "failed": "error"
+    },
+    "versionLabel": "v{version}"
+  },
+  "documents": {
+    "back": "← Customer documents",
+    "previewTitle": "Document preview",
+    "unsafe": "The document contains content that is not allowed and is not shown.",
+    "downloadLater": "Downloading the document (PDF) becomes available once the PDF generator is enabled; every download is recorded in the export log.",
+    "generated": "The document was created.",
+    "generate": {
+      "dunning_letter": "Create payment reminder",
+      "statement": "Create statement"
+    }
+  },
+  "attention": {
+    "title": "Needs attention",
+    "description": "Broken promises, customers without activity, large overdue invoices, approvals, tasks, failed rules and import exceptions — each with the next step.",
+    "empty": "Nothing is waiting for you right now.",
+    "markRead": "Read",
+    "taskDone": "Done",
+    "doneNotice": "Recorded.",
+    "exceptions": "to decide: {n}",
+    "kinds": {
+      "approval_pending": "Approval waits for you",
+      "promise_broken": "Promise broken",
+      "workflow_failed": "Rule failed",
+      "large_overdue": "Large overdue invoice",
+      "import_exception": "Import needs a decision",
+      "task_due": "Task for today",
+      "no_activity": "No activity",
+      "unassigned_case": "Case without owner",
+      "notification": "Notification"
+    },
+    "actions": {
+      "approval_pending": "Decide",
+      "promise_broken": "Open",
+      "workflow_failed": "View rule",
+      "large_overdue": "Open customer",
+      "import_exception": "Open import",
+      "task_due": "Open",
+      "no_activity": "Contact",
+      "unassigned_case": "Assign",
+      "notification": "Open"
+    },
+    "messages": {
+      "rule_attention": "customer needs attention",
+      "rule_case_opened": "a case was opened",
+      "rule_task_created": "a task was assigned",
+      "rule_escalation": "escalation",
+      "rule_decision_proposed": "a proposed decision awaits a person",
+      "rule_legal_proposed": "legal handover proposed"
+    }
+  },
+  "templatesAdmin": {
+    "title": "Templates",
+    "description": "Email and document texts (payment reminder, statement) per language. Every change is a new version; documents remember the version they were made from.",
+    "variables": "Allowed variables:",
+    "loop": "invoice list: {{#invoices}} … {{/invoices}}",
+    "empty": "No templates — the defaults are added when the organization is set up.",
+    "channel": {
+      "email": "email",
+      "document": "document"
+    },
+    "version": "version {version}",
+    "legalEffect": "with legal effect — a rule never sends it to a private person",
+    "subject": "Subject ({locale})",
+    "body": "Text ({locale}) — allowed tags: p, br, strong, em, h1–h3, ul, ol, li, table, span, div; no attributes",
+    "save": "Save as a new version",
+    "saved": "A new template version was saved."
   }
 }

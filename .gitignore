@@ -24,3 +24,6 @@ next-env.d.ts
 # misc
 .DS_Store
 *.log
+
+# E2E generated documents (task 3.2)
+/.e2e-data

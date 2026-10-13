@@ -1,6 +1,7 @@
 import type { Pool } from 'pg';
 import { logEvent } from '@/lib/log';
 import { runDailyCollections } from '@/server/collections/service';
+import { runDailyWorkflows } from '@/server/workflows/engine';
 import { dailyRun, runId } from './schedule';
 import { withTenantJob } from './tenant-job';
 
@@ -35,11 +36,19 @@ export async function tenantClockTick(
 
 /**
  * The daily tenant job (after local 06:00): promise evaluation (fulfilled / partial / broken at
- * D + grace in the company's zone) and invoice.overdue events (task 2.4).
+ * D + grace in the company's zone) and invoice.overdue events (task 2.4), then the daily rule
+ * triggers (days from due, no activity, specific date — task 3.1).
  */
 export async function runTenantDaily(appPool: Pool, job: DailyJob, jobId: string): Promise<void> {
   await withTenantJob(appPool, job.tenantId, jobId, async (ctx) => {
     const result = await runDailyCollections(ctx.db, ctx.audit);
-    logEvent('tenant.daily', { tenantId: job.tenantId, localDate: job.localDate, ...result });
+    const runs = await runDailyWorkflows(ctx.db, ctx.audit);
+    logEvent('tenant.daily', {
+      tenantId: job.tenantId,
+      localDate: job.localDate,
+      ...result,
+      workflowRuns: runs.succeeded + runs.skipped + runs.failed,
+      workflowFailed: runs.failed,
+    });
   });
 }

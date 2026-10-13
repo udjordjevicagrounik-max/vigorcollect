@@ -14,70 +14,75 @@ istorijom) i sve lokalne backup kopije. Redom:
 
 ## Aktivan zadatak
 
-**Sprint 2 (2.1–2.4) završen na `feature/sprint-2`; sledeće: nalazi security review-a, pa
-Sprint 3 — rule engine.**
+**Noćni lanac 2.5 → 3.1 → 3.2 završen na `feature/sprint-3`.** Sledeće: tvoje tri odluke (ispod),
+pa nalazi security review-a (Sprint 2 + 3), pa Sprint 3 nastavak.
 
-1. **Security review** u ODVOJENOJ sesiji: ulaz `docs/security-review-input.md` + checklist;
-   obuhvatiti i Sprint 2 (migracije 012–014, uvoz fajlova kao nepouzdan ulaz, XLSX čitač,
-   `fx_convert` / `invoice_positions`, maker-checker za predaju pravnoj). Nalazi pre Sprinta 3.
-2. **Sprint 3 — rule engine** na novoj `feature/*` grani od `develop`.
+### Čeka tvoju odluku (STOP-ovi lanca, ništa nije zaobiđeno)
 
-**Blokade za staging** (runbook „Release checklist"): Turnstile ključevi · Sentry DSN · off-site
-bucket + ključevi · kanal za alarme · servisne role na Elestio pre 007/011 ·
-`VALIDATE CONSTRAINT users_auth_user` · GitHub remote (CI, `/code-review`) · NBS adapter ako je
-prvi klijent u RS profilu (ECB nema RSD).
+1. **PDF.** Image nema Chromium ni wkhtmltopdf. Dokumenti su HTML (šifrovani, pregled u
+   aplikaciji). Predlog:
+   - **(a) `puppeteer-core` + `chromium` (Debian paket) u worker image-u.** Verna kopija HTML-a
+     i istog šablona, image je oko 300 MB veći, a Chromium se ažurira sa sistemom.
+   - **(b) `pdfkit`.** Mali paket bez browsera, ali traži zaseban crtež dokumenta (šablon ≠ PDF),
+     bez HTML tabela.
+   - Preporuka: (a), samo u worker-u, render u poslu `document.render` (bez mreže, `--no-sandbox`
+     nije potreban kao `node` korisnik).
+2. **`mail_outbox.kind`** (CHECK: samo `invitation` / `password_reset`). Za `queue_email` treba
+   DROP + ADD CHECK sa `collection`, bez gubitka podataka. Do tada `queue_email` beleži
+   `mail_kind_pending_decision`.
+3. **`export_log.format`** (csv / xlsx / pdf / json). Preuzimanje HTML dokumenta bi tražilo
+   proširenje CHECK-a. Predlog: ne proširivati, nego sačekati PDF (odluka 1).
 
-## Poslednja sesija — lanac Sprint 2 (2026-10-12, režim lanca)
+## Poslednja sesija — noćni lanac 2.5 → 3.1 → 3.2 (2026-10-12/13)
 
 ### Urađeno po bloku
 
-- **2.1 finansijska šema — `04c2530`** (+ predlog 012): `invoices` (EN 16931 osnovna polja,
-  `due_date date`, FX zamrznut triggerom), `payments` (`received` / `source_settlement`),
-  `payment_allocations` (Σ ≤ uplata, Σ ≤ faktura, ista valuta i kupac), `amount_open` uvek izveden
-  triggerom iz alokacija (ručni upis se prepisuje), `promises`, `activities` (beleška šifrovana),
-  `collection_cases` + `case_invoices`, `aging_bucket_bounds`; podrazumevano u `tenant_settings`
-  / code listama (`provision_receivables_defaults()`); `money.ts` (bigint, half-even),
-  semgrep `no-float-amounts`, `fxRatesJob` (ECB; NBS skelet), DEMO kursevi u seed-u.
-- **2.2 uvoz — `289e6ea`** (+ predlog 013): wizard (fajl → mapiranje → pregled → izveštaj),
-  šablon mapiranja po tenant + izvor, Zod po redu, potvrda → worker (`import.confirmed`),
-  idempotentno po (izvor, `external_id`), exception-i, rollback; demo CSV u `scripts/demo-import/`.
-- **2.3 kupci / 360 / dashboard — `9f1f919`** (+ predlog 014): lista (pretraga, filteri,
-  privatni sačuvani filteri), Customer 360 sa 6 tabova i aging-om, dashboard (6 KPI sa
-  definicijama iz `docs/metrics.md`, aging, „moj rad danas" OWN/TEAM, drill-down).
-- **2.4 case / obećanje / aktivnost — `763af29`**: ekran case-a sa hronologijom, obećanja
-  (izmena / otkaz, dnevna evaluacija D+1), ručna uplata (eksplicitno → FIFO), aktivnosti,
-  „Predaj pravnoj" → `approval_request` + `decisions` za fizička lica; Playwright 375 px ceo tok.
-- **Testovi:** unit 138, DB 246, e2e 33 (+2 namerno preskočena); hook zelen na svakom commit-u.
+- **2.5 `a4c4ee6`** (+ predlog 015):
+  - `payments.payment_kind` (payment | adjustment) je generisan iz `kind`, bez backfill-a;
+  - razlog korekcije je code lista `adjustment_reason` (podrazumevano `unknown`);
+  - korekcija se ne računa u „Naplaćeno (30 dana)", stopu naplate ni DSO (`docs/metrics.md`);
+  - `instrumentation-node.ts` (bez `process.exit` u Edge-u), pa build bez upozorenja;
+  - stari server na 3101 je ugašen;
+  - demo uvoz na dev: **40 faktura, 8 kupaca, dospelo 10.946.484,18 RSD** (otvoreno 13.651.719,58).
+- **3.1 `f740953`** (+ predlog 016): rule engine (workflows, verzije, run-ovi sa objašnjenjem,
+  idempotentnost), Standard politika D-7 … D+90, Administracija → Pravila, run-ovi u hronologiji case-a.
+- **3.2 `4dc2420`, `9c9d44f`:** šabloni (bela lista, bez eval-a, verzije), dokumenti (opomena,
+  IOS; šifrovano skladište), exportService (potpisan link + `export_log`), „Zahteva pažnju",
+  Administracija → Šabloni, Customer 360 → Dokumenti.
+- **Testovi:** unit 140, DB 259, e2e 34 (+3 namerno preskočena). `next build` bez upozorenja.
 
 ### Pretpostavke (najkonzervativnija opcija)
 
-1. **exceljs uklonjen** (dodat u `04c2530`, uklonjen u `289e6ea`): pretvara numeričke XLSX ćelije u JS `number` — iznos bi prošao kroz float (STOP uslov). Sopstveni čitač (`zlib` + XML tekst) čuva tačan decimalni tekst; nema novog paketa; `npm audit` 0 nalaza.
-2. Niži saldo iz izvora = `source_settlement` uplata + alokacija razlike (nikad upis `amount_open`); viši saldo, promena iznosa / valute / kupca i svaka promena plaćene fakture = reconciliation exception. Dospeće, broj i reference prate izvor.
-3. `payments` se ne brišu, osim nealocirane `source_settlement` uplate (trigger) — samo za rollback uvoza.
-4. Rollback uvoza: briše fakture iz run-a koje niko nije dirao (bez tuđih alokacija, case-a i kasnijeg uvoza) i vraća settlement-e run-a ako posle njih nema alokacija; ostalo `rollback_blocked`. Kupci i metapodaci ostaju. Dozvola: `import.create` (nema `import.rollback`).
-5. Kupac iz uvoza: `find_or_create` po (država, PIB), samo pravna lica; država bez kolone = država tenanta.
-6. Uvezeni redovi šifrovani HKDF ključem po tenantu (kao `mail_outbox`), brišu se na kraju / otkazu (DB CHECK); greške redova samo kao (polje, kod).
-7. Kolona „Valuta" / „Valuta plaćanja" = **datum dospeća** (srpsko knjigovodstvo), nikad valuta.
-8. Upload kao base64 JSON (Zod gate ne dozvoljava multipart), do 5 MB / 20.000 redova; ekran uvoza je `mobile-compact` (zadatak), iako wireframe kaže `desktop-only`.
-9. Dospelo = `due_date` < lokalni danas kompanije fakture (`invoice_positions`, `security_invoker`); na dan dospeća nije dospelo.
-10. Izveštajna valuta = valuta tenanta; `fx_convert` uzima poslednji kurs ≤ dan, prednost izvoru iz profila; bez kursa iznos se ne sabira i prikazuje se „nedostaje kurs".
-11. Profil RS ostaje `fx_source = ECB` dok NBS adapter ne postoji; dev ima DEMO kurseve EUR/RSD (ne predstavljaju se kao ECB/NBS).
-12. DSO: prozor iz `tenant_settings.dso_window_days`, fakturisano bez `cancelled`, zaokruženo na 0,1 dan; bez fakturisanja „—".
-13. „Prekršena obećanja" na dashboard-u = `broken` sa datumom u poslednjih 30 dana.
-14. Obećanje se ocenjuje nezavisno: uplate kupca u istoj valuti sa `paid_on` ∈ [dan obećanja, datum + grace); `partial` takođe dobija događaj. Ručna uplata odmah ispunjava pokrivena obećanja.
-15. Ručna uplata: imenovana faktura pa FIFO po dospeću, samo u valuti uplate; preplata ostaje nealocirana; datum u budućnosti se odbija; izvor `file-import` do bankovnih izvoda.
-16. Predaja pravnoj: maker `approval.create` + `case.update`, checker `approval.legal_handover`, četiri oka; `decisions` red samo za fizička lica (pravilo 19); faza `legal` direktno nikad (servis + DB CHECK).
-17. Scope svih potraživanja ide preko kupca; golden `scope-usage` proširen na fakture, uplate, obećanja, aktivnosti i case-ove; izuzetak je uvoz (tenant-wide, `import.create`).
-18. Sačuvani filteri: RLS po tenantu, privatnost po korisniku u servisu (`user_id` = ja).
-19. „Moj rad danas" računa „danas" po podrazumevanoj kompaniji tenanta.
-20. E2E diže i worker (drugi `webServer`, port 3191): na 3101 već radi stari `next-server` (pokrenut pre ~25 h) — nisam ga dirao.
-
-### Odluke Uroša za Sprint 2 (2026-10-12)
-
-- Domenski default-i: aging 0 / 1–30 / 31–60 / 61–90 / 91–180 / 180+ kao code lista po tenantu;
-  dospelo = kraj dana dospeća u zoni kompanije; FIFO po dospeću osim uz broj fakture; DSO po
-  `docs/metrics.md`; obećanje prekršeno D+1 bez uplate ≥ iznosa.
-- exceljs odobren (posle uklonjen — pretpostavka 1).
+1. `payment_kind` je generisana kolona umesto promene `kind` — bez DROP/RENAME i bez backfill-a pod
+   FORCE RLS; contract (uklanjanje `kind`) je u BACKLOG-u.
+2. DSO vraća korekcije u brojilac (korekcija nije naplata). Otvoreno ukupno i aging ih ne vraćaju,
+   jer taj dug više ne postoji.
+3. „Naplaćeno (30 dana)" je u zoni tenanta. Stopa naplate = naplaćeno ÷ (naplaćeno + dospelo).
+4. Dozvole: pravila i šabloni koriste `settings.read` / `settings.manage`; objavu odobrava druga
+   osoba sa `settings.manage`. Ključevi `workflow.*` / `template.*` su u BACKLOG-u.
+5. Engine nije osoba (`approval_requests.requested_by` je NOT NULL). Zato `create_approval` i
+   `create_decision` prave **predlog** (`decisions` source `rule`, `proposed`) i obaveštenje;
+   zahtev za predaju pravnoj podnosi čovek (pravila 11 i 19).
+6. Pokušao sam CHECK „approved ⇒ approved_by" na `decisions`, ali je oborio postojeći golden test
+   (pravilo 19 važi samo za fizička lica; pravilo sme da odluči za pravno lice). Uklonio sam ga, jer
+   bi menjao poslovno pravilo.
+7. D-7 se računa u radnim danima (pon–pet, zona kompanije), bez praznika (BACKLOG). D+N je u
+   kalendarskim danima.
+8. Run se pravi samo za objavljene verzije. Ključ dnevnog okidača je lokalni datum; za
+   „bez aktivnosti" ključ je datum poslednje aktivnosti (jednom po periodu neaktivnosti).
+9. Događaji koje izazove engine (`payload.source = workflow`) ne pokreću pravila (bez petlji).
+10. Tekstovi šablona su u `template_texts` (šablon × jezik), ne u `translations`, čiji CHECK-ovi
+    dozvoljavaju samo nazive rola i code lista. Proširenje bi tražilo DROP.
+11. Pregled dokumenta je server-render tela posle ponovne provere bele liste tagova (CSP ne
+    dozvoljava iframe/srcdoc).
+12. Skladište dokumenata je `DOCUMENTS_DIR` na disku. U Docker-u nema volume-a, pa se dokumenti
+    gube pri rekreiranju kontejnera; `docker-compose.yml` nisam dirao (zaštićen) — BACKLOG.
+13. Za „velika dospela faktura" bez praga u `tenant_settings` važi 5 najvećih; nijedan iznos nije
+    u kodu.
+14. Opomena pred utuženje fizičkom licu: šablon nosi `has_legal_effect`, pa ga engine nikad ne
+    šalje (`rule_19`), a za fizičko lice Standard pravi predlog odluke.
+15. Na dev bazi je danas dnevni posao već prošao, pa Standard pravila prvi put rade sutra posle
+    06:00 (Europe/Belgrade) — tada preview dobija case-ove i run-ove.
 
 ## Trajne odluke iz Sprinta 0–1
 
@@ -177,6 +182,10 @@ postoji samo šifrovano na `customers`. Ulazi u migraciju 003, aditivno.
 - `npm audit` u hook-u zavisi od mreže — offline commit neće proći.
 
 ## Istorija
+
+- **Lanac Sprint 2 (2.1–2.4)** (2026-10-12): `04c2530`, `289e6ea`, `9f1f919`, `763af29`;
+  `8d0624f` migracije 012–014 (Uroš); merge `710bd2d`. 20 pretpostavki:
+  `git show 62af19e:docs/NEXT.md`.
 
 - **Lanac 1.6 → 1.7 i zatvaranje Sprinta 1** (2026-10-12): `3aca0ba`, 1.7, migracije 009–011,
   `develop`. Pretpostavke i odluke: `git show e06390b:docs/NEXT.md`.

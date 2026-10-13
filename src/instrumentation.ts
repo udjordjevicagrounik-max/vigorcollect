@@ -1,25 +1,9 @@
-// Next.js startup hook.
-//   - Both processes: Sentry when SENTRY_DSN is set (src/server/observability/sentry.ts).
-//   - WORKER process (same image, PROCESS_ROLE=worker — scripts/worker-entry.mjs): starts the job
-//     worker; the web app never starts it.
-//   - WEB process: refuses to start in production without Turnstile keys (rule 27, task 1.4).
+// Next.js startup hook. Everything Node-only (Sentry, worker start, the Turnstile startup check
+// with process.exit) lives in instrumentation-node.ts and is imported only in the Node.js runtime.
 export async function register(): Promise<void> {
-  if (process.env.NEXT_RUNTIME !== 'nodejs') return;
-  const worker = process.env.PROCESS_ROLE === 'worker';
-  const { initSentry } = await import('./server/observability/sentry');
-  await initSentry(worker ? 'worker' : 'web');
-  if (worker) {
-    const { runWorkerFromEnv } = await import('./server/jobs/worker');
-    await runWorkerFromEnv();
-    return;
-  }
-  const { assertTurnstileConfigured } = await import('./server/security/turnstile');
-  try {
-    assertTurnstileConfigured();
-  } catch (error) {
-    // Refuse to start: exit instead of a half-started server that never listens.
-    console.error(error instanceof Error ? error.message : 'startup configuration error');
-    process.exit(1);
+  if (process.env.NEXT_RUNTIME === 'nodejs') {
+    const { registerNode } = await import('./instrumentation-node');
+    await registerNode();
   }
 }
 

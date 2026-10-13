@@ -33,7 +33,7 @@ test('import → customers → 360 → case → promise → payment → promise 
   await expect(page.locator('[data-map-field="customer_tax_id"] select')).not.toHaveValue('');
   await noHorizontalOverflow(page);
   await page.locator('[data-import-step="2"] button.bg-brand-green').click();
-  await expect(page.locator('[data-preview-valid]')).toHaveText('22');
+  await expect(page.locator('[data-preview-valid]')).toHaveText('40');
   await noHorizontalOverflow(page);
   await page.locator('[data-import-step="3"] button.bg-brand-green').click();
   await expect(page.locator('[data-import-done]')).toBeVisible({ timeout: 60_000 });

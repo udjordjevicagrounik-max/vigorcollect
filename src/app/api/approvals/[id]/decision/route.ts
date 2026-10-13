@@ -10,9 +10,9 @@ const paramsSchema = z.object({ id: z.uuid() });
 
 // Checker decision. The flow checks the checker permission of the request's type
 // (user.assign for role changes, role.manage for grant changes, approval.legal_handover for a
-// legal handover) and requester ≠ decider.
+// legal handover, settings.manage for a workflow publication) and requester ≠ decider.
 export const POST = withTenant<{ id: string }>(async (request, ctx, params) => {
-  await ctx.requireAnyPermission(['user.assign', 'role.manage', 'approval.legal_handover']);
+  await ctx.requireAnyPermission(['user.assign', 'role.manage', 'approval.legal_handover', 'settings.manage']);
   const parsed = paramsSchema.safeParse(params);
   if (!parsed.success) throw new NotFoundError();
   const input = decisionSchema.parse(await request.json());

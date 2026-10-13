@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { mayInvite } from '@/server/auth/invitations';
 import { decideLegalHandover, LEGAL_HANDOVER_ACTION } from '@/server/collections/service';
+import { decidePublish, PUBLISH_ACTION } from '@/server/workflows/service';
 import { PermissionDeniedError, permissionKeys } from '@/server/auth/permissions';
 import { ConflictError, NotFoundError, type TenantContext } from '@/server/auth/with-tenant';
 import { emitEvent } from '@/server/events';
@@ -21,6 +22,8 @@ export const CHECKER: Record<string, string> = {
   [GRANT_CHANGE_ACTION]: 'role.manage',
   // 2.4, rule 11: handing a collection case to the legal department.
   [LEGAL_HANDOVER_ACTION]: 'approval.legal_handover',
+  // 3.1: publishing a workflow version (settings.manage held by another person).
+  [PUBLISH_ACTION]: 'settings.manage',
 };
 export const APPROVAL_VIEW_KEYS = [
   'approval.read',
@@ -28,6 +31,7 @@ export const APPROVAL_VIEW_KEYS = [
   'user.assign',
   'approval.create',
   'approval.legal_handover',
+  'settings.manage',
 ] as const;
 
 export type PendingApproval = {
@@ -41,6 +45,8 @@ export type PendingApproval = {
   targetUser: { id: string; displayName: string } | null;
   /** Legal handover: the case and its customer (link only — names stay behind the scope). */
   caseRef: { caseId: string; customerId: string } | null;
+  /** Workflow publication: the workflow and the version to publish. */
+  workflowRef: { workflowId: string; version: number } | null;
   canDecide: boolean;
   requestedByMe: boolean;
 };
@@ -61,13 +67,17 @@ export async function listPendingApprovals(ctx: TenantContext): Promise<PendingA
     target_name: string | null;
     case_id: string | null;
     case_customer_id: string | null;
+    workflow_id: string | null;
+    workflow_version: number | null;
   }>(
     `SELECT a.id, a.action_type, a.created_at, a.requested_by, r.display_name AS requester_name,
             a.payload->>'role_key' AS role_key, a.payload->>'permission_key' AS permission_key,
             (a.payload->>'grant')::boolean AS grant,
             t.id AS target_id, t.display_name AS target_name,
             CASE WHEN a.entity_type = 'collection_cases' THEN a.entity_id END AS case_id,
-            a.payload->>'customer_id' AS case_customer_id
+            a.payload->>'customer_id' AS case_customer_id,
+            CASE WHEN a.action_type = 'workflow.publish' THEN (a.payload->>'workflow_id')::uuid END AS workflow_id,
+            CASE WHEN a.action_type = 'workflow.publish' THEN (a.payload->>'version')::int END AS workflow_version
      FROM approval_requests a
      JOIN users r ON r.id = a.requested_by
      LEFT JOIN users t ON a.entity_type = 'users' AND t.id = a.entity_id
@@ -87,6 +97,10 @@ export async function listPendingApprovals(ctx: TenantContext): Promise<PendingA
     caseRef:
       r.case_id && r.case_customer_id
         ? { caseId: r.case_id, customerId: r.case_customer_id }
+        : null,
+    workflowRef:
+      r.workflow_id && r.workflow_version
+        ? { workflowId: r.workflow_id, version: r.workflow_version }
         : null,
     canDecide: r.requested_by !== ctx.userId && mine.has(CHECKER[r.action_type] ?? ''),
     requestedByMe: r.requested_by === ctx.userId,
@@ -268,5 +282,6 @@ export async function decideApproval(
   if (type === ROLE_CHANGE_ACTION) return decideRoleChange(ctx, approvalId, input);
   if (type === GRANT_CHANGE_ACTION) return decideGrantChange(ctx, approvalId, input);
   if (type === LEGAL_HANDOVER_ACTION) return decideLegalHandover(ctx, approvalId, input);
+  if (type === PUBLISH_ACTION) return decidePublish(ctx, approvalId, input);
   throw new ConflictError('unsupported');
 }

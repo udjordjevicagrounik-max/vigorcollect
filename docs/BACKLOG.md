@@ -141,7 +141,10 @@ Ideje i tehnički dug zapisani usred zadatka (protokol: ne predlaže se usred za
 
 - [ ] Retencija `import_runs.payload_enc` za napuštene uvoze (status `uploaded` / `validated` duže
       od N dana) — sada se payload briše tek na kraju, otkazivanju ili obradi.
-- [ ] Posebna dozvola za rollback uvoza (`import.rollback`) — sada ga pokriva `import.create`.
+- [ ] **`import.rollback` kao poseban ključ** u sledećoj migraciji kataloga permisija (+ matrica u
+      `docs/permissions.md`, ruta `/api/imports/[id]/rollback`) — do tada ga pokriva `import.create`.
+- [ ] Klasifikacija razloga korekcije (`adjustment_reason`) iz Customer 360 / reconciliation ekrana;
+      otpis (`write_off`) samo kroz maker-checker (pravilo 11). Contract: ukloniti `payments.kind`.
 - [ ] Rollback ne vraća kupce koje je uvoz napravio ni izmene metapodataka (dospeće, reference).
 - [ ] Obećanja istog kupca se ocenjuju nezavisno (ista uplata može pokriti više obećanja);
       raspodela uplata po obećanjima kad se pojavi realan slučaj.
@@ -150,6 +153,20 @@ Ideje i tehnički dug zapisani usred zadatka (protokol: ne predlaže se usred za
       uskladiti pre izveštaja sa pravnim dejstvom.
 - [ ] Dashboard/360 računaju „danas" po kompaniji fakture; „Moj rad danas" po podrazumevanoj
       kompaniji — proveriti kad tenant ima kompanije u više zona.
+
+## Iz 2.5 – 3.2
+
+- [ ] **Odluka: `mail_outbox.kind`** proširiti za poruke naplate (DROP + ADD CHECK, bez gubitka
+      podataka) — do tada akcija `queue_email` beleži `mail_kind_pending_decision`.
+- [ ] **Odluka: PDF** — paket za PDF (predlog u NEXT.md); do tada dokumenti su HTML, pregled u
+      aplikaciji, bez preuzimanja (`export_log.format` ne prima `html`).
+- [ ] **Volume za dokumente** u `docker-compose.yml` (`DOCUMENTS_DIR`) — sada se dokumenti app
+      kontejnera gube pri rekreiranju; S3 adapter za staging/prod.
+- [ ] Dozvole `workflow.*` i `template.*` u katalogu — sada `settings.read` / `settings.manage`.
+- [ ] Praznici u radnim danima (D-7) po `jurisdiction_profiles` — sada samo vikend.
+- [ ] Pravne formulacije šablona (opomena pred utuženje) po državi u country profilu (pravilo 17).
+- [ ] Rule engine: uslov „politika" po kupcu — ekran za izbor politike kupca (`customers.policy_code`).
+- [ ] Odluke (decisions) koje predloži pravilo: ekran za odobrenje / odbijanje.
 
 ## Roadmap
 

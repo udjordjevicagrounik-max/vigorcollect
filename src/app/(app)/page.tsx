@@ -1,12 +1,14 @@
 import Link from 'next/link';
 import { getLocale, getTranslations } from 'next-intl/server';
 import { z } from 'zod';
+import { AttentionList } from '@/components/communication/attention-list';
 import { AgingBars } from '@/components/receivables/aging-bars';
 import { KpiCard } from '@/components/receivables/kpi-card';
 import { EmptyState } from '@/components/shell/empty-state';
 import { Screen } from '@/components/shell/screen';
 import { formatAmount } from '@/lib/format-amount';
-import { PermissionDeniedError } from '@/server/auth/permissions';
+import { listAttention } from '@/server/attention/service';
+import { PermissionDeniedError, permissionKeys } from '@/server/auth/permissions';
 import { withTenantPage } from '@/server/auth/with-tenant';
 import { codeLabels, getDashboard, myWorkToday } from '@/server/receivables/service';
 
@@ -37,6 +39,9 @@ export default async function HomePage({
         dashboard,
         hasInvoices,
         work: hasInvoices ? await myWorkToday(ctx, work) : [],
+        attention: (await permissionKeys(ctx.db, ctx.userId)).has('customer.read')
+          ? await listAttention(ctx)
+          : [],
         buckets: await codeLabels(ctx, 'aging_bucket', locale),
         stages: await codeLabels(ctx, 'case_stage', locale),
         actions: await codeLabels(ctx, 'next_action', locale),
@@ -121,7 +126,23 @@ export default async function HomePage({
           definition={t('kpi.open_cases.definition')}
           definitionLabel={t('definition')}
         />
+        <KpiCard
+          id="collected_30"
+          label={t('kpi.collected_30.label')}
+          value={money(d.collected30)}
+          definition={t('kpi.collected_30.definition')}
+          definitionLabel={t('definition')}
+        />
+        <KpiCard
+          id="collection_rate"
+          label={t('kpi.collection_rate.label')}
+          value={d.collectionRate ? t('percent', { n: d.collectionRate }) : '—'}
+          definition={t('kpi.collection_rate.definition')}
+          definitionLabel={t('definition')}
+        />
       </section>
+
+      <AttentionList items={data.attention} locale={locale} />
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <section

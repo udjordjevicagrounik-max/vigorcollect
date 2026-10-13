@@ -249,7 +249,7 @@ export type CaseDetail = {
   }[];
   timeline: {
     at: string;
-    kind: 'event' | 'activity';
+    kind: 'event' | 'activity' | 'run';
     type: string;
     actorName: string | null;
     data: Record<string, unknown>;
@@ -298,7 +298,7 @@ export async function getCase(ctx: TenantContext, caseId: string): Promise<CaseD
   // Timeline: domain events of the case and its promises + activities logged on the case.
   const timeline = await ctx.db.query<{
     at: Date;
-    kind: 'event' | 'activity';
+    kind: 'event' | 'activity' | 'run';
     type: string;
     actor_name: string | null;
     data: Record<string, unknown>;
@@ -312,6 +312,9 @@ export async function getCase(ctx: TenantContext, caseId: string): Promise<CaseD
             jsonb_build_object('outcome', a.outcome_code, 'next_action', a.next_action_code,
                                'next_action_on', a.next_action_on, 'has_note', a.note_enc IS NOT NULL)
      FROM activities a JOIN users u ON u.id = a.actor_user_id WHERE a.case_id = $1
+     UNION ALL
+     SELECT r.started_at, 'run', r.status, NULL, r.explanation
+     FROM workflow_runs r WHERE r.case_id = $1 AND r.status <> 'skipped'
      ORDER BY 1 DESC LIMIT 200`,
     [caseId],
   );
@@ -782,7 +785,7 @@ export async function recordPayment(
 
 /** Paid toward a promise: money received from the customer since the promise was made. */
 const PAID_SINCE_MADE = `coalesce((SELECT sum(py.amount) FROM payments py
-   WHERE py.customer_id = pr.customer_id AND py.currency = pr.currency AND py.kind = 'received'
+   WHERE py.customer_id = pr.customer_id AND py.currency = pr.currency AND py.payment_kind = 'payment'
      AND py.paid_on >= pr.made_on AND py.paid_on <= $2::date), 0)`;
 
 /** Pending promises already covered by payments become fulfilled right away. */
@@ -853,7 +856,7 @@ export async function runDailyCollections(
        WHERE pr.status = 'pending')
      SELECT d.id, d.amount, d.case_id,
             coalesce((SELECT sum(py.amount) FROM payments py
-                      WHERE py.customer_id = d.customer_id AND py.currency = d.currency AND py.kind = 'received'
+                      WHERE py.customer_id = d.customer_id AND py.currency = d.currency AND py.payment_kind = 'payment'
                         AND py.paid_on >= d.made_on AND py.paid_on < d.promised_on + d.grace), 0)::numeric(18,2)::text AS paid
      FROM due d WHERE d.today >= d.promised_on + d.grace`,
   );

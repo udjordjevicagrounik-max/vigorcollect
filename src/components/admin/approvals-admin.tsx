@@ -16,6 +16,7 @@ type Pending = {
   grant: boolean | null;
   targetUser: { id: string; displayName: string } | null;
   caseRef: { caseId: string; customerId: string } | null;
+  workflowRef: { workflowId: string; version: number } | null;
   canDecide: boolean;
   requestedByMe: boolean;
 };
@@ -107,7 +108,15 @@ export function ApprovalsAdmin({
                 className="rounded-lg border border-border bg-surface p-4"
               >
                 <p className="font-medium text-text">
-                  {p.caseRef ? (
+                  {p.workflowRef ? (
+                    <a
+                      href={`/admin/rules/${p.workflowRef.workflowId}`}
+                      className="text-brand-purple underline"
+                      data-approval-workflow
+                    >
+                      {t('workflowPublish', { version: p.workflowRef.version })}
+                    </a>
+                  ) : p.caseRef ? (
                     <a
                       href={`/customers/${p.caseRef.customerId}/cases/${p.caseRef.caseId}`}
                       className="text-brand-purple underline"

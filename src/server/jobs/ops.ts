@@ -31,7 +31,9 @@ export function opsAvailability(): { ok: true; dir: string } | { ok: false; reas
   const dir = scriptsDir();
   if (!dir) return { ok: false, reason: 'scripts_missing' };
   for (const tool of ['pg_dump', 'pg_restore', 'psql']) {
-    if (spawnSync(tool, ['--version'], { stdio: 'ignore' }).status !== 0) {
+    // turbopackIgnore: a tool probe, not a file the app bundles — keeps the build from tracing
+    // the whole project into the standalone output.
+    if (spawnSync(/* turbopackIgnore: true */ tool, ['--version'], { stdio: 'ignore' }).status !== 0) {
       return { ok: false, reason: `${tool}_missing_in_image` };
     }
   }
