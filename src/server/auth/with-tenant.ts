@@ -254,6 +254,17 @@ export function withTenant<P = Record<string, never>>(
       await client.query('RESET app.api_key_hash');
       await client.query('RESET app.inbound_integration_id');
       await client.query("SELECT set_config('app.tenant_id', $1, true)", [identity.tenantId]);
+      // 6.4: an expired trial / sandbox or a suspended tenant is read-only — never deleted, no
+      // change goes in (decision 6.4). Reads keep working.
+      if (MUTATING.has(request.method)) {
+        const writable = await client.query<{ ok: boolean }>(
+          'SELECT tenant_writable(t) AS ok FROM tenants t',
+        );
+        if (writable.rows[0]?.ok === false) {
+          await client.query('ROLLBACK');
+          return fail(403, 'tenant_read_only', requestId);
+        }
+      }
       if (identity.apiKeyScopes) await touchApiKey(client, identity.userId);
       const ctx = createTenantContext(client, { ...identity, requestId }, tracking);
       const response = await handler(request, ctx, await route.params);

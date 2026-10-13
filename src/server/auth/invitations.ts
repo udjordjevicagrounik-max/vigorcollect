@@ -189,7 +189,8 @@ async function revokePending(ctx: InvitationContext, userId: string, reason: str
 }
 
 /** Token (hash stored) + e-mail with the link: the invitation the invitee can accept. */
-async function issueInvitation(
+/** Issues the token + mail (6.4: also the first owner of a new tenant, from the platform). */
+export async function issueInvitation(
   ctx: InvitationContext,
   deps: InvitationDeps,
   target: {
