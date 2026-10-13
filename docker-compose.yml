@@ -66,6 +66,10 @@ services:
       SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-}
       # Risk provider (task 4.3): CheckPoint trial key; empty = not configured.
       CHECKPOINT_API_KEY: ${CHECKPOINT_API_KEY:-}
+      # 5.3 (ADR 0007): Microsoft 365 mailbox consent; empty = the button is hidden.
+      MS_CLIENT_ID: ${MS_CLIENT_ID:-}
+      MS_CLIENT_SECRET: ${MS_CLIENT_SECRET:-}
+      MS_TENANT: ${MS_TENANT:-common}
     ports:
       - '${APP_BIND_HOST:-127.0.0.1}:${APP_PORT:-3000}:3000'
     healthcheck:
@@ -113,6 +117,16 @@ services:
       # The mail dispatcher decrypts mail_outbox once SMTP exists (ADR 0003, 0005).
       PII_MASTER_KEYS: ${PII_MASTER_KEYS:?set in .env (docs/runbook.md)}
       APP_HEALTH_URL: http://app:3000/health
+      # 5.3 (ADR 0007): mailbox check + n8n provisioning per tenant, Microsoft 365 token refresh.
+      # BETTER_AUTH_URL = the public origin for the inbound URL n8n calls back.
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL:?set in .env}
+      N8N_BASE_URL: ${N8N_BASE_URL:-}
+      N8N_API_KEY: ${N8N_API_KEY:-}
+      MS_CLIENT_ID: ${MS_CLIENT_ID:-}
+      MS_CLIENT_SECRET: ${MS_CLIENT_SECRET:-}
+      MS_TENANT: ${MS_TENANT:-common}
+      # Dev only: the local SMTP relay on the docker bridge (172.17.0.1); production leaves it empty.
+      MAILBOX_ALLOW_PRIVATE_HOSTS: ${MAILBOX_ALLOW_PRIVATE_HOSTS:-}
       # Optional (task 1.7) — all empty = off / log only.
       SENTRY_DSN: ${SENTRY_DSN:-}
       SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-}
