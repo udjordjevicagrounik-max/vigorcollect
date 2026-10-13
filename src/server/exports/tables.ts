@@ -20,6 +20,7 @@ import {
   listOpenInvoices,
   listReceivableCustomers,
 } from '@/server/receivables/service';
+import { listColumnValues, listDefinitions } from '@/server/custom-fields/service';
 import { REPORT_KEYS, reportConfig, runReport, type ReportKey } from '@/server/reports/service';
 import { amount, date, int, MIME, text, toCsv, toXlsx, type Cell, type Table } from './tabular';
 
@@ -83,65 +84,85 @@ async function buildTable(
   const t = createTranslator({ locale, messages: MESSAGES[locale], namespace: 'exports.columns' });
   if (type === 'customers') {
     const rows = await listReceivableCustomers(ctx, customerListQuery.parse(filters), limit, ids);
-    return {
-      columns: [
-        t('customer'),
-        t('taxId'),
-        t('externalId'),
-        t('status'),
-        t('owner'),
-        t('currency'),
-        t('exposure'),
-        t('overdue'),
-        t('disputed'),
-        t('oldestDays'),
-        t('risk'),
-        t('behaviour'),
-      ],
-      rows: rows.map((c): Cell[] => [
-        text(c.displayName ?? t('naturalPerson')),
-        text(c.taxId),
-        text(c.externalId),
-        text(c.status),
-        text(c.ownerName),
-        text(c.currency),
-        amount(c.exposure),
-        amount(c.overdue),
-        amount(c.disputed),
-        int(c.oldestDaysOverdue),
-        text(c.riskBand),
-        text(c.paymentBehaviour),
-      ]),
-    };
+    const cf = await customColumns(
+      ctx,
+      'customer',
+      locale,
+      rows.map((r) => r.id),
+    );
+    return withCustom(
+      cf,
+      rows.map((r) => r.id),
+      {
+        columns: [
+          t('customer'),
+          t('taxId'),
+          t('externalId'),
+          t('status'),
+          t('owner'),
+          t('currency'),
+          t('exposure'),
+          t('overdue'),
+          t('disputed'),
+          t('oldestDays'),
+          t('risk'),
+          t('behaviour'),
+        ],
+        rows: rows.map((c): Cell[] => [
+          text(c.displayName ?? t('naturalPerson')),
+          text(c.taxId),
+          text(c.externalId),
+          text(c.status),
+          text(c.ownerName),
+          text(c.currency),
+          amount(c.exposure),
+          amount(c.overdue),
+          amount(c.disputed),
+          int(c.oldestDaysOverdue),
+          text(c.riskBand),
+          text(c.paymentBehaviour),
+        ]),
+      },
+    );
   }
   if (type === 'invoices') {
     const rows = await listOpenInvoices(ctx, invoiceListQuery.parse(filters), limit, ids);
-    return {
-      columns: [
-        t('invoice'),
-        t('customer'),
-        t('issueDate'),
-        t('dueDate'),
-        t('currency'),
-        t('total'),
-        t('open'),
-        t('daysOverdue'),
-        t('bucket'),
-        t('disputed'),
-      ],
-      rows: rows.map((i): Cell[] => [
-        text(i.number),
-        text(i.customerName ?? t('naturalPerson')),
-        date(i.issueDate),
-        date(i.dueDate),
-        text(i.currency),
-        amount(i.amountTotal),
-        amount(i.amountOpen),
-        int(i.daysOverdue),
-        text(i.bucket),
-        text(i.isDisputed ? t('yes') : t('no')),
-      ]),
-    };
+    const cf = await customColumns(
+      ctx,
+      'invoice',
+      locale,
+      rows.map((r) => r.id),
+    );
+    return withCustom(
+      cf,
+      rows.map((r) => r.id),
+      {
+        columns: [
+          t('invoice'),
+          t('customer'),
+          t('issueDate'),
+          t('dueDate'),
+          t('currency'),
+          t('total'),
+          t('open'),
+          t('daysOverdue'),
+          t('bucket'),
+          t('disputed'),
+        ],
+        rows: rows.map((i): Cell[] => [
+          text(i.number),
+          text(i.customerName ?? t('naturalPerson')),
+          date(i.issueDate),
+          date(i.dueDate),
+          text(i.currency),
+          amount(i.amountTotal),
+          amount(i.amountOpen),
+          int(i.daysOverdue),
+          text(i.bucket),
+          text(i.isDisputed ? t('yes') : t('no')),
+        ]),
+      },
+    );
   }
   const key = type.slice('report.'.length) as ReportKey;
   const r = await runReport(ctx, key, reportConfig.parse(filters), 'report.export');
@@ -159,6 +180,40 @@ async function buildTable(
         return text(v === null ? null : String(v));
       }),
     ),
+  };
+}
+
+/** 6.1: P0 custom fields as extra columns (an encrypted P1+ value never leaves in a list export). */
+async function customColumns(
+  ctx: TenantContext,
+  entity: 'customer' | 'invoice',
+  locale: Locale,
+  ids: string[],
+) {
+  const defs = (await listDefinitions(ctx, { entityType: entity, locale })).filter(
+    (d) => d.piiClass === 'P0',
+  );
+  const values = await listColumnValues(
+    ctx,
+    entity,
+    defs.map((d) => d.id),
+    ids,
+  );
+  return { defs, values };
+}
+
+function withCustom(
+  cf: Awaited<ReturnType<typeof customColumns>>,
+  ids: string[],
+  table: Table,
+): Table {
+  if (!cf.defs.length) return table;
+  return {
+    columns: [...table.columns, ...cf.defs.map((d) => d.label)],
+    rows: table.rows.map((row, i) => [
+      ...row,
+      ...cf.defs.map((d) => text(cf.values.get(ids[i] ?? '')?.[d.id] ?? null)),
+    ]),
   };
 }
 

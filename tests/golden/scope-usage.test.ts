@@ -34,6 +34,10 @@ const ALLOWED = new Set([
   // 5.4: "Getting started" asks whether customers / owners exist at all — EXISTS over the tenant
   // behind settings.read, a yes/no per step, no row or field leaves.
   'server/onboarding/service.ts',
+  // 6.1: custom field values resolve the entity's customer by id and then check scope with
+  // scopedCustomer() (the import job resolves rows of its own run); list columns load values
+  // only for ids a scoped list returned.
+  'server/custom-fields/service.ts',
 ]);
 
 function files(dir: string): string[] {

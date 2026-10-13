@@ -136,8 +136,26 @@ async function loadFacts(
   );
   const r = rows[0];
   if (!r) return null;
+  // 6.1: P0 custom fields — the invoice's first, then the customer's, then the case's (by key).
+  const cf = await db.query<{ key: string; value: string | boolean | null }>(
+    `SELECT d.key,
+            coalesce(to_jsonb(v.value_bool), to_jsonb(coalesce(v.value_text, v.value_numeric::text,
+                     v.value_date::text, v.value_option_code)))#>>'{}' AS value
+     FROM custom_field_values v JOIN custom_field_definitions d ON d.id = v.field_id
+     WHERE d.pii_class = 'P0' AND d.status = 'active'
+       AND ((v.entity_type = 'invoice' AND v.entity_id = $2::uuid)
+         OR (v.entity_type = 'customer' AND v.entity_id = $1::uuid)
+         OR (v.entity_type = 'case' AND v.entity_id = $3::uuid))
+     ORDER BY array_position(ARRAY['case', 'customer', 'invoice'], v.entity_type)`,
+    [entity.customerId, entity.invoiceId ?? null, r.case_id],
+  );
+  const custom: Record<string, string | boolean | null> = {};
+  // Later rows (invoice) win over earlier ones (customer, case).
+  for (const row of cf.rows)
+    custom[row.key] = row.value === 'true' ? true : row.value === 'false' ? false : row.value;
   return {
     facts: {
+      custom,
       amount: r.amount,
       days_overdue: r.days_overdue,
       segment: r.segment,

@@ -31,7 +31,10 @@ describe('golden/db: pii_field_registry', () => {
        LEFT JOIN information_schema.columns c
          ON c.table_schema IN ('public', 'auth') AND ${REGISTRY_NAME} = r.table_name
         AND c.column_name = r.column_name
+       -- 6.1: one row per custom field definition ('cf:<id>', written by the 027 trigger) —
+       -- virtual columns of custom_field_values, checked in custom-fields.test.ts.
        WHERE c.column_name IS NULL
+         AND NOT (r.table_name = 'custom_field_values' AND r.column_name LIKE 'cf:%')
        ORDER BY 1`,
     );
     expect(rows.map((r) => r.column)).toEqual([]);

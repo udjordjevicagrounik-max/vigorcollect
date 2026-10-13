@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getLocale, getTranslations } from 'next-intl/server';
 import { z } from 'zod';
+import { CustomFieldsPanel } from '@/components/custom-fields/fields-panel';
 import { ForbiddenState } from '@/components/admin/forbidden-state';
 import { GenerateDocument } from '@/components/communication/generate-document';
 import { Thread } from '@/components/communication/thread';
@@ -13,6 +14,7 @@ import { Screen } from '@/components/shell/screen';
 import { formatAmount } from '@/lib/format-amount';
 import { PermissionDeniedError, permissionKeys } from '@/server/auth/permissions';
 import { NotFoundError, withTenantPage } from '@/server/auth/with-tenant';
+import { getValues, listDefinitions } from '@/server/custom-fields/service';
 import { localToday } from '@/server/collections/service';
 import { listDisputes } from '@/server/disputes/service';
 import { listDocuments } from '@/server/documents/service';
@@ -60,6 +62,7 @@ const CURRENT = 'page' as const;
 const OVERDUE = 'overdue' as const;
 const DISPUTED = 'disputed' as const;
 const NONE = '—' as const;
+const CF_CUSTOMER = 'customer' as const;
 
 const paramsSchema = z.object({ id: z.uuid() });
 const searchSchema = z.object({ tab: z.enum(TABS).catch('overview') }).catch({ tab: 'overview' });
@@ -125,6 +128,15 @@ export default async function Customer360Page({
         documents: active === 'documents' ? await listDocuments(ctx, id) : [],
         thread: active === 'communication' ? await listThread(ctx, id) : [],
         risk: active === 'risk' ? await getRisk(ctx, id) : null,
+        // 6.1: additional fields on the overview.
+        customFields:
+          active === 'overview'
+            ? {
+                defs: await listDefinitions(ctx, { entityType: 'customer', locale }),
+                values: await getValues(ctx, 'customer', id),
+                canEdit: keys.has('customer.update'),
+              }
+            : null,
         templates:
           active === 'communication' && keys.has('activity.create')
             ? await emailTemplateOptions(ctx)
@@ -228,6 +240,18 @@ export default async function Customer360Page({
       </nav>
 
       <section className="mt-4" data-tab-panel={data.active}>
+        {data.active === 'overview' && data.customFields ? (
+          <div className="mb-4">
+            <CustomFieldsPanel
+              entity={CF_CUSTOMER}
+              entityId={c.id}
+              fields={data.customFields.defs}
+              values={data.customFields.values}
+              canEdit={data.customFields.canEdit}
+              defaultCurrency={c.currency}
+            />
+          </div>
+        ) : null}
         {data.active === 'overview' ? (
           <div className="grid gap-4 lg:grid-cols-2">
             <div className="rounded-lg border border-border bg-surface p-4">

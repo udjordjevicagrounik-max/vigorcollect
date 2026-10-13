@@ -47,7 +47,10 @@ type Mapping = {
   columns: Partial<Record<Field, number>>;
   decimal: 'comma' | 'dot';
   dateOrder: 'dmy' | 'ymd';
+  /** 6.1: 'customer.<key>' / 'invoice.<key>' → column. */
+  custom?: Record<string, number>;
 };
+type CustomTarget = { target: string; label: string; entity: string };
 type Upload = {
   id: string;
   headers: string[];
@@ -119,6 +122,9 @@ const primary =
 const secondary =
   'min-h-11 rounded-md border border-brand-purple px-4 text-sm font-medium text-brand-purple hover:bg-brand-purple-soft disabled:opacity-60';
 const card = 'rounded-lg border border-border bg-surface p-4';
+const CF_CUSTOMER = 'customer';
+const CF_INVOICE = 'invoice';
+const P0 = 'P0';
 
 function toBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
@@ -129,7 +135,15 @@ function toBase64(buffer: ArrayBuffer): string {
   return btoa(binary);
 }
 
-export function ImportWizard({ canRollback }: { canRollback: boolean }) {
+export function ImportWizard({
+  canRollback,
+  customTargets = [],
+  canCreateFields = false,
+}: {
+  canRollback: boolean;
+  customTargets?: CustomTarget[];
+  canCreateFields?: boolean;
+}) {
   const t = useTranslations('importPage.wizard');
   const tErrors = useTranslations('errors');
   const locale = useLocale();
@@ -227,6 +241,51 @@ export function ImportWizard({ canRollback }: { canRollback: boolean }) {
       ...mapping,
       columns: value === '' ? next : { ...next, [field]: Number.parseInt(value, 10) },
     });
+  }
+
+  const [targets, setTargets] = useState<CustomTarget[]>(customTargets);
+  const [fieldProblem, setFieldProblem] = useState<FormProblem | null>(null);
+
+  function setCustom(target: string, value: string) {
+    if (!mapping) return;
+    const custom = Object.fromEntries(
+      Object.entries(mapping.custom ?? {}).filter(([key]) => key !== target),
+    );
+    setMapping({
+      ...mapping,
+      custom: value === '' ? custom : { ...custom, [target]: Number.parseInt(value, 10) },
+    });
+  }
+
+  /** "Create a field from this column" — a text field, P1 (encrypted) unless the admin says P0. */
+  async function createField(form: FormData) {
+    if (!mapping || !upload) return;
+    const column = Number.parseInt(String(form.get('column') ?? ''), 10);
+    const entity = String(form.get('entity') ?? 'customer');
+    const name = (upload.headers[column] ?? '').trim() || t('mapping.column', { n: column + 1 });
+    const key = name
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '')
+      .replace(/^([0-9])/, 'f_$1')
+      .slice(0, 40);
+    setFieldProblem(null);
+    const res = await postJSON('/api/custom-fields', {
+      entityType: entity,
+      key: key.length >= 2 ? key : `field_${column + 1}`,
+      type: 'text',
+      piiClass: form.get('pii') === 'P0' ? 'P0' : 'P1',
+      labels: { 'sr-Latn': name, en: name },
+    });
+    if (res.status !== 201) {
+      setFieldProblem(apiProblem(res, tErrors));
+      return;
+    }
+    const target = `${entity}.${key.length >= 2 ? key : `field_${column + 1}`}`;
+    setTargets((x) => [...x, { target, label: name, entity }]);
+    setMapping({ ...mapping, custom: { ...(mapping.custom ?? {}), [target]: column } });
   }
 
   const codeLabel = (code: string) =>
@@ -358,6 +417,85 @@ export function ImportWizard({ canRollback }: { canRollback: boolean }) {
               );
             })}
           </ul>
+          {targets.length || canCreateFields ? (
+            <div className="mt-4 border-t border-border pt-4" data-import-custom>
+              <h3 className="text-sm font-semibold text-text">{t('mapping.customTitle')}</h3>
+              <ul className="mt-2 flex flex-col gap-2">
+                {targets.map((ct) => {
+                  const col = mapping.custom?.[ct.target];
+                  return (
+                    <li
+                      key={ct.target}
+                      className="grid gap-1 md:grid-cols-[14rem_1fr_1fr] md:items-center"
+                      data-map-custom={ct.target}
+                    >
+                      <label htmlFor={`map-${ct.target}`} className="text-sm font-medium text-text">
+                        {ct.label}
+                      </label>
+                      <select
+                        id={`map-${ct.target}`}
+                        className="min-h-11 rounded-md border border-border bg-surface px-3 text-text"
+                        value={col === undefined ? '' : String(col)}
+                        onChange={(e) => setCustom(ct.target, e.target.value)}
+                      >
+                        <option value="">{t('mapping.none')}</option>
+                        {upload.headers.map((h, i) => (
+                          <option key={`${h}-${i}`} value={String(i)}>
+                            {h || t('mapping.column', { n: i + 1 })}
+                          </option>
+                        ))}
+                      </select>
+                      <span className="truncate text-sm text-text-muted">
+                        {col === undefined ? '' : (upload.sample[0]?.[col] ?? '')}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+              {canCreateFields ? (
+                <form
+                  className="mt-3 flex flex-wrap items-end gap-2"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    void createField(new FormData(e.currentTarget));
+                  }}
+                  data-import-create-field
+                >
+                  <label className="flex flex-col gap-1 text-sm text-text">
+                    {t('mapping.createFrom')}
+                    <select
+                      name="column"
+                      className="min-h-11 rounded-md border border-border bg-surface px-3"
+                    >
+                      {upload.headers.map((h, i) => (
+                        <option key={`${h}-${i}`} value={String(i)}>
+                          {h || t('mapping.column', { n: i + 1 })}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="flex flex-col gap-1 text-sm text-text">
+                    {t('mapping.createFor')}
+                    <select
+                      name="entity"
+                      className="min-h-11 rounded-md border border-border bg-surface px-3"
+                    >
+                      <option value={CF_CUSTOMER}>{t('mapping.entityCustomer')}</option>
+                      <option value={CF_INVOICE}>{t('mapping.entityInvoice')}</option>
+                    </select>
+                  </label>
+                  <label className="flex min-h-11 items-center gap-2 text-sm text-text">
+                    <input type="checkbox" name="pii" value={P0} className="size-5" />
+                    {t('mapping.notPersonal')}
+                  </label>
+                  <button type="submit" className={secondary}>
+                    {t('mapping.createField')}
+                  </button>
+                </form>
+              ) : null}
+              <FormError problem={fieldProblem} />
+            </div>
+          ) : null}
           {missing.length ? (
             <p className="mt-3 text-sm text-status-danger-fg" role="status">
               {t('mapping.missing', { fields: missing.map((f) => t(`fields.${f}`)).join(', ') })}

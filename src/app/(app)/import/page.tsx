@@ -1,4 +1,4 @@
-import { getTranslations } from 'next-intl/server';
+import { getLocale, getTranslations } from 'next-intl/server';
 import { ForbiddenState } from '@/components/admin/forbidden-state';
 import { PageHeader } from '@/components/admin/page-header';
 import { ImportHistory } from '@/components/import/import-history';
@@ -7,6 +7,7 @@ import { SuspiciousParties } from '@/components/import/suspicious-parties';
 import { Screen } from '@/components/shell/screen';
 import { PermissionDeniedError, permissionKeys } from '@/server/auth/permissions';
 import { withTenantPage } from '@/server/auth/with-tenant';
+import { listDefinitions } from '@/server/custom-fields/service';
 import { listImports } from '@/server/imports/service';
 import { listSuspiciousParties } from '@/server/imports/suspicious';
 
@@ -24,6 +25,15 @@ export default async function ImportPage() {
         runs: keys.has('import.read') ? await listImports(ctx) : [],
         // Review S-02: customers earlier imports may have created wrongly (never auto-changed).
         suspicious: keys.has('customer.read') ? await listSuspiciousParties(ctx) : [],
+        // 6.1: custom fields of customers and invoices are import targets.
+        customTargets: (await listDefinitions(ctx, { locale: await getLocale() }))
+          .filter((d) => d.entityType === 'customer' || d.entityType === 'invoice')
+          .map((d) => ({
+            target: `${d.entityType}.${d.key}`,
+            label: d.label,
+            entity: d.entityType,
+          })),
+        canCreateFields: keys.has('settings.manage'),
       };
     });
   } catch (error) {
@@ -34,7 +44,13 @@ export default async function ImportPage() {
   return (
     <Screen mobileClass="mobile-compact">
       <PageHeader title={t('title')} description={t('description')} />
-      {data.canCreate ? <ImportWizard canRollback={data.canCreate} /> : null}
+      {data.canCreate ? (
+        <ImportWizard
+          canRollback={data.canCreate}
+          customTargets={data.customTargets}
+          canCreateFields={data.canCreateFields}
+        />
+      ) : null}
       <SuspiciousParties parties={data.suspicious} />
       <ImportHistory runs={data.runs} />
     </Screen>

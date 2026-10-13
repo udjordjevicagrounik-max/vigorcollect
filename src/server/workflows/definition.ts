@@ -47,7 +47,14 @@ export const CONDITION_FIELDS = [
   // 5.1: the invoice of the run (or, for a customer run, the customer) has an open dispute.
   'has_open_dispute',
 ] as const;
-export type ConditionField = (typeof CONDITION_FIELDS)[number];
+export type BaseConditionField = (typeof CONDITION_FIELDS)[number];
+/** 6.1: a tenant's custom field (P0 only — an encrypted value is never compared). */
+export const CUSTOM_CONDITION = /^custom_field\.[a-z][a-z0-9_]{1,40}$/;
+export type ConditionField = BaseConditionField | `custom_field.${string}`;
+const conditionField = z.union([
+  z.enum(CONDITION_FIELDS),
+  z.string().regex(CUSTOM_CONDITION) as z.ZodType<`custom_field.${string}`>,
+]);
 
 export const OPERATORS = ['eq', 'ne', 'gt', 'gte', 'lt', 'lte', 'in'] as const;
 
@@ -59,7 +66,7 @@ const conditionValue = z.union([
 ]);
 
 export const conditionSchema = z
-  .object({ field: z.enum(CONDITION_FIELDS), op: z.enum(OPERATORS), value: conditionValue })
+  .object({ field: conditionField, op: z.enum(OPERATORS), value: conditionValue })
   .superRefine((c, ctx) => {
     const ordered = ['gt', 'gte', 'lt', 'lte'].includes(c.op);
     if (
@@ -77,7 +84,11 @@ export const conditionSchema = z
     ) {
       ctx.addIssue({ code: 'custom', message: 'boolean_eq_only' });
     }
-    if (ordered && !['amount', 'days_overdue'].includes(c.field)) {
+    if (
+      ordered &&
+      !['amount', 'days_overdue'].includes(c.field) &&
+      !CUSTOM_CONDITION.test(c.field)
+    ) {
       ctx.addIssue({ code: 'custom', message: 'ordered_ops_for_numbers_only' });
     }
     if ((c.op === 'in') !== Array.isArray(c.value))
@@ -140,6 +151,8 @@ export type Facts = {
   is_natural_person: boolean;
   policy: string | null;
   has_open_dispute: boolean;
+  /** 6.1: P0 custom field values of the run's invoice / customer, by key (decimal strings, dates). */
+  custom?: Record<string, string | boolean | null>;
 };
 
 export type ConditionResult = {
@@ -160,6 +173,25 @@ function compare(
   if (op === 'in') return Array.isArray(expected) && expected.map(String).includes(String(actual));
   if (op === 'eq') return String(actual) === String(expected);
   if (op === 'ne') return String(actual) !== String(expected);
+  // 6.1 custom fields: decimals as integer cents, ISO dates lexically — never a float.
+  if (field.startsWith('custom_field.')) {
+    const [x, y] = [String(actual), String(expected)];
+    const dates = /^\d{4}-\d{2}-\d{2}$/.test(x) && /^\d{4}-\d{2}-\d{2}$/.test(y);
+    let d: number;
+    if (dates) d = x < y ? -1 : x > y ? 1 : 0;
+    else {
+      try {
+        const [ma, mb] = [toMinor(x), toMinor(y)];
+        d = ma < mb ? -1 : ma > mb ? 1 : 0;
+      } catch {
+        return false;
+      }
+    }
+    if (op === 'gt') return d > 0;
+    if (op === 'gte') return d >= 0;
+    if (op === 'lt') return d < 0;
+    return d <= 0;
+  }
   // Ordered comparison: integer cents for amounts, integers for days — never a float.
   const a =
     field === 'amount' ? toMinor(String(actual)) : BigInt(Number.parseInt(String(actual), 10));
@@ -177,7 +209,9 @@ export function evaluateConditions(
   facts: Facts,
 ): { ok: boolean; results: ConditionResult[] } {
   const results = conditions.map((c) => {
-    const actual = facts[c.field];
+    const actual = c.field.startsWith('custom_field.')
+      ? (facts.custom?.[c.field.slice('custom_field.'.length)] ?? null)
+      : facts[c.field as BaseConditionField];
     return {
       field: c.field,
       op: c.op,

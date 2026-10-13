@@ -312,7 +312,14 @@
         "ymd": "godina-mesec-dan",
         "none": "— ne uvozi —",
         "column": "Kolona {n}",
-        "missing": "Nedostaje obavezno polje: {fields}"
+        "missing": "Nedostaje obavezno polje: {fields}",
+        "customTitle": "Dodatna polja",
+        "createFrom": "Napravi polje iz kolone",
+        "createFor": "za",
+        "entityCustomer": "kupca",
+        "entityInvoice": "fakturu",
+        "notPersonal": "nije lični podatak (P0, može kao filter)",
+        "createField": "Napravi polje"
       },
       "fields": {
         "external_id": "ID fakture u ERP-u",
@@ -471,7 +478,8 @@
       "locales": {
         "sr-Latn": "Srpski (latinica)",
         "en": "English"
-      }
+      },
+      "fieldsLink": "Dodatna polja (kupci, kontakti, fakture, case-ovi) →"
     },
     "status": {
       "title": "Status sistema",
@@ -1698,6 +1706,64 @@
         "title": "Povežite sanduče",
         "hint": "Odgovori stižu u Collect, a podsetnici idu sa vaše adrese."
       }
+    }
+  },
+  "customFields": {
+    "any": "sve",
+    "yes": "da",
+    "no": "ne",
+    "columns": "Dodatne kolone",
+    "columnsSaved": "Kolone su sačuvane.",
+    "save": "Sačuvaj",
+    "panelTitle": "Dodatna polja",
+    "panelEmpty": "Još nema dodatnih polja. Administrator ih dodaje u Admin → Podešavanja → Polja — zatim se pojavljuju ovde, u listama, filterima, uvozu, pravilima i izveštajima.",
+    "saved": "Sačuvano.",
+    "required": "obavezno",
+    "encrypted": "šifrovano (lični podatak)",
+    "choose": "— izaberite —",
+    "currency": "Valuta",
+    "admin": {
+      "title": "Polja",
+      "description": "Dodatna polja kupaca, kontakata, faktura i case-ova. Polje se nikad ne briše — arhivirajte ga, a vrednosti ostaju u istoriji.",
+      "entity": "Entitet",
+      "entities": {
+        "customer": "Kupac",
+        "contact": "Kontakt",
+        "invoice": "Faktura",
+        "case": "Case"
+      },
+      "types": {
+        "text": "Tekst",
+        "number": "Broj",
+        "date": "Datum",
+        "bool": "Da / ne",
+        "select": "Izbor",
+        "multiselect": "Višestruki izbor",
+        "currency": "Iznos sa valutom"
+      },
+      "pii": {
+        "P0": "P0 — nije lični podatak",
+        "P1": "P1 — lični (šifrovano)",
+        "P2": "P2 — osetljiv (šifrovano)",
+        "P3": "P3 — posebna kategorija (šifrovano)"
+      },
+      "key": "Ključ (a-z, 0-9, _; ne menja se)",
+      "type": "Tip",
+      "piiClass": "Klasa ličnog podatka",
+      "labelSr": "Naziv (srpski)",
+      "labelEn": "Naziv (engleski)",
+      "options": "Opcije — jedna po redu: šifra Naziv",
+      "requiredFlag": "Obavezno",
+      "filterable": "Filter u listama (samo P0)",
+      "showInList": "Kolona u listi podrazumevano",
+      "add": "Dodaj polje",
+      "created": "Polje je dodato — sada se pojavljuje u formama, listama, uvozu, pravilima i izveštajima.",
+      "archive": "Arhiviraj",
+      "restore": "Vrati",
+      "archived": "arhivirano",
+      "updated": "Sačuvano.",
+      "empty": "Još nema polja za ovaj entitet.",
+      "limit": "Najviše {n} aktivnih polja po entitetu."
     }
   }
 }

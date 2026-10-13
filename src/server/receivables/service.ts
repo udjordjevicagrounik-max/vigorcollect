@@ -5,6 +5,11 @@ import { NotFoundError, type TenantContext } from '@/server/auth/with-tenant';
 import { getMasterKeyring, type MasterKeyring } from '@/server/crypto/keyring';
 import { decryptField } from '@/server/crypto/subject-keys';
 import { readCustomerName } from '@/server/customers/repository';
+import {
+  cfFiltersFromQuery,
+  customFieldPredicates,
+  listDefinitions,
+} from '@/server/custom-fields/service';
 import { likeContains } from '@/server/db-like';
 
 /**
@@ -21,7 +26,15 @@ const viewer = (ctx: TenantContext, scope: Scope) => ({ userId: ctx.userId, scop
 // Customer list
 // ---------------------------------------------------------------------------------------------
 
-export const customerListQuery = z.object({
+/** 6.1: custom field filters travel as flat `cf.<key>` entries (URL, saved filters). */
+const CF_KEY = /^cf\.[a-z][a-z0-9_]{1,40}$/;
+const withCustomFields = <T extends z.ZodRawShape>(shape: T) =>
+  z
+    .object(shape)
+    .catchall(z.string().max(200))
+    .refine((v) => Object.keys(v).every((k) => k in shape || CF_KEY.test(k)), { path: ['cf'] });
+
+export const customerListQuery = withCustomFields({
   q: z.string().trim().max(100).optional(),
   overdue: z.enum(['1']).optional(),
   owner: z.enum(['me', 'none']).optional(),
@@ -80,6 +93,18 @@ export async function listReceivableCustomers(
     where.push('c.owner_user_id IS NULL');
   }
   if (query.overdue) where.push('coalesce(agg.overdue, 0) > 0');
+  const cf = cfFiltersFromQuery(query as Record<string, string>);
+  if (cf.length) {
+    const preds = customFieldPredicates(
+      await listDefinitions(ctx, { entityType: 'customer' }),
+      'customer',
+      'c.id',
+      cf,
+      params.length + 1,
+    );
+    params.push(...preds.params);
+    where.push(...preds.sql);
+  }
   const filter = scopeFilter('customers', viewer(ctx, scope), 'c', params.length + 1);
   const { rows } = await ctx.db.query<{
     id: string;
@@ -800,7 +825,7 @@ export async function codeLabels(
 // Invoice list (5.1): open invoices across customers in scope, for bulk actions
 // ---------------------------------------------------------------------------------------------
 
-export const invoiceListQuery = z.object({
+export const invoiceListQuery = withCustomFields({
   q: z.string().trim().max(100).optional(),
   overdue: z.enum(['1']).optional(),
   disputed: z.enum(['only', 'exclude']).optional(),
@@ -842,6 +867,18 @@ export async function listOpenInvoices(
   if (query.bucket) {
     params.push(query.bucket);
     where.push(`p.aging_bucket = $${params.length}`);
+  }
+  const cf = cfFiltersFromQuery(query as Record<string, string>);
+  if (cf.length) {
+    const preds = customFieldPredicates(
+      await listDefinitions(ctx, { entityType: 'invoice' }),
+      'invoice',
+      'p.invoice_id',
+      cf,
+      params.length + 1,
+    );
+    params.push(...preds.params);
+    where.push(...preds.sql);
   }
   const filter = scopeFilter('customers', viewer(ctx, scope), 'c', params.length + 1);
   const { rows } = await ctx.db.query<{

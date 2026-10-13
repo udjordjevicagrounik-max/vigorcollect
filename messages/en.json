@@ -312,7 +312,14 @@
         "ymd": "year-month-day",
         "none": "— do not import —",
         "column": "Column {n}",
-        "missing": "Required field missing: {fields}"
+        "missing": "Required field missing: {fields}",
+        "customTitle": "Additional fields",
+        "createFrom": "Create a field from column",
+        "createFor": "for",
+        "entityCustomer": "customer",
+        "entityInvoice": "invoice",
+        "notPersonal": "not personal data (P0, can be a filter)",
+        "createField": "Create field"
       },
       "fields": {
         "external_id": "Invoice ID in ERP",
@@ -471,7 +478,8 @@
       "locales": {
         "sr-Latn": "Srpski (latinica)",
         "en": "English"
-      }
+      },
+      "fieldsLink": "Additional fields (customers, contacts, invoices, cases) →"
     },
     "status": {
       "title": "System status",
@@ -1698,6 +1706,64 @@
         "title": "Connect the mailbox",
         "hint": "Replies arrive in Collect and reminders leave from your address."
       }
+    }
+  },
+  "customFields": {
+    "any": "any",
+    "yes": "yes",
+    "no": "no",
+    "columns": "Additional columns",
+    "columnsSaved": "Columns saved.",
+    "save": "Save",
+    "panelTitle": "Additional fields",
+    "panelEmpty": "No additional fields yet. An administrator adds them under Admin → Settings → Fields — they then appear here, in lists, filters, import, rules and reports.",
+    "saved": "Saved.",
+    "required": "required",
+    "encrypted": "encrypted (personal data)",
+    "choose": "— choose —",
+    "currency": "Currency",
+    "admin": {
+      "title": "Fields",
+      "description": "Additional fields of customers, contacts, invoices and cases. A field is never deleted — archive it and its values stay in the history.",
+      "entity": "Entity",
+      "entities": {
+        "customer": "Customer",
+        "contact": "Contact",
+        "invoice": "Invoice",
+        "case": "Case"
+      },
+      "types": {
+        "text": "Text",
+        "number": "Number",
+        "date": "Date",
+        "bool": "Yes / no",
+        "select": "Choice",
+        "multiselect": "Multiple choice",
+        "currency": "Amount with currency"
+      },
+      "pii": {
+        "P0": "P0 — not personal",
+        "P1": "P1 — personal (encrypted)",
+        "P2": "P2 — sensitive (encrypted)",
+        "P3": "P3 — special category (encrypted)"
+      },
+      "key": "Key (a-z, 0-9, _; never changes)",
+      "type": "Type",
+      "piiClass": "Personal data class",
+      "labelSr": "Name (Serbian)",
+      "labelEn": "Name (English)",
+      "options": "Options — one per line: code Name",
+      "requiredFlag": "Required",
+      "filterable": "Filter in lists (P0 only)",
+      "showInList": "Column in the list by default",
+      "add": "Add field",
+      "created": "The field is added — it now appears in forms, lists, import, rules and reports.",
+      "archive": "Archive",
+      "restore": "Restore",
+      "archived": "archived",
+      "updated": "Saved.",
+      "empty": "No fields for this entity yet.",
+      "limit": "At most {n} active fields per entity."
     }
   }
 }

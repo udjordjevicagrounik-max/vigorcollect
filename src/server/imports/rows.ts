@@ -47,6 +47,10 @@ export const mappingSchema = z.object({
   columns: z.partialRecord(z.enum(IMPORT_FIELDS), z.int().min(0).max(199)),
   decimal: z.enum(['comma', 'dot']),
   dateOrder: z.enum(['dmy', 'ymd']),
+  // 6.1: custom fields — 'customer.<key>' / 'invoice.<key>' → column index.
+  custom: z
+    .record(z.string().regex(/^(customer|invoice)\.[a-z][a-z0-9_]{1,40}$/), z.int().min(0).max(199))
+    .optional(),
 });
 export type Mapping = z.infer<typeof mappingSchema>;
 
@@ -232,6 +236,8 @@ export type ImportRow = {
   customerIsNaturalPerson: boolean | null;
   buyerReference: string | null;
   orderReference: string | null;
+  /** 6.1: raw (trimmed) cells of mapped custom fields, by target — converted when applied. */
+  custom: Record<string, string>;
 };
 
 export type RowError = { field: ImportField; code: string };
@@ -384,6 +390,19 @@ export function validateRows(grid: Grid, mapping: Mapping, defaults: RowDefaults
         customerIsNaturalPerson: r.customer_is_natural_person,
         buyerReference: r.buyer_reference,
         orderReference: r.order_reference,
+        custom: Object.fromEntries(
+          Object.entries(mapping.custom ?? {})
+            .map(
+              ([target, c]) =>
+                [
+                  target,
+                  String(cells[c] ?? '')
+                    .trim()
+                    .slice(0, 2000),
+                ] as const,
+            )
+            .filter(([, v]) => v !== ''),
+        ),
       },
     };
   });
