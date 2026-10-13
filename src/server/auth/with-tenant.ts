@@ -7,6 +7,12 @@ import { apiError, type ApiErrorCode } from '@/lib/api-error';
 import { logEvent } from '@/lib/log';
 import { APP_VERSION_HEADER, REQUEST_ID_HEADER, resolveRequestId } from '@/lib/request-id';
 import { getAppVersion } from '@/lib/version';
+import {
+  apiKeyIdentity,
+  bearerToken,
+  RateLimitedError,
+  touchApiKey,
+} from '@/server/integrations/api-keys';
 import { reportError } from '@/server/observability/sentry';
 import { writeAudit, type AuditEntry } from './audit';
 import { getAuth, getAuthAppPool, getAuthBaseURL, getAuthPool } from './better-auth';
@@ -34,6 +40,11 @@ import { getAuthContext } from './session';
  *      key → 500 + error log; never a stack; X-Request-Id / X-App-Version on every answer;
  *   5. CSRF (1.4): a mutating request must come from our own origin (Origin header = the
  *      BETTER_AUTH_URL origin, or Sec-Fetch-Site: same-origin); SameSite=Lax is the second layer.
+ *   6. API keys (4.1): `Authorization: Bearer ak_…` instead of a session. The tenant comes from
+ *      the key row (never from the request); requirePermission() passes only for keys in the
+ *      key's scopes (catalog keys, ORGANIZATION scope); audit actor 'api_key'; a per-key rate
+ *      limit (429). No cookie is involved, so the CSRF origin check does not apply. ctx.userId
+ *      is the key id — a key is not a member (rows that need a person reject it).
  */
 
 export class NotFoundError extends Error {
@@ -66,13 +77,31 @@ export type TenantContext = {
   userId: string;
   authUserId: string;
   requestId: string;
+  /** 'api_key': ctx.userId is api_keys.id, not a member (4.1). */
+  actorType?: 'user' | 'api_key';
   requirePermission(key: string): Promise<PermissionGrant>;
   /** The first of `keys` the member holds (e.g. different checkers per request type). */
   requireAnyPermission(keys: readonly string[]): Promise<PermissionGrant>;
   audit(entry: AuditEntry): Promise<void>;
 };
 
-type Identity = Pick<TenantContext, 'tenantId' | 'userId' | 'authUserId' | 'requestId'>;
+type Identity = Pick<TenantContext, 'tenantId' | 'userId' | 'authUserId' | 'requestId'> & {
+  /** Present when the caller authenticated with an API key (4.1). */
+  apiKeyScopes?: readonly string[];
+};
+
+/** An API key holds exactly its scopes (catalog keys), always with ORGANIZATION scope. */
+async function checkApiKeyPermission(
+  db: PoolClient,
+  scopes: readonly string[],
+  key: string,
+): Promise<PermissionGrant> {
+  if (!/^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$/.test(key)) throw new UnknownPermissionError(key);
+  const known = await db.query('SELECT 1 FROM permissions WHERE key = $1', [key]);
+  if (!known.rowCount) throw new UnknownPermissionError(key);
+  if (!scopes.includes(key)) throw new PermissionDeniedError();
+  return { key, scope: 'ORGANIZATION' };
+}
 type Tracking = { permissionChecked: boolean; audits: number };
 
 /** Builds the context on a client that is ALREADY inside the tenant transaction. */
@@ -81,18 +110,24 @@ export function createTenantContext(
   identity: Identity,
   tracking: Tracking = { permissionChecked: false, audits: 0 },
 ): TenantContext {
+  const { apiKeyScopes, ...rest } = identity;
+  const check = (key: string) =>
+    apiKeyScopes
+      ? checkApiKeyPermission(db, apiKeyScopes, key)
+      : checkPermission(db, identity.userId, key);
   return {
     db,
-    ...identity,
+    ...rest,
+    actorType: apiKeyScopes ? 'api_key' : 'user',
     async requirePermission(key) {
       tracking.permissionChecked = true;
-      return checkPermission(db, identity.userId, key);
+      return check(key);
     },
     async requireAnyPermission(keys) {
       tracking.permissionChecked = true;
       for (const key of keys) {
         try {
-          return await checkPermission(db, identity.userId, key);
+          return await check(key);
         } catch (error) {
           if (!(error instanceof PermissionDeniedError)) throw error;
         }
@@ -100,7 +135,12 @@ export function createTenantContext(
       throw new PermissionDeniedError();
     },
     async audit(entry) {
-      await writeAudit(db, { type: 'user', id: identity.userId }, entry, identity.requestId);
+      await writeAudit(
+        db,
+        { type: apiKeyScopes ? 'api_key' : 'user', id: identity.userId },
+        entry,
+        identity.requestId,
+      );
       tracking.audits += 1;
     },
   };
@@ -137,6 +177,8 @@ export type WithTenantDeps = {
   appPool: () => Pool;
   resolveIdentity: typeof sessionIdentity;
   allowedOrigin: () => string;
+  /** API key → identity (4.1); default: the api_keys lookup on the app pool. */
+  resolveApiKey?: typeof apiKeyIdentity;
 };
 
 /** Session → tenant identity, or null when the session is not complete. */
@@ -158,6 +200,27 @@ export function withTenant<P = Record<string, never>>(
 ): (request: NextRequest, route: RouteContext<P>) => Promise<Response> {
   return async (request, route) => {
     const requestId = resolveRequestId(request.headers.get(REQUEST_ID_HEADER));
+    const token = bearerToken(request.headers);
+    if (token !== null) {
+      let key: Awaited<ReturnType<typeof apiKeyIdentity>>;
+      try {
+        key = await (deps.resolveApiKey ?? apiKeyIdentity)(deps.appPool(), token);
+      } catch (error) {
+        if (error instanceof RateLimitedError) {
+          const limited = fail(429, 'rate_limited', requestId);
+          limited.headers.set('Retry-After', String(error.retryAfter));
+          return limited;
+        }
+        throw error;
+      }
+      if (!key) return fail(401, 'unauthorized', requestId);
+      return run(request, route, requestId, {
+        tenantId: key.tenantId,
+        userId: key.apiKeyId,
+        authUserId: `api_key:${key.apiKeyId}`,
+        apiKeyScopes: key.scopes,
+      });
+    }
     if (MUTATING.has(request.method) && !sameOrigin(request.headers, deps.allowedOrigin())) {
       logEvent('security.forbidden_origin', {
         level: 'warn',
@@ -168,14 +231,25 @@ export function withTenant<P = Record<string, never>>(
     }
     const identity = await deps.resolveIdentity(request.headers);
     if (!identity) return fail(401, 'unauthorized', requestId);
+    return run(request, route, requestId, identity);
+  };
 
+  async function run(
+    request: NextRequest,
+    route: RouteContext<P>,
+    requestId: string,
+    identity: Omit<Identity, 'requestId'>,
+  ): Promise<Response> {
     const tracking: Tracking = { permissionChecked: false, audits: 0 };
     const client = await deps.appPool().connect();
     try {
       await client.query('BEGIN');
       await client.query('RESET app.auth_user_id');
       await client.query('RESET app.invite_token_hash');
+      await client.query('RESET app.api_key_hash');
+      await client.query('RESET app.inbound_integration_id');
       await client.query("SELECT set_config('app.tenant_id', $1, true)", [identity.tenantId]);
+      if (identity.apiKeyScopes) await touchApiKey(client, identity.userId);
       const ctx = createTenantContext(client, { ...identity, requestId }, tracking);
       const response = await handler(request, ctx, await route.params);
 
@@ -225,7 +299,7 @@ export function withTenant<P = Record<string, never>>(
     } finally {
       client.release();
     }
-  };
+  }
 }
 
 /**

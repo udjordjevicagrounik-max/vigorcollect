@@ -1,7 +1,11 @@
 import { z } from 'zod';
 import { mayInvite } from '@/server/auth/invitations';
 import { decideLegalHandover, LEGAL_HANDOVER_ACTION } from '@/server/collections/service';
-import { DECISION_APPROVAL_ACTION, decideDecisionApproval } from '@/server/decisions/service';
+import {
+  DECISION_APPROVAL_ACTION,
+  decideDecisionApproval,
+  RISK_OVERRIDE_ACTION,
+} from '@/server/decisions/service';
 import { decidePublish, PUBLISH_ACTION } from '@/server/workflows/service';
 import { PermissionDeniedError, permissionKeys } from '@/server/auth/permissions';
 import { ConflictError, NotFoundError, type TenantContext } from '@/server/auth/with-tenant';
@@ -27,6 +31,8 @@ export const CHECKER: Record<string, string> = {
   [PUBLISH_ACTION]: 'settings.manage',
   // 3.3, rule 19: a rule's proposed decision, submitted by a person (decision.create).
   [DECISION_APPROVAL_ACTION]: 'decision.approve',
+  // 4.3, rule 11: a company's credit status proposed by the risk score.
+  [RISK_OVERRIDE_ACTION]: 'approval.risk_override',
 };
 export const APPROVAL_VIEW_KEYS = [
   'approval.read',
@@ -36,6 +42,7 @@ export const APPROVAL_VIEW_KEYS = [
   'approval.legal_handover',
   'settings.manage',
   'decision.approve',
+  'approval.risk_override',
 ] as const;
 
 export type PendingApproval = {
@@ -86,7 +93,7 @@ export async function listPendingApprovals(ctx: TenantContext): Promise<PendingA
             a.payload->>'customer_id' AS case_customer_id,
             CASE WHEN a.action_type = 'workflow.publish' THEN (a.payload->>'workflow_id')::uuid END AS workflow_id,
             CASE WHEN a.action_type = 'workflow.publish' THEN (a.payload->>'version')::int END AS workflow_version,
-            CASE WHEN a.action_type = 'decision.approve' THEN a.payload->>'decision_type' END AS decision_type,
+            CASE WHEN a.action_type IN ('decision.approve', 'customer.risk_override') THEN a.payload->>'decision_type' END AS decision_type,
             (a.payload->>'natural_person')::boolean AS natural_person
      FROM approval_requests a
      JOIN users r ON r.id = a.requested_by
@@ -302,5 +309,7 @@ export async function decideApproval(
   if (type === LEGAL_HANDOVER_ACTION) return decideLegalHandover(ctx, approvalId, input);
   if (type === PUBLISH_ACTION) return decidePublish(ctx, approvalId, input);
   if (type === DECISION_APPROVAL_ACTION) return decideDecisionApproval(ctx, approvalId, input);
+  if (type === RISK_OVERRIDE_ACTION)
+    return decideDecisionApproval(ctx, approvalId, input, RISK_OVERRIDE_ACTION);
   throw new ConflictError('unsupported');
 }

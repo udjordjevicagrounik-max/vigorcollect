@@ -22,7 +22,8 @@
       "teams": "Teams",
       "rules": "Rules",
       "templates": "Templates",
-      "approvals": "Approvals"
+      "approvals": "Approvals",
+      "integrations": "Integrations"
     },
     "tenant": "Organization",
     "switchTenant": "Switch organization",
@@ -540,7 +541,8 @@
       "overdue": "Overdue",
       "oldest": "Oldest",
       "status": "Status",
-      "owner": "Owner"
+      "owner": "Owner",
+      "risk": "Risk"
     },
     "emptyTitle": "No customers for this view",
     "emptyDescription": "Change the search or filters. If you have not imported invoices yet, customers are created by the import.",
@@ -594,7 +596,9 @@
       "promises": "Promises",
       "activities": "Activities",
       "cases": "Cases",
-      "documents": "Documents"
+      "documents": "Documents",
+      "communication": "Communication",
+      "risk": "Risk"
     },
     "aging": "Aging",
     "openCases": "Open cases ({n})",
@@ -764,7 +768,11 @@
         "call": "Call",
         "email": "Email",
         "note": "Note",
-        "meeting": "Meeting"
+        "meeting": "Meeting",
+        "mail": {
+          "out": "Mail sent",
+          "in": "Mail received"
+        }
       }
     }
   },
@@ -968,7 +976,9 @@
       "no_activity": "No activity",
       "unassigned_case": "Case without owner",
       "notification": "Notification",
-      "rule_proposal": "Rule proposal waits for a person"
+      "rule_proposal": "Rule proposal waits for a person",
+      "mail_undelivered": "Mail not delivered",
+      "risk_red": "Customer turned red risk"
     },
     "actions": {
       "approval_pending": "Decide",
@@ -980,7 +990,9 @@
       "no_activity": "Contact",
       "unassigned_case": "Assign",
       "notification": "Open",
-      "rule_proposal": "Open"
+      "rule_proposal": "Open",
+      "mail_undelivered": "Open correspondence",
+      "risk_red": "See why"
     },
     "messages": {
       "rule_attention": "customer needs attention",
@@ -996,7 +1008,9 @@
       "legal_handover": "handover to the legal department",
       "pre_litigation_notice": "notice before legal action",
       "credit_status_red": "red credit status",
-      "block_customer": "customer block"
+      "block_customer": "customer block",
+      "credit_status_green": "green credit status",
+      "credit_status_yellow": "yellow credit status"
     }
   },
   "templatesAdmin": {
@@ -1015,5 +1029,182 @@
     "body": "Text ({locale}) — allowed tags: p, br, strong, em, h1–h3, ul, ol, li, table, span, div; no attributes",
     "save": "Save as a new version",
     "saved": "A new template version was saved."
+  },
+  "integrationsAdmin": {
+    "title": "Integrations",
+    "description": "Connections to other systems through n8n: mail (Google Workspace, Microsoft 365, IMAP/SMTP), ERP and webhooks. n8n calls our API and webhook; secrets are shown only once.",
+    "listTitle": "Integrations",
+    "emptyTitle": "No integrations yet",
+    "emptyDescription": "Add an n8n integration: you get an inbound address and a signing secret to put into the n8n workflow (docs/integrations/n8n.md).",
+    "types": {
+      "mailbox": "Mail",
+      "erp": "ERP",
+      "risk": "Risk",
+      "webhook": "Webhook"
+    },
+    "status": {
+      "active": "active",
+      "disabled": "disabled"
+    },
+    "inbound": "Inbound address (n8n → us)",
+    "outbound": "Outbound address (us → n8n)",
+    "none": "not set",
+    "queue": "Waiting: {pending} · failed for good: {dead}",
+    "ping": "Test ping",
+    "pinged": "Ping sent — the result is in the delivery list.",
+    "enable": "Enable",
+    "disable": "Disable",
+    "saved": "Saved.",
+    "secret": "Signing secret (shown only now)",
+    "secretHint": "Copy it into n8n now. It cannot be read later — only replaced with a new integration.",
+    "inboundHint": "Put this address into the n8n HTTP Request node (POST, signed).",
+    "done": "Done, I saved it",
+    "createTitle": "New integration",
+    "type": "Type",
+    "name": "Name",
+    "outboundUrl": "n8n webhook address (optional)",
+    "outboundHint": "https only. We send the subscribed events and outgoing mail to this address, signed.",
+    "events": "Events we send",
+    "create": "Add integration",
+    "keysTitle": "API keys",
+    "keysDescription": "n8n or another system calls our API with a key (Authorization: Bearer). A key has only the chosen permissions and can never approve (four eyes).",
+    "keysEmpty": "No API keys. Create a key with only the permissions the integration needs.",
+    "rate": "{n}/min",
+    "revoked": "revoked",
+    "lastUsed": "last used {at}",
+    "neverUsed": "not used yet",
+    "revoke": "Revoke",
+    "revokedNotice": "The key is revoked and no longer works.",
+    "token": "API key (shown only now)",
+    "tokenHint": "Copy it into an n8n credential now; only its hash is stored.",
+    "keyCreateTitle": "New API key",
+    "rateLabel": "Maximum calls per minute",
+    "scopes": "Key permissions",
+    "scopesHint": "Only permissions you hold yourself; approval permissions are not offered.",
+    "keyCreate": "Create key",
+    "deadTitle": "Failed messages (dead letter)",
+    "deadEmpty": "No failed messages.",
+    "direction": {
+      "webhook": "Inbound",
+      "delivery": "Outbound"
+    },
+    "attempts": "attempts: {n}",
+    "retry": "Retry",
+    "retried": "Scheduled again.",
+    "syncTitle": "Sync log",
+    "syncEmpty": "No syncs yet.",
+    "when": "When",
+    "source": "Source",
+    "result": "Result",
+    "syncStatus": {
+      "running": "running",
+      "succeeded": "succeeded",
+      "partial": "partial",
+      "failed": "failed",
+      "unsupported": "not supported"
+    },
+    "urlPlaceholder": "https://n8n.example.com/webhook/…"
+  },
+  "communication": {
+    "empty": "No correspondence with this customer yet. Send a message from a template or as free text — the customer's replies arrive here once mail is connected (Administration → Integrations).",
+    "newTitle": "New message",
+    "replyTitle": "Reply to: {subject}",
+    "cancelReply": "New message instead of a reply",
+    "free": "Free text",
+    "template": "Template",
+    "legalEffect": "legal effect",
+    "subject": "Subject",
+    "body": "Text",
+    "send": "Send",
+    "sent": "The message is queued for sending.",
+    "sendHint": "Sent from the organization's mailbox through the integration; a demo organization sends only to the sink. Every message is logged as an activity.",
+    "reply": "Reply",
+    "openLink": "open",
+    "direction": {
+      "out": "sent",
+      "in": "received",
+      "activity": "activity"
+    },
+    "activity": {
+      "call": "call",
+      "note": "note",
+      "meeting": "meeting",
+      "email": "email"
+    },
+    "status": {
+      "captured": "in the sink",
+      "pending": "waiting",
+      "sent": "sent",
+      "failed": "not sent",
+      "bounced": "bounced"
+    },
+    "unlinkedTitle": "Unlinked messages",
+    "unlinkedDescription": "Received mail no rule could link to a customer (unknown sender or several customers with the same address). The content is untrusted and shown only as text.",
+    "unlinkedEmpty": "All received messages are linked.",
+    "noSubject": "(no subject)",
+    "customer": "Customer",
+    "link": "Link",
+    "linked": "The message is linked to the customer.",
+    "ignore": "Ignore",
+    "ignored": "The message is ignored."
+  },
+  "risk": {
+    "notScored": "not scored",
+    "band": {
+      "green": "green",
+      "yellow": "yellow",
+      "red": "red"
+    },
+    "empty": "Risk has not been computed yet. It runs in the daily job (06:00 in the company's zone) or with “Refresh now”.",
+    "computed": "Computed {at} · model {model}",
+    "thresholds": "yellow from {yellow}, red from {red}",
+    "creditStatus": "Customer credit status: {status}",
+    "proposal": "waiting for a person: {type}",
+    "proposalHint": "The risk color is only a proposal: another person changes the credit status after approval (natural person — a decision with human approval; company — a risk change request).",
+    "status": {
+      "unrated": "unrated",
+      "green": "green",
+      "yellow": "yellow",
+      "red": "red"
+    },
+    "proposalType": {
+      "credit_status_green": "green status",
+      "credit_status_yellow": "yellow status",
+      "credit_status_red": "red status"
+    },
+    "refresh": "Refresh now",
+    "refreshed": "Risk recomputed.",
+    "why": "Why this number",
+    "signal": "Signal",
+    "value": "Value",
+    "points": "Points (0–100)",
+    "weight": "Weight",
+    "share": "Share of the score",
+    "signals": {
+      "days_overdue": "Days overdue (oldest overdue invoice)",
+      "exposure_vs_limit": "Exposure vs. limit (%)",
+      "broken_promises_90d": "Broken promises (90 days)",
+      "disputes_90d": "Disputes (90 days)",
+      "inactivity_days": "Days without activity while overdue",
+      "external_blocked": "Blocked account / enforced collection (external source)"
+    },
+    "source": "source: {source}",
+    "reasons": {
+      "not_available": "no data",
+      "no_credit_limit": "customer has no credit limit",
+      "limit_other_currency": "limit is in another currency",
+      "no_provider_data": "no external data",
+      "weight_zero": "weight 0"
+    },
+    "providers": "External sources",
+    "providersEmpty": "No external sources for this customer's country, or none asked yet.",
+    "providerStatus": {
+      "running": "running",
+      "succeeded": "succeeded",
+      "partial": "partial",
+      "failed": "unavailable",
+      "unsupported": "not supported (see the integration document)"
+    },
+    "outOf": "of 100"
   }
 }

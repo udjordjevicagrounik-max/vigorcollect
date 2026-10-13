@@ -1,0 +1,156 @@
+{
+  "name": "Collect — mail outbound",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "collect-mail-outbound",
+        "responseMode": "responseNode",
+        "options": {
+          "rawBody": true
+        }
+      },
+      "id": "b1",
+      "name": "Collect webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "webhookId": "collect-mail-outbound"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Verifies Collect's signature over the RAW body: t within ±5 min, HMAC-SHA256(secret, t.raw).\n// Anything else is answered 401 and never sent.\nconst crypto = require('crypto');\nconst item = $input.first();\nconst raw = Buffer.from(item.binary.data.data, 'base64').toString('utf8');\nconst header = (item.json.headers['x-signature'] || '').toString();\nconst parts = Object.fromEntries(header.split(',').map((p) => p.split('=')));\nconst t = Number(parts.t);\nconst expected = crypto.createHmac('sha256', $env.COLLECT_SIGNING_SECRET).update(`${t}.${raw}`).digest('hex');\nconst fresh = Math.abs(Date.now() / 1000 - t) <= 300;\nconst ok = fresh && typeof parts.v1 === 'string' && parts.v1.length === expected.length &&\n  crypto.timingSafeEqual(Buffer.from(parts.v1), Buffer.from(expected));\nconst body = ok ? JSON.parse(raw) : null;\nreturn [{ json: { ok, mail: body && body.type === 'mail.send' ? body.data : null } }];"
+      },
+      "id": "b2",
+      "name": "Verify signature",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [240, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.ok && $json.mail !== null }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "b3",
+      "name": "Valid mail.send?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [480, 0]
+    },
+    {
+      "parameters": {
+        "fromEmail": "CHOOSE SENDER ADDRESS",
+        "toEmail": "={{ $json.mail.to }}",
+        "subject": "={{ $json.mail.subject }}",
+        "emailFormat": "both",
+        "text": "={{ $json.mail.text }}",
+        "html": "={{ $json.mail.html }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "b4",
+      "name": "Send Email (SMTP)",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [720, -100],
+      "credentials": {
+        "smtp": {
+          "id": "",
+          "name": "CHOOSE YOUR SMTP CREDENTIAL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { status: 'sent', messageId: $json.messageId } }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "b5",
+      "name": "Answer sent",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [960, -100]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { status: 'rejected' } }}",
+        "options": {
+          "responseCode": 401
+        }
+      },
+      "id": "b6",
+      "name": "Answer 401",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [720, 120]
+    }
+  ],
+  "connections": {
+    "Collect webhook": {
+      "main": [
+        [
+          {
+            "node": "Verify signature",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify signature": {
+      "main": [
+        [
+          {
+            "node": "Valid mail.send?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Valid mail.send?": {
+      "main": [
+        [
+          {
+            "node": "Send Email (SMTP)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Answer 401",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email (SMTP)": {
+      "main": [
+        [
+          {
+            "node": "Answer sent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

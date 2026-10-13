@@ -16,7 +16,10 @@ import { openMail, sealMail } from './crypto';
  *   - sink: captured in mail_outbox, never delivered (demo tenant, tests, and — until SMTP
  *     exists — every tenant);
  *   - smtp: queued (status 'pending') for the outbox worker (1.3). There is no SMTP sender yet:
- *     nodemailer is not a dependency (BACKLOG), so `smtpEnabled` is false everywhere.
+ *     nodemailer is not a dependency (BACKLOG), so `smtpEnabled` is false everywhere;
+ *   - integration (4.2): collection mail of a non-demo tenant with an active mailbox integration
+ *     goes to n8n (src/server/mail/dispatch-integration.ts), which sends it over the tenant's
+ *     own mailbox (Google Workspace, Microsoft 365, IMAP/SMTP).
  *
  * Rule 24: a demo tenant ALWAYS uses the sink — here and in the database trigger
  * mail_outbox_demo_sink_only (migration 006).
@@ -24,9 +27,9 @@ import { openMail, sealMail } from './crypto';
 
 export type AuthMailKind = 'invitation' | 'password_reset';
 /** Collection mail (3.3, migration 017): rendered from a tenant template, about one customer. */
-export type CollectionMailKind = 'reminder' | 'dunning' | 'statement' | 'document';
+export type CollectionMailKind = 'reminder' | 'dunning' | 'statement' | 'document' | 'reply';
 export type MailKind = AuthMailKind | CollectionMailKind;
-export type Transport = 'sink' | 'smtp';
+export type Transport = 'sink' | 'smtp' | 'integration';
 
 export type OutgoingMail =
   | { kind: 'invitation'; to: string; locale: string; url: string; tenantName: string }
@@ -39,8 +42,12 @@ export type CollectionMail = {
   subject: string;
   html: string;
   customerId: string;
-  templateId: string;
+  /** NULL for a free-text reply written by a member (4.2). */
+  templateId: string | null;
   sourceRunId?: string | null;
+  caseId?: string | null;
+  /** Threading (4.2): the received mail this answers. */
+  inReplyTo?: { inboxId: string; messageId: string; references: string[] } | null;
 };
 
 export type CapturedMail = {
@@ -88,6 +95,37 @@ async function transportFor(db: Queryable, tenantId: string, options: MailOption
   });
 }
 
+function messageIdDomain(): string {
+  try {
+    return new URL(process.env.BETTER_AUTH_URL ?? '').hostname || 'collect.invalid';
+  } catch {
+    return 'collect.invalid';
+  }
+}
+
+/**
+ * Collection mail way out (4.2): a demo tenant → sink (rule 24); otherwise the tenant's active
+ * mailbox integration (n8n) when there is one; otherwise the sink.
+ */
+async function collectionTransport(
+  db: Queryable,
+  tenantId: string,
+  options: MailOptions,
+): Promise<{ transport: Transport; integrationId: string | null }> {
+  const base = await transportFor(db, tenantId, options);
+  const demo = await db.query<{ is_demo: boolean }>('SELECT is_demo FROM tenants WHERE id = $1', [
+    tenantId,
+  ]);
+  if (demo.rows[0]?.is_demo ?? true) return { transport: 'sink', integrationId: null };
+  const { rows } = await db.query<{ id: string }>(
+    `SELECT id FROM integrations WHERE type = 'mailbox' AND status = 'active' AND config ? 'outboundUrl'
+     ORDER BY created_at LIMIT 1`,
+  );
+  return rows[0]
+    ? { transport: 'integration', integrationId: rows[0].id }
+    : { transport: base, integrationId: null };
+}
+
 async function insertOutbox(
   db: Queryable,
   keyring: MasterKeyring,
@@ -96,20 +134,33 @@ async function insertOutbox(
   mail: {
     kind: MailKind;
     to: string;
-    body: { subject: string; text: string; html?: string };
+    body: {
+      subject: string;
+      text: string;
+      html?: string;
+      inReplyTo?: string;
+      references?: string[];
+    };
     customerId?: string | null;
     templateId?: string | null;
     sourceRunId?: string | null;
+    integrationId?: string | null;
+    caseId?: string | null;
+    inReplyToId?: string | null;
   },
 ): Promise<string> {
   const id = randomUUID();
+  // Our own Message-ID (threading of replies, 4.2); a provider may report its real one later.
+  const messageId = mail.integrationId ? `<${id}@${messageIdDomain()}>` : null;
   const sealedRecipient = sealMail(keyring, tenantId, 'recipient', id, mail.to);
   const sealedBody = sealMail(keyring, tenantId, 'body', id, JSON.stringify(mail.body));
   await db.query(
     `INSERT INTO mail_outbox (id, tenant_id, kind, transport, status, recipient_enc,
                               recipient_key_version, body_enc, body_key_version,
-                              customer_id, template_id, source_run_id)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+                              customer_id, template_id, source_run_id, integration_id, case_id,
+                              in_reply_to_id, message_id, next_attempt_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
+             CASE WHEN $4 = 'integration' THEN now() END)`,
     [
       id,
       tenantId,
@@ -123,6 +174,10 @@ async function insertOutbox(
       mail.customerId ?? null,
       mail.templateId ?? null,
       mail.sourceRunId ?? null,
+      mail.integrationId ?? null,
+      mail.caseId ?? null,
+      mail.inReplyToId ?? null,
+      messageId,
     ],
   );
   logEvent(transport === 'sink' ? 'mail.captured' : 'mail.queued', {
@@ -180,14 +235,25 @@ export async function sendCollectionMail(
   options: MailOptions = {},
 ): Promise<{ id: string; transport: Transport }> {
   const tenantId = await currentTenantId(db);
-  const transport = await transportFor(db, tenantId, options);
+  const { transport, integrationId } = await collectionTransport(db, tenantId, options);
+  const body = {
+    subject: mail.subject,
+    text: htmlToText(mail.html),
+    html: mail.html,
+    ...(mail.inReplyTo
+      ? { inReplyTo: mail.inReplyTo.messageId, references: mail.inReplyTo.references }
+      : {}),
+  };
   const id = await insertOutbox(db, keyring, tenantId, transport, {
     kind: mail.kind,
     to: mail.to,
-    body: { subject: mail.subject, text: htmlToText(mail.html), html: mail.html },
+    body,
     customerId: mail.customerId,
     templateId: mail.templateId,
     sourceRunId: mail.sourceRunId ?? null,
+    integrationId,
+    caseId: mail.caseId ?? null,
+    inReplyToId: mail.inReplyTo?.inboxId ?? null,
   });
   return { id, transport };
 }

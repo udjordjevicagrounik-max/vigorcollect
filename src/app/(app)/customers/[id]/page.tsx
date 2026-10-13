@@ -4,6 +4,8 @@ import { getLocale, getTranslations } from 'next-intl/server';
 import { z } from 'zod';
 import { ForbiddenState } from '@/components/admin/forbidden-state';
 import { GenerateDocument } from '@/components/communication/generate-document';
+import { Thread } from '@/components/communication/thread';
+import { RiskPanel } from '@/components/risk/risk-panel';
 import { AgingBars } from '@/components/receivables/aging-bars';
 import { CustomerActions, PromiseActions } from '@/components/receivables/customer-actions';
 import { Screen } from '@/components/shell/screen';
@@ -12,6 +14,8 @@ import { PermissionDeniedError, permissionKeys } from '@/server/auth/permissions
 import { NotFoundError, withTenantPage } from '@/server/auth/with-tenant';
 import { localToday } from '@/server/collections/service';
 import { listDocuments } from '@/server/documents/service';
+import { emailTemplateOptions, listThread } from '@/server/mail/communication';
+import { getRisk } from '@/server/risk/service';
 import {
   codeLabels,
   customerActivities,
@@ -31,6 +35,8 @@ const TABS = [
   'promises',
   'activities',
   'cases',
+  'communication',
+  'risk',
   'documents',
 ] as const;
 type Tab = (typeof TABS)[number];
@@ -41,6 +47,8 @@ const TAB_PERMISSION: Record<Tab, string> = {
   promises: 'promise.read',
   activities: 'activity.read',
   cases: 'case.read',
+  communication: 'activity.read',
+  risk: 'customer.read',
   documents: 'document.read',
 };
 const KPIS = ['exposure', 'overdue', 'oldest', 'promises'] as const;
@@ -106,6 +114,12 @@ export default async function Customer360Page({
         nextActions: await codeLabels(ctx, 'next_action', locale),
         reasons: await codeLabels(ctx, 'adjustment_reason', locale),
         documents: active === 'documents' ? await listDocuments(ctx, id) : [],
+        thread: active === 'communication' ? await listThread(ctx, id) : [],
+        risk: active === 'risk' ? await getRisk(ctx, id) : null,
+        templates:
+          active === 'communication' && keys.has('activity.create')
+            ? await emailTemplateOptions(ctx)
+            : [],
       };
     });
   } catch (error) {
@@ -302,6 +316,21 @@ export default async function Customer360Page({
               title: `${data.stages[k.stage] ?? k.stage} · ${t(`caseStatus.${k.status as 'open'}`)}`,
               line: `${t(`priority.${k.priority as 'normal'}`)} · ${t('caseInvoices', { n: k.invoices })} · ${money(k.amountOpen)}`,
             }))}
+          />
+        ) : null}
+        {data.active === 'communication' ? (
+          <Thread
+            customerId={c.id}
+            items={data.thread}
+            templates={data.templates}
+            canWrite={data.keys.includes('activity.create')}
+          />
+        ) : null}
+        {data.active === 'risk' && data.risk ? (
+          <RiskPanel
+            customerId={c.id}
+            risk={data.risk}
+            canRefresh={data.keys.includes('customer.update')}
           />
         ) : null}
         {data.active === 'documents' ? (

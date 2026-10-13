@@ -19,7 +19,40 @@ import { emitEvent } from '@/server/events';
  */
 
 export const DECISION_APPROVAL_ACTION = 'decision.approve';
+/** 4.3: a company's credit status from the risk score — rule 11, checker approval.risk_override. */
+export const RISK_OVERRIDE_ACTION = 'customer.risk_override';
 const LEGAL = 'legal_handover';
+const CREDIT = /^credit_status_(green|yellow|red)$/;
+
+/** After a person approved: the proposed credit status takes effect (audited, evented). */
+async function applyCreditStatus(ctx: TenantContext, decisionType: string, customerId: string) {
+  const band = CREDIT.exec(decisionType)?.[1];
+  if (!band) return;
+  const before = await ctx.db.query<{ credit_status: string }>(
+    'SELECT credit_status FROM customers WHERE id = $1 FOR UPDATE',
+    [customerId],
+  );
+  await ctx.db.query('UPDATE customers SET credit_status = $2, updated_by = $3 WHERE id = $1', [
+    customerId,
+    band,
+    ctx.userId,
+  ]);
+  await ctx.audit({
+    action: 'customer.updated',
+    entityType: 'customers',
+    entityId: customerId,
+    before: { credit_status: before.rows[0]?.credit_status ?? null },
+    after: { credit_status: band },
+  });
+  await emitEvent(ctx.db, {
+    eventType: 'customer.credit_status_changed',
+    aggregateType: 'customers',
+    aggregateId: customerId,
+    payload: { from: before.rows[0]?.credit_status ?? null, to: band },
+    requestId: ctx.requestId,
+    actorId: ctx.userId,
+  });
+}
 
 export type RuleProposal = {
   id: string;
@@ -70,13 +103,17 @@ export async function submitRuleProposal(
   ctx: TenantContext,
   decisionId: string,
 ): Promise<{ approvalId: string }> {
-  const found = await ctx.db.query<{ decision_type: string }>(
-    `SELECT decision_type FROM decisions WHERE id = $1 AND source = 'rule'`,
+  const found = await ctx.db.query<{ decision_type: string; natural: boolean }>(
+    `SELECT d.decision_type, c.is_natural_person AS natural FROM decisions d JOIN customers c ON c.id = d.customer_id
+     WHERE d.id = $1 AND d.source = 'rule'`,
     [decisionId],
   );
   const type = found.rows[0]?.decision_type;
+  // 4.3: company credit status → risk override request (rule 11); natural person → decision.approve
+  // (rule 19).
+  const riskOverride = Boolean(type && CREDIT.test(type) && !found.rows[0]?.natural);
   const { scope } = await ctx.requirePermission(
-    type === LEGAL ? 'approval.create' : 'decision.create',
+    type === LEGAL || riskOverride ? 'approval.create' : 'decision.create',
   );
   if (!type) throw new NotFoundError();
   const filter = scopeFilter('customers', { userId: ctx.userId, scope }, 'c', 2);
@@ -103,6 +140,33 @@ export async function submitRuleProposal(
     ({ approvalId } = await requestLegalHandover(ctx, d.case_id, {
       reason: d.source_ref ?? 'workflow',
     }));
+  } else if (riskOverride) {
+    const pending = await ctx.db.query(
+      `SELECT 1 FROM approval_requests WHERE action_type = $1 AND entity_id = $2 AND status = 'pending'`,
+      [RISK_OVERRIDE_ACTION, d.customer_id],
+    );
+    if (pending.rowCount) throw new ConflictError('conflict');
+    const ins = await ctx.db.query<{ id: string }>(
+      `INSERT INTO approval_requests (tenant_id, action_type, entity_type, entity_id, payload, requested_by,
+                                      request_id, created_by)
+       VALUES (app_tenant_id(), $1, 'customers', $2,
+               jsonb_build_object('customer_id', $2::uuid, 'decision_type', $3::text, 'decision_id', $4::uuid,
+                                  'natural_person', false),
+               $5, $6, $5) RETURNING id`,
+      [RISK_OVERRIDE_ACTION, d.customer_id, type, decisionId, ctx.userId, ctx.requestId],
+    );
+    approvalId = ins.rows[0]?.id ?? '';
+    await ctx.audit({
+      action: 'approval_request.created',
+      entityType: 'approval_requests',
+      entityId: approvalId,
+      after: {
+        action_type: RISK_OVERRIDE_ACTION,
+        entity_type: 'customers',
+        entity_id: d.customer_id,
+        status: 'pending',
+      },
+    });
   } else {
     const pending = await ctx.db.query(
       `SELECT 1 FROM approval_requests WHERE action_type = $1 AND entity_id = $2 AND status = 'pending'`,
@@ -171,13 +235,16 @@ export async function decideDecisionApproval(
   ctx: TenantContext,
   approvalId: string,
   input: z.input<typeof decisionApprovalSchema>,
+  action: typeof DECISION_APPROVAL_ACTION | typeof RISK_OVERRIDE_ACTION = DECISION_APPROVAL_ACTION,
 ): Promise<{ status: 'approved' | 'rejected' }> {
-  await ctx.requirePermission('decision.approve');
+  await ctx.requirePermission(
+    action === RISK_OVERRIDE_ACTION ? 'approval.risk_override' : 'decision.approve',
+  );
   const { decision, note } = decisionApprovalSchema.parse(input);
   if (decision === 'reject' && !note) throw new ConflictError('invalid_request');
   const { rows } = await ctx.db.query<{ status: string; requested_by: string; entity_id: string }>(
     `SELECT status, requested_by, entity_id FROM approval_requests WHERE id = $1 AND action_type = $2 FOR UPDATE`,
-    [approvalId, DECISION_APPROVAL_ACTION],
+    [approvalId, action],
   );
   const req = rows[0];
   if (!req) throw new NotFoundError();
@@ -190,12 +257,15 @@ export async function decideDecisionApproval(
     [approvalId, status, ctx.userId, note ?? null],
   );
   // Rule 19: the decision becomes 'approved' only with a person as approver.
-  await ctx.db.query(
+  const decided = await ctx.db.query<{ decision_type: string; customer_id: string }>(
     `UPDATE decisions SET status = $2, approved_by = CASE WHEN $2 = 'approved' THEN $3::uuid END,
             approved_at = CASE WHEN $2 = 'approved' THEN now() END, updated_by = $3
-     WHERE approval_request_id = $1 AND status = 'proposed'`,
+     WHERE approval_request_id = $1 AND status = 'proposed' RETURNING decision_type, customer_id`,
     [approvalId, status, ctx.userId],
   );
+  if (status === 'approved') {
+    for (const d of decided.rows) await applyCreditStatus(ctx, d.decision_type, d.customer_id);
+  }
   await ctx.audit({
     action: `approval_request.${status}`,
     entityType: 'approval_requests',
@@ -205,7 +275,7 @@ export async function decideDecisionApproval(
   });
   await emitEvent(ctx.db, {
     eventType: `decision.${status}`,
-    aggregateType: 'decisions',
+    aggregateType: action === RISK_OVERRIDE_ACTION ? 'customers' : 'decisions',
     aggregateId: req.entity_id,
     payload: { approval_id: approvalId },
     requestId: ctx.requestId,

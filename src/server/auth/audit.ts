@@ -11,7 +11,10 @@ import type { Queryable } from '@/server/crypto/subject-keys';
 export const REDACTED = '[redacted]';
 
 export type AuditActor =
-  { type: 'user'; id: string } | { type: 'system' | 'job' | 'ai'; id?: string | null };
+  | { type: 'user'; id: string }
+  // 4.1: an integration calling the API with a tenant API key (id = api_keys.id).
+  | { type: 'api_key'; id: string }
+  | { type: 'system' | 'job' | 'ai'; id?: string | null };
 
 export type AuditEntry = {
   action: string;

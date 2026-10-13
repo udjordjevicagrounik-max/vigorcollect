@@ -22,7 +22,8 @@
       "teams": "Timovi",
       "rules": "Pravila",
       "templates": "Šabloni",
-      "approvals": "Odobrenja"
+      "approvals": "Odobrenja",
+      "integrations": "Integracije"
     },
     "tenant": "Organizacija",
     "switchTenant": "Promeni organizaciju",
@@ -540,7 +541,8 @@
       "overdue": "Dospelo",
       "oldest": "Najstarije",
       "status": "Status",
-      "owner": "Vlasnik"
+      "owner": "Vlasnik",
+      "risk": "Rizik"
     },
     "emptyTitle": "Nema kupaca za ovaj prikaz",
     "emptyDescription": "Promenite pretragu ili filtere. Ako još niste uvezli fakture, kupci nastaju automatski pri uvozu.",
@@ -594,7 +596,9 @@
       "promises": "Obećanja",
       "activities": "Aktivnosti",
       "cases": "Case-ovi",
-      "documents": "Dokumenti"
+      "documents": "Dokumenti",
+      "communication": "Komunikacija",
+      "risk": "Rizik"
     },
     "aging": "Aging",
     "openCases": "Otvoreni case-ovi ({n})",
@@ -764,7 +768,11 @@
         "call": "Poziv",
         "email": "Email",
         "note": "Beleška",
-        "meeting": "Sastanak"
+        "meeting": "Sastanak",
+        "mail": {
+          "out": "Poslat mail",
+          "in": "Primljen mail"
+        }
       }
     }
   },
@@ -968,7 +976,9 @@
       "no_activity": "Nema aktivnosti",
       "unassigned_case": "Case bez vlasnika",
       "notification": "Obaveštenje",
-      "rule_proposal": "Predlog pravila čeka čoveka"
+      "rule_proposal": "Predlog pravila čeka čoveka",
+      "mail_undelivered": "Pošta nije isporučena",
+      "risk_red": "Kupac je prešao u crveni rizik"
     },
     "actions": {
       "approval_pending": "Odluči",
@@ -980,7 +990,9 @@
       "no_activity": "Kontaktiraj",
       "unassigned_case": "Dodeli",
       "notification": "Otvori",
-      "rule_proposal": "Otvori"
+      "rule_proposal": "Otvori",
+      "mail_undelivered": "Otvori prepisku",
+      "risk_red": "Pogledaj zašto"
     },
     "messages": {
       "rule_attention": "kupac traži pažnju",
@@ -996,7 +1008,9 @@
       "legal_handover": "predaja pravnoj službi",
       "pre_litigation_notice": "opomena pred utuženje",
       "credit_status_red": "crven kreditni status",
-      "block_customer": "blokada kupca"
+      "block_customer": "blokada kupca",
+      "credit_status_green": "zeleni kreditni status",
+      "credit_status_yellow": "žuti kreditni status"
     }
   },
   "templatesAdmin": {
@@ -1015,5 +1029,182 @@
     "body": "Tekst ({locale}) — dozvoljeni tagovi: p, br, strong, em, h1–h3, ul, ol, li, table, span, div; bez atributa",
     "save": "Sačuvaj kao novu verziju",
     "saved": "Sačuvana je nova verzija šablona."
+  },
+  "integrationsAdmin": {
+    "title": "Integracije",
+    "description": "Veze sa spoljnim sistemima preko n8n-a: pošta (Google Workspace, Microsoft 365, IMAP/SMTP), ERP i webhook-ovi. n8n poziva naš API i webhook; tajne se prikazuju samo jednom.",
+    "listTitle": "Integracije",
+    "emptyTitle": "Još nema integracija",
+    "emptyDescription": "Dodajte integraciju za n8n: dobijate adresu za prijem (inbound) i tajnu za potpis, koje upisujete u n8n workflow (docs/integrations/n8n.md).",
+    "types": {
+      "mailbox": "Pošta",
+      "erp": "ERP",
+      "risk": "Rizik",
+      "webhook": "Webhook"
+    },
+    "status": {
+      "active": "aktivna",
+      "disabled": "isključena"
+    },
+    "inbound": "Adresa za prijem (n8n → nas)",
+    "outbound": "Adresa za slanje (mi → n8n)",
+    "none": "nije podešena",
+    "queue": "Na čekanju: {pending} · neuspelo trajno: {dead}",
+    "ping": "Test ping",
+    "pinged": "Ping je poslat — rezultat je u listi isporuka.",
+    "enable": "Uključi",
+    "disable": "Isključi",
+    "saved": "Sačuvano.",
+    "secret": "Tajna za potpis (prikazuje se samo sada)",
+    "secretHint": "Kopirajte je u n8n odmah. Kasnije se ne može pročitati — samo zameniti novom integracijom.",
+    "inboundHint": "Ovu adresu upisujete u n8n HTTP Request čvor (POST, potpisano).",
+    "done": "Gotovo, sačuvao sam",
+    "createTitle": "Nova integracija",
+    "type": "Vrsta",
+    "name": "Naziv",
+    "outboundUrl": "Adresa n8n webhook-a (opciono)",
+    "outboundHint": "Samo https. Na ovu adresu šaljemo potpisane događaje na koje se integracija pretplati i odlaznu poštu.",
+    "events": "Događaji koje šaljemo",
+    "create": "Dodaj integraciju",
+    "keysTitle": "API ključevi",
+    "keysDescription": "n8n ili drugi sistem poziva naš API sa ključem (Authorization: Bearer). Ključ ima samo izabrane dozvole i ne može da odobrava (četiri oka).",
+    "keysEmpty": "Nema API ključeva. Napravite ključ samo sa dozvolama koje integraciji trebaju.",
+    "rate": "{n}/min",
+    "revoked": "opozvan",
+    "lastUsed": "poslednja upotreba {at}",
+    "neverUsed": "još nije korišćen",
+    "revoke": "Opozovi",
+    "revokedNotice": "Ključ je opozvan i više ne radi.",
+    "token": "API ključ (prikazuje se samo sada)",
+    "tokenHint": "Kopirajte ga u n8n credential odmah; čuva se samo heš.",
+    "keyCreateTitle": "Novi API ključ",
+    "rateLabel": "Najviše poziva u minutu",
+    "scopes": "Dozvole ključa",
+    "scopesHint": "Samo dozvole koje i vi imate; dozvole za odobravanje nisu ponuđene.",
+    "keyCreate": "Napravi ključ",
+    "deadTitle": "Neuspele poruke (dead letter)",
+    "deadEmpty": "Nema neuspelih poruka.",
+    "direction": {
+      "webhook": "Prijem",
+      "delivery": "Slanje"
+    },
+    "attempts": "pokušaja: {n}",
+    "retry": "Pokušaj ponovo",
+    "retried": "Ponovo zakazano.",
+    "syncTitle": "Dnevnik sinhronizacije",
+    "syncEmpty": "Još nema sinhronizacija.",
+    "when": "Kada",
+    "source": "Izvor",
+    "result": "Rezultat",
+    "syncStatus": {
+      "running": "u toku",
+      "succeeded": "uspešno",
+      "partial": "delimično",
+      "failed": "neuspešno",
+      "unsupported": "nije podržano"
+    },
+    "urlPlaceholder": "https://n8n.example.com/webhook/…"
+  },
+  "communication": {
+    "empty": "Još nema prepiske sa ovim kupcem. Pošaljite poruku iz šablona ili slobodnim tekstom — odgovori kupca stižu ovde kad je povezana pošta (Administracija → Integracije).",
+    "newTitle": "Nova poruka",
+    "replyTitle": "Odgovor na: {subject}",
+    "cancelReply": "Nova poruka umesto odgovora",
+    "free": "Slobodan tekst",
+    "template": "Šablon",
+    "legalEffect": "pravno dejstvo",
+    "subject": "Naslov",
+    "body": "Tekst",
+    "send": "Pošalji",
+    "sent": "Poruka je zakazana za slanje.",
+    "sendHint": "Šalje se sa poštanskog sandučeta organizacije preko integracije; demo organizacija šalje samo u sink. Svaka poruka se beleži kao aktivnost.",
+    "reply": "Odgovori",
+    "openLink": "otvori",
+    "direction": {
+      "out": "poslato",
+      "in": "primljeno",
+      "activity": "aktivnost"
+    },
+    "activity": {
+      "call": "poziv",
+      "note": "beleška",
+      "meeting": "sastanak",
+      "email": "email"
+    },
+    "status": {
+      "captured": "u sink-u",
+      "pending": "čeka slanje",
+      "sent": "poslato",
+      "failed": "nije poslato",
+      "bounced": "vraćeno"
+    },
+    "unlinkedTitle": "Nepovezane poruke",
+    "unlinkedDescription": "Primljena pošta koju nijedno pravilo nije povezalo sa kupcem (nepoznat pošiljalac ili više kupaca sa istom adresom). Sadržaj je nepouzdan i prikazuje se samo kao tekst.",
+    "unlinkedEmpty": "Sve primljene poruke su povezane.",
+    "noSubject": "(bez naslova)",
+    "customer": "Kupac",
+    "link": "Poveži",
+    "linked": "Poruka je povezana sa kupcem.",
+    "ignore": "Zanemari",
+    "ignored": "Poruka je zanemarena."
+  },
+  "risk": {
+    "notScored": "nije ocenjen",
+    "band": {
+      "green": "zeleno",
+      "yellow": "žuto",
+      "red": "crveno"
+    },
+    "empty": "Rizik još nije izračunat. Računa se u dnevnom poslu (06:00 po zoni kompanije) ili dugmetom „Osveži sada”.",
+    "computed": "Izračunato {at} · model {model}",
+    "thresholds": "žuto od {yellow}, crveno od {red}",
+    "creditStatus": "Kreditni status kupca: {status}",
+    "proposal": "čeka čoveka: {type}",
+    "proposalHint": "Boja rizika je samo predlog: kreditni status menja druga osoba posle odobrenja (fizičko lice — odluka sa ljudskim odobrenjem; pravno lice — zahtev za promenu rizika).",
+    "status": {
+      "unrated": "bez ocene",
+      "green": "zeleni",
+      "yellow": "žuti",
+      "red": "crveni"
+    },
+    "proposalType": {
+      "credit_status_green": "zeleni status",
+      "credit_status_yellow": "žuti status",
+      "credit_status_red": "crveni status"
+    },
+    "refresh": "Osveži sada",
+    "refreshed": "Rizik je ponovo izračunat.",
+    "why": "Zašto ovaj broj",
+    "signal": "Signal",
+    "value": "Vrednost",
+    "points": "Poeni (0–100)",
+    "weight": "Ponder",
+    "share": "Udeo u oceni",
+    "signals": {
+      "days_overdue": "Dani kašnjenja (najstarija dospela faktura)",
+      "exposure_vs_limit": "Izloženost u odnosu na limit (%)",
+      "broken_promises_90d": "Prekršena obećanja (90 dana)",
+      "disputes_90d": "Sporovi (90 dana)",
+      "inactivity_days": "Dani bez aktivnosti dok je dug dospeo",
+      "external_blocked": "Blokada / prinudna naplata (spoljni izvor)"
+    },
+    "source": "izvor: {source}",
+    "reasons": {
+      "not_available": "nema podatka",
+      "no_credit_limit": "kupac nema kreditni limit",
+      "limit_other_currency": "limit je u drugoj valuti",
+      "no_provider_data": "nema podatka spoljnog izvora",
+      "weight_zero": "ponder 0"
+    },
+    "providers": "Spoljni izvori",
+    "providersEmpty": "Za zemlju ovog kupca nema spoljnih izvora, ili još nisu pitani.",
+    "providerStatus": {
+      "running": "u toku",
+      "succeeded": "uspešno",
+      "partial": "delimično",
+      "failed": "nedostupan",
+      "unsupported": "nije podržan (vidi dokumentaciju integracije)"
+    },
+    "outOf": "od 100"
   }
 }

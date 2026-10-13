@@ -58,6 +58,8 @@ services:
       # Optional (task 1.7): empty = Sentry off.
       SENTRY_DSN: ${SENTRY_DSN:-}
       SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-}
+      # Risk provider (task 4.3): CheckPoint trial key; empty = not configured.
+      CHECKPOINT_API_KEY: ${CHECKPOINT_API_KEY:-}
     ports:
       - '${APP_BIND_HOST:-127.0.0.1}:${APP_PORT:-3000}:3000'
     healthcheck:
@@ -103,6 +105,8 @@ services:
       WORKER_PORT: '3001'
       DOCUMENTS_DIR: /srv/documents
       CHROMIUM_PATH: /usr/bin/chromium
+      # Risk provider (task 4.3): the daily risk job runs here.
+      CHECKPOINT_API_KEY: ${CHECKPOINT_API_KEY:-}
       DATABASE_URL: postgres://vigor_app:${APP_DB_PASSWORD}@db:5432/${POSTGRES_DB}
       WORKER_DATABASE_URL: postgres://vigor_worker:${WORKER_DB_PASSWORD:?set in .env}@db:5432/${POSTGRES_DB}
       # The mail dispatcher decrypts mail_outbox once SMTP exists (ADR 0003, 0005).

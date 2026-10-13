@@ -286,6 +286,12 @@ export async function renderDocumentPdf(
     [id, documentId, checksum, pdf.length, stored.storageRef, stored.keyVersion, renderer],
   );
   if (!ins.rows[0]) return 'exists';
+  await emitEvent(db, {
+    eventType: 'document.rendered',
+    aggregateType: 'documents',
+    aggregateId: documentId,
+    payload: { format: 'pdf' },
+  });
   await audit({
     action: 'document.rendered',
     entityType: 'documents',

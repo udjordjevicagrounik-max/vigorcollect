@@ -3,6 +3,7 @@ import { getLocale, getTranslations } from 'next-intl/server';
 import { ForbiddenState } from '@/components/admin/forbidden-state';
 import { PageHeader } from '@/components/admin/page-header';
 import { SavedFilters } from '@/components/receivables/saved-filters';
+import { RiskBadge } from '@/components/risk/risk-badge';
 import { Screen } from '@/components/shell/screen';
 import { formatAmount } from '@/lib/format-amount';
 import { PermissionDeniedError } from '@/server/auth/permissions';
@@ -139,7 +140,7 @@ export default async function CustomersPage({
                   </span>
                   <span className="block text-xs text-text-muted">
                     {t(`statuses.${c.status as (typeof STATUSES)[number]}`)} ·{' '}
-                    {c.ownerName ?? t('noOwner')}
+                    {c.ownerName ?? t('noOwner')} · <RiskBadge band={c.riskBand} />
                   </span>
                 </Link>
               </li>
@@ -153,6 +154,7 @@ export default async function CustomersPage({
                   <th className="p-3 text-right font-medium">{t('columns.exposure')}</th>
                   <th className="p-3 text-right font-medium">{t('columns.overdue')}</th>
                   <th className="p-3 text-right font-medium">{t('columns.oldest')}</th>
+                  <th className="p-3 font-medium">{t('columns.risk')}</th>
                   <th className="p-3 font-medium">{t('columns.status')}</th>
                   <th className="p-3 font-medium">{t('columns.owner')}</th>
                 </tr>
@@ -175,6 +177,9 @@ export default async function CustomersPage({
                     <td className="p-3 text-right font-medium">{money(c.overdue, c.currency)}</td>
                     <td className="p-3 text-right">
                       {c.oldestDaysOverdue ? t('days', { n: c.oldestDaysOverdue }) : '—'}
+                    </td>
+                    <td className="p-3">
+                      <RiskBadge band={c.riskBand} />
                     </td>
                     <td className="p-3">
                       {t(`statuses.${c.status as (typeof STATUSES)[number]}`)}
