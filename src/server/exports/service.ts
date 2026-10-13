@@ -1,19 +1,18 @@
 import { createHmac, hkdfSync, timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
-import { ConflictError, NotFoundError, type TenantContext } from '@/server/auth/with-tenant';
+import { NotFoundError, type TenantContext } from '@/server/auth/with-tenant';
 import { getMasterKeyring, type MasterKeyring } from '@/server/crypto/keyring';
-import { readDocument } from '@/server/documents/service';
+import { readRendition } from '@/server/documents/service';
 
 /**
  * exportService (rule 12): the ONLY way a file leaves the app. A download is a short-lived
  * signed link bound to tenant + member + document (HMAC, key derived from the master keyring,
  * info "export_links"); the download itself writes export_log (who, what, format, purpose,
- * sha256). Formats are those export_log accepts (csv, xlsx, pdf, json) — HTML documents are
- * previewed in the app until a PDF renderer exists (NEXT.md).
+ * sha256). A document leaves only as its PDF rendition (3.3, rendered in the worker); the HTML
+ * is the in-app preview and never downloads (export_log has no html format, by decision).
  */
 
 export const LINK_TTL_SECONDS = 300;
-const EXPORTABLE = new Set(['pdf']);
 
 export const linkSchema = z.object({
   purpose: z.enum(['customer_correspondence', 'internal_review', 'legal']),
@@ -38,8 +37,8 @@ export async function createDocumentLink(
   now: Date = new Date(),
 ): Promise<{ url: string; expiresAt: string }> {
   const { purpose } = linkSchema.parse(input);
-  const doc = await readDocument(ctx, documentId, keyring);
-  if (!EXPORTABLE.has(doc.format)) throw new ConflictError('unsupported');
+  // In scope, and the PDF exists (409 not_ready while the worker renders it).
+  await readRendition(ctx, documentId, keyring);
   const expires = Math.floor(now.getTime() / 1000) + LINK_TTL_SECONDS;
   const mac = sign(keyring, [ctx.tenantId, ctx.userId, documentId, String(expires), purpose]);
   return {
@@ -64,8 +63,7 @@ export async function downloadDocument(
     timingSafeEqual(Buffer.from(mac), Buffer.from(expected)) &&
     linkSchema.safeParse({ purpose }).success;
   if (!ok || expires < Math.floor(now.getTime() / 1000)) throw new NotFoundError();
-  const doc = await readDocument(ctx, documentId, keyring);
-  if (!EXPORTABLE.has(doc.format)) throw new ConflictError('unsupported');
+  const doc = await readRendition(ctx, documentId, keyring);
   await ctx.db.query(
     `INSERT INTO export_log (tenant_id, actor_type, actor_id, export_type, format, purpose, row_count, filters,
                              file_sha256, request_id, created_by)

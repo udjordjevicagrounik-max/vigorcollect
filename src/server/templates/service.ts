@@ -9,6 +9,7 @@ import {
 } from '@/server/auth/with-tenant';
 import { getMasterKeyring, type MasterKeyring } from '@/server/crypto/keyring';
 import { readCustomerName } from '@/server/customers/repository';
+import type { Queryable } from '@/server/crypto/subject-keys';
 import { emitEvent } from '@/server/events';
 import { formatAmount } from '@/lib/format-amount';
 import {
@@ -175,7 +176,7 @@ async function scopedCustomer(
 }
 
 async function buildContext(
-  ctx: TenantContext,
+  ctx: { db: Queryable; userId: string | null },
   keyring: MasterKeyring,
   customerId: string,
   opts: { invoiceId?: string | null; openOnly: 'overdue' | 'open'; locale: string },
@@ -267,24 +268,25 @@ async function buildContext(
   };
 }
 
-export async function renderForCustomer(
-  ctx: TenantContext,
-  input: {
-    key: string;
-    channel: 'email' | 'document';
-    customerId: string;
-    invoiceId?: string | null;
-    locale?: string | undefined;
-    permission: string;
-  },
-  keyring: MasterKeyring = getMasterKeyring(),
+type RenderInput = {
+  key: string;
+  channel: 'email' | 'document';
+  customerId: string;
+  invoiceId?: string | null;
+  locale?: string | null | undefined;
+};
+
+async function renderWith(
+  ctx: { db: Queryable; userId: string | null },
+  input: RenderInput,
+  keyring: MasterKeyring,
 ): Promise<Rendered> {
-  await scopedCustomer(ctx, input.customerId, input.permission);
   const lang = await ctx.db.query<{ language: string | null; tenant_locale: string }>(
     `SELECT c.language, ts.default_locale AS tenant_locale FROM customers c CROSS JOIN tenant_settings ts WHERE c.id = $1`,
     [input.customerId],
   );
-  const wanted = input.locale ?? lang.rows[0]?.language ?? lang.rows[0]?.tenant_locale ?? 'sr-Latn';
+  if (!lang.rows[0]) throw new NotFoundError();
+  const wanted = input.locale ?? lang.rows[0].language ?? lang.rows[0].tenant_locale ?? 'sr-Latn';
   const tpl = await ctx.db.query<{
     id: string;
     has_legal_effect: boolean;
@@ -314,4 +316,27 @@ export async function renderForCustomer(
     subject: render(t.subject, context, 'text'),
     html: render(t.body, context, 'html'),
   };
+}
+
+/** A member renders for a customer within their scope (`permission`), or gets 404. */
+export async function renderForCustomer(
+  ctx: TenantContext,
+  input: RenderInput & { permission: string },
+  keyring: MasterKeyring = getMasterKeyring(),
+): Promise<Rendered> {
+  await scopedCustomer(ctx, input.customerId, input.permission);
+  return renderWith(ctx, input, keyring);
+}
+
+/**
+ * The rule engine renders (3.3, queue_email) inside withTenantJob: no member, so no scope — but
+ * still only this tenant's customer (RLS) and only whitelisted variables (render.ts). The
+ * collector is the customer's owner; nothing else differs from renderForCustomer.
+ */
+export async function renderForJob(
+  db: Queryable,
+  input: RenderInput,
+  keyring: MasterKeyring = getMasterKeyring(),
+): Promise<Rendered> {
+  return renderWith({ db, userId: null }, input, keyring);
 }

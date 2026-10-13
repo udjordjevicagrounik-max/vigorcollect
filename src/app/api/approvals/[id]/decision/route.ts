@@ -12,7 +12,7 @@ const paramsSchema = z.object({ id: z.uuid() });
 // (user.assign for role changes, role.manage for grant changes, approval.legal_handover for a
 // legal handover, settings.manage for a workflow publication) and requester ≠ decider.
 export const POST = withTenant<{ id: string }>(async (request, ctx, params) => {
-  await ctx.requireAnyPermission(['user.assign', 'role.manage', 'approval.legal_handover', 'settings.manage']);
+  await ctx.requireAnyPermission(['user.assign', 'role.manage', 'approval.legal_handover', 'settings.manage', 'decision.approve']);
   const parsed = paramsSchema.safeParse(params);
   if (!parsed.success) throw new NotFoundError();
   const input = decisionSchema.parse(await request.json());

@@ -311,3 +311,26 @@ export async function readContact(
     phone: await decrypt('phone_enc', row.phone_enc, row.phone_key_version),
   };
 }
+
+
+/**
+ * Where collection mail for a customer goes (3.3): the primary active contact with an e-mail,
+ * else the oldest active one. Decrypted only here, for the mail adapter — never logged.
+ */
+export async function mailContact(
+  db: Queryable,
+  keyring: MasterKeyring,
+  customerId: string,
+): Promise<{ contactId: string; email: string; language: string | null } | null> {
+  const { rows } = await db.query<{ id: string; language: string | null }>(
+    `SELECT id, language FROM customer_contacts
+     WHERE customer_id = $1 AND status = 'active' AND email_enc IS NOT NULL
+     ORDER BY is_primary DESC, created_at, id LIMIT 1`,
+    [customerId],
+  );
+  const row = rows[0];
+  if (!row) return null;
+  const contact = await readContact(db, keyring, row.id);
+  if (!contact?.email) return null;
+  return { contactId: row.id, email: contact.email, language: row.language };
+}

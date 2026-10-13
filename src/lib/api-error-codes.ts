@@ -25,6 +25,7 @@ export const API_ERROR_CODES = [
   'file_too_large',
   'file_unreadable',
   'no_valid_rows',
+  'not_ready',
   'internal',
 ] as const;
 export type ApiErrorCode = (typeof API_ERROR_CODES)[number];

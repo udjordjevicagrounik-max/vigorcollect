@@ -1,9 +1,10 @@
 import { getTranslations } from 'next-intl/server';
+import { DailyRunButton } from '@/components/admin/daily-run-button';
 import { ForbiddenState } from '@/components/admin/forbidden-state';
 import { PageHeader } from '@/components/admin/page-header';
 import { Screen } from '@/components/shell/screen';
 import { getAppVersion } from '@/lib/version';
-import { PermissionDeniedError } from '@/server/auth/permissions';
+import { PermissionDeniedError, permissionKeys } from '@/server/auth/permissions';
 import { withTenantPage } from '@/server/auth/with-tenant';
 import { alertChannels, type AlertEnv } from '@/server/alerts/adapter';
 import { healthReport, liveHealthDeps } from '@/server/health';
@@ -17,6 +18,7 @@ export default async function SystemStatusPage() {
     backupAt: Date | null;
     backupStale: boolean;
     restore: { status: string; at: Date } | null;
+    canRunDaily: boolean;
   };
   try {
     ops = await withTenantPage(async (ctx) => {
@@ -35,6 +37,7 @@ export default async function SystemStatusPage() {
         backupAt: backup.rows[0]?.at ?? null,
         backupStale: backup.rows[0]?.stale ?? true,
         restore: restore.rows[0] ?? null,
+        canRunDaily: (await permissionKeys(ctx.db, ctx.userId)).has('settings.manage'),
       };
     });
   } catch (error) {
@@ -119,6 +122,14 @@ export default async function SystemStatusPage() {
           </div>
         ))}
       </dl>
+      {ops.canRunDaily ? (
+        <section aria-labelledby="daily-run-title" className="mt-6">
+          <h2 id="daily-run-title" className="mb-2 font-semibold text-text">
+            {t('dailyRunTitle')}
+          </h2>
+          <DailyRunButton />
+        </section>
+      ) : null}
       <h2 className="mb-2 mt-6 font-semibold text-text">{t('ops')}</h2>
       <dl data-ops className="divide-y divide-border rounded-lg border border-border bg-surface">
         {opsRows.map((row) => (

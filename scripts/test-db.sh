@@ -27,4 +27,4 @@ MIGRATE_DATABASE_URL="$TEST_MIGRATE_DATABASE_URL" "$ROOT/scripts/migrate.sh" up 
   fail "migracije na $TEST_DB_NAME nisu prošle (pokreni: MIGRATE_DATABASE_URL=… ./scripts/migrate.sh status)"
 
 cd "$ROOT"
-exec npx vitest run --config vitest.db.config.ts
+exec npx vitest run --config vitest.db.config.ts "$@"

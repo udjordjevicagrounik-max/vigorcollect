@@ -314,7 +314,7 @@ export default async function Customer360Page({
                 href: `/customers/${c.id}/documents/${d.id}`,
                 attr: d.kind,
                 title: `${t(`documentKind.${d.kind}`)} v${d.version}`,
-                line: `${d.createdAt.slice(0, 10)} · ${d.format.toUpperCase()} · ${d.locale}${d.createdBy ? ` · ${d.createdBy}` : ''}`,
+                line: `${d.createdAt.slice(0, 10)} · ${d.hasPdf ? 'PDF' : t('pdfPending')} · ${d.locale}${d.createdBy ? ` · ${d.createdBy}` : ''}`,
               }))}
             />
           </div>

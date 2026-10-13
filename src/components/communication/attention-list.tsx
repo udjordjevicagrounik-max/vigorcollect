@@ -3,6 +3,7 @@ import { getFormatter, getTranslations } from 'next-intl/server';
 import { formatAmount } from '@/lib/format-amount';
 import type { AttentionItem } from '@/server/attention/service';
 import { AttentionAction } from './attention-actions';
+import { ProposalSubmit } from './proposal-submit';
 
 const WHEN = { dateStyle: 'medium' } as const;
 
@@ -54,6 +55,9 @@ export async function AttentionList({ items, locale }: { items: AttentionItem[];
                   {i.kind === 'notification' && i.code
                     ? `${t.has(`messages.${i.code as 'rule_attention'}`) ? t(`messages.${i.code as 'rule_attention'}`) : i.code} · `
                     : ''}
+                  {i.kind === 'rule_proposal' && i.code
+                    ? `${t.has(`decisionTypes.${i.code as 'legal_handover'}`) ? t(`decisionTypes.${i.code as 'legal_handover'}`) : i.code} · `
+                    : ''}
                   {i.kind === 'import_exception' && i.code
                     ? `${t('exceptions', { n: i.code })} · `
                     : ''}
@@ -70,6 +74,7 @@ export async function AttentionList({ items, locale }: { items: AttentionItem[];
                 {i.kind === 'notification' || i.kind === 'task_due' ? (
                   <AttentionAction kind={i.kind} id={i.refId} />
                 ) : null}
+                {i.kind === 'rule_proposal' ? <ProposalSubmit decisionId={i.refId} /> : null}
               </span>
             </li>
           ))}

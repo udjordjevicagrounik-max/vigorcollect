@@ -3,12 +3,14 @@ import { permissionKeys } from '@/server/auth/permissions';
 import { scopeFilter } from '@/server/auth/scope';
 import { NotFoundError, type TenantContext } from '@/server/auth/with-tenant';
 import { CHECKER } from '@/server/approvals/service';
+import { listRuleProposals } from '@/server/decisions/service';
 
 /**
  * Attention (task 3.2) — ONE list of things that need a person, each with its action:
  *   about customers (view attention_customer_items, scoped through scopeFilter): broken promise,
  *   no activity for N days, large overdue invoice, unassigned case;
  *   about me: approvals I may decide, my open tasks due, unread notifications;
+ *   rule proposals (3.3) waiting for a person to submit them (decision.create / approval.create);
  *   about the tenant (with the right permission): failed rule runs (settings.read), open import
  *   exceptions (import.read).
  * Thresholds are tenant settings (attention_no_activity_days, attention_large_overdue).
@@ -16,6 +18,7 @@ import { CHECKER } from '@/server/approvals/service';
 
 export const ATTENTION_KINDS = [
   'approval_pending',
+  'rule_proposal',
   'promise_broken',
   'workflow_failed',
   'large_overdue',
@@ -100,6 +103,24 @@ export async function listAttention(ctx: TenantContext, limit = 50): Promise<Att
         amount: null,
         currency: null,
         code: r.action_type,
+        severity: 3,
+      });
+    }
+  }
+
+  // Rule proposals (rule 19: a rule only recommends) — a person submits them for approval.
+  if (keys.has('decision.create') || keys.has('approval.create')) {
+    for (const p of await listRuleProposals(ctx, scope)) {
+      items.push({
+        kind: 'rule_proposal',
+        refId: p.id,
+        customerId: p.customerId,
+        customerName: p.naturalPerson ? null : p.customerName,
+        caseId: p.caseId,
+        since: p.createdAt,
+        amount: null,
+        currency: null,
+        code: p.decisionType,
         severity: 3,
       });
     }

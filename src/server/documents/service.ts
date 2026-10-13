@@ -1,17 +1,22 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { z } from 'zod';
+import { logEvent } from '@/lib/log';
+import type { AuditEntry } from '@/server/auth/audit';
 import { scopeFilter } from '@/server/auth/scope';
-import { NotFoundError, type TenantContext } from '@/server/auth/with-tenant';
+import { ConflictError, NotFoundError, type TenantContext } from '@/server/auth/with-tenant';
 import { getMasterKeyring, type MasterKeyring } from '@/server/crypto/keyring';
+import { currentTenantId, type Queryable } from '@/server/crypto/subject-keys';
 import { emitEvent } from '@/server/events';
 import { renderForCustomer } from '@/server/templates/service';
+import { renderPdf, type PdfResult } from './pdf';
 import { getDocument, putDocument } from './storage';
 
 /**
  * Documents (task 3.2): dunning letter (opomena) and statement of open items (IOS) rendered
- * from the tenant's 'document' templates. Format: HTML until a PDF renderer is approved
- * (NEXT.md). Generating: `document.create`; listing and in-app preview: `document.read` —
- * always within the customer's scope. Leaving the app = exportService (rule 12).
+ * from the tenant's 'document' templates as HTML; the worker then renders the PDF of the same
+ * HTML (3.3, event document.generated → renderDocumentPdf, table document_renditions).
+ * Generating: `document.create`; listing and in-app preview: `document.read` — always within the
+ * customer's scope. Leaving the app = exportService, PDF only (rule 12).
  */
 
 export const generateSchema = z.object({
@@ -31,6 +36,8 @@ export type DocumentRow = {
   version: number;
   createdAt: string;
   createdBy: string | null;
+  /** The PDF rendition exists (3.3) — only then can it be downloaded. */
+  hasPdf: boolean;
 };
 
 async function scoped(ctx: TenantContext, customerId: string, permission: string): Promise<void> {
@@ -130,8 +137,10 @@ export async function listDocuments(
     version: number;
     created_at: Date;
     creator: string | null;
+    has_pdf: boolean;
   }>(
-    `SELECT d.id, d.kind, d.format, d.locale, d.version, d.created_at, u.display_name AS creator
+    `SELECT d.id, d.kind, d.format, d.locale, d.version, d.created_at, u.display_name AS creator,
+            EXISTS (SELECT 1 FROM document_renditions r WHERE r.document_id = d.id AND r.format = 'pdf') AS has_pdf
      FROM documents d LEFT JOIN users u ON u.id = d.created_by
      WHERE d.customer_id = $1 ORDER BY d.created_at DESC`,
     [customerId],
@@ -144,6 +153,7 @@ export async function listDocuments(
     version: r.version,
     createdAt: r.created_at.toISOString(),
     createdBy: r.creator,
+    hasPdf: r.has_pdf,
   }));
 }
 
@@ -194,4 +204,119 @@ export async function readDocument(
     checksum: d.checksum,
     content,
   };
+}
+
+/** The PDF of a document, scoped like the document (exportService only). Not rendered yet: 409. */
+export async function readRendition(
+  ctx: TenantContext,
+  documentId: string,
+  keyring: MasterKeyring = getMasterKeyring(),
+): Promise<StoredDocument> {
+  const doc = await readDocument(ctx, documentId, keyring);
+  const { rows } = await ctx.db.query<{
+    id: string;
+    checksum: Buffer;
+    storage_ref: string;
+    key_version: number;
+  }>(
+    `SELECT id, checksum, storage_ref, key_version FROM document_renditions
+     WHERE document_id = $1 AND format = 'pdf'`,
+    [documentId],
+  );
+  const r = rows[0];
+  if (!r) throw new ConflictError('not_ready');
+  const content = getDocument(keyring, ctx.tenantId, r.id, {
+    storageRef: r.storage_ref,
+    keyVersion: r.key_version,
+  });
+  if (!createHash('sha256').update(content).digest().equals(r.checksum))
+    throw new Error('rendition checksum mismatch');
+  return { ...doc, format: 'pdf', checksum: r.checksum, content };
+}
+
+export type RenderOutcome = 'rendered' | 'exists' | 'not_html' | 'missing';
+
+/**
+ * Worker job document.render_pdf (3.3): HTML document → PDF rendition, inside withTenantJob
+ * (one tenant, RLS). Idempotent: one PDF per document (UNIQUE), a redelivered event finds it.
+ * The log carries ids, size and timing only — never the content or the customer.
+ */
+export async function renderDocumentPdf(
+  db: Queryable,
+  audit: (entry: AuditEntry) => Promise<void>,
+  keyring: MasterKeyring,
+  documentId: string,
+  render: (html: string, at: Date) => Promise<PdfResult> = renderPdf,
+): Promise<RenderOutcome> {
+  const tenantId = await currentTenantId(db);
+  const { rows } = await db.query<{
+    id: string;
+    format: string;
+    checksum: Buffer;
+    storage_ref: string;
+    key_version: number;
+    created_at: Date;
+    has_pdf: boolean;
+  }>(
+    `SELECT d.id, d.format, d.checksum, d.storage_ref, d.key_version, d.created_at,
+            EXISTS (SELECT 1 FROM document_renditions r WHERE r.document_id = d.id AND r.format = 'pdf') AS has_pdf
+     FROM documents d WHERE d.id = $1`,
+    [documentId],
+  );
+  const d = rows[0];
+  if (!d) return 'missing';
+  if (d.format !== 'html') return 'not_html';
+  if (d.has_pdf) return 'exists';
+  const html = getDocument(keyring, tenantId, d.id, {
+    storageRef: d.storage_ref,
+    keyVersion: d.key_version,
+  });
+  if (!createHash('sha256').update(html).digest().equals(d.checksum))
+    throw new Error('document checksum mismatch');
+  const started = Date.now();
+  const { pdf, renderer } = await render(html.toString('utf8'), d.created_at);
+  const id = randomUUID();
+  const stored = putDocument(keyring, tenantId, id, pdf);
+  const checksum = createHash('sha256').update(pdf).digest();
+  const ins = await db.query<{ id: string }>(
+    `INSERT INTO document_renditions (id, tenant_id, document_id, format, checksum, size_bytes, storage_ref,
+                                      key_version, renderer)
+     VALUES ($1, app_tenant_id(), $2, 'pdf', $3, $4, $5, $6, $7)
+     ON CONFLICT (tenant_id, document_id, format) DO NOTHING RETURNING id`,
+    [id, documentId, checksum, pdf.length, stored.storageRef, stored.keyVersion, renderer],
+  );
+  if (!ins.rows[0]) return 'exists';
+  await audit({
+    action: 'document.rendered',
+    entityType: 'documents',
+    entityId: documentId,
+    after: { format: 'pdf', renderer, size_bytes: pdf.length },
+  });
+  logEvent('document.render_pdf', {
+    tenantId,
+    documentId,
+    bytes: pdf.length,
+    ms: Date.now() - started,
+    renderer,
+  });
+  return 'rendered';
+}
+
+/** Re-render request for a document without PDF (e.g. generated before 3.3). */
+export async function requestPdf(ctx: TenantContext, documentId: string): Promise<{ ok: true }> {
+  const doc = await readDocument(ctx, documentId);
+  await emitEvent(ctx.db, {
+    eventType: 'document.render_requested',
+    aggregateType: 'documents',
+    aggregateId: doc.id,
+    payload: { customer_id: doc.customerId },
+    requestId: ctx.requestId,
+    actorId: ctx.userId,
+  });
+  await ctx.audit({
+    action: 'document.render_requested',
+    entityType: 'documents',
+    entityId: doc.id,
+  });
+  return { ok: true };
 }
