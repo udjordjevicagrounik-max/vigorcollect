@@ -1,28 +1,40 @@
 # n8n
 
-|                     |                                                                                                                                                                                                                                                                       |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Provajder**       | n8n (self-hosted, Elestio servis „n8n"). n8n nosi IMAP/SMTP/OAuth (Google Workspace, Microsoft 365, generički IMAP/SMTP); mi nosimo API, webhook-ove i UI.                                                                                                            |
-| **Autentifikacija** | n8n → nas: HMAC potpis tajnom integracije (`X-Signature`). n8n → naš API: API ključ (`Bearer ak_…`). Mi → n8n: isti HMAC potpis, n8n ga proverava pre bilo čega.                                                                                                      |
-| **Env kod nas**     | ništa novo — tajne su po tenantu u bazi (šifrovano).                                                                                                                                                                                                                  |
-| **Env u n8n-u**     | `COLLECT_INBOUND_URL` (adresa za prijem iz Administracija → Integracije), `COLLECT_SIGNING_SECRET` (tajna, prikazana jednom), `NODE_FUNCTION_ALLOW_BUILTIN=crypto` (provera potpisa u Code čvoru). Upisuju se u Elestio env panel n8n servisa, nikad u workflow JSON. |
+|                     |                                                                                                                                                                                                                         |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Provajder**       | n8n (self-hosted, Elestio servis „n8n"). n8n nosi IMAP/SMTP/OAuth (Google Workspace, Microsoft 365, generički IMAP/SMTP); mi nosimo API, webhook-ove i UI.                                                              |
+| **Autentifikacija** | n8n → nas: HMAC potpis tajnom integracije (`X-Signature`). n8n → naš API: API ključ (`Bearer ak_…`). Mi → n8n: isti HMAC potpis, n8n ga proverava pre bilo čega.                                                        |
+| **Env kod nas**     | ništa novo — tajne su po tenantu u bazi (šifrovano).                                                                                                                                                                    |
+| **Env u n8n-u**     | **ništa.** Tajna je u n8n credential-u `collect-signing` (tip _Crypto_, polje HMAC secret); HMAC računa **Crypto** čvor, ne Code čvor. Adresa za prijem stoji u čvoru „Send to Collect” (nije tajna — štiti je potpis). |
 
 ## Postavljanje (jednom po tenantu)
 
-1. Kod nas: Administracija → Integracije → „Nova integracija", vrsta **Pošta**, naziv,
+**Automatski (tenant Sinergista na ovom serveru):** `scripts/n8n-connect.ts` — runbook
+„n8n povezivanje”. Ručno, za drugi tenant / drugi n8n:
+
+1. Kod nas: Administracija → Integracije → „Nova integracija”, vrsta **Pošta**, naziv,
    adresa n8n webhook-a (`https://<n8n>/webhook/collect-mail-outbound`), događaji po potrebi.
    Kopirajte **tajnu** i **adresu za prijem** — prikazuju se samo tada.
-2. U n8n-u (Elestio env panel): `COLLECT_INBOUND_URL`, `COLLECT_SIGNING_SECRET`,
-   `NODE_FUNCTION_ALLOW_BUILTIN=crypto`; restart n8n-a.
+2. U n8n-u: Credentials → New → **Crypto**, naziv `collect-signing`, polje **HMAC secret** = tajna.
+   Bez env promenljivih i bez restarta n8n-a.
 3. n8n → Workflows → Import from file: [`n8n/mail-inbound.json`](n8n/mail-inbound.json) i
-   [`n8n/mail-outbound.json`](n8n/mail-outbound.json). U oba čvora za poštu izaberite svoj
-   credential (IMAP / SMTP; za Gmail i Outlook zamenite čvor odgovarajućim „Gmail Trigger" /
-   „Microsoft Outlook Trigger" i „Gmail" / „Microsoft Outlook" čvorom — mapiranje polja ispod).
-4. Aktivirajte oba workflow-a. Kod nas: „Test ping" na integraciji → u n8n-u se vidi izvršenje.
+   [`n8n/mail-outbound.json`](n8n/mail-outbound.json). U čvoru „Send to Collect” upišite adresu
+   za prijem; u čvorovima za poštu izaberite svoj credential (IMAP / SMTP; za Gmail i Outlook
+   zamenite čvor odgovarajućim „Gmail Trigger” / „Microsoft Outlook Trigger” i „Gmail” /
+   „Microsoft Outlook” čvorom — mapiranje polja ispod). Crypto čvorovi se vezuju za
+   `collect-signing` po imenu.
+4. Aktivirajte oba workflow-a. Kod nas: „Test ping” na integraciji → `sent` (outbound workflow
+   na potpisan `integration.ping` odgovara 200 bez slanja pošte).
+
+**Potpis u n8n-u:** Code čvor samo raspakuje zahtev / sklapa envelope (bez tajne, bez `crypto`
+modula i bez `$env`); **Crypto** čvor (HMAC-SHA256, credential `collect-signing`) računa
+`hex(HMAC(secret, "<t>.<raw body>"))`; IF čvor proverava svežinu (±5 min) i jednakost. Poređenje
+u IF čvoru nije u konstantnom vremenu — prihvatljivo za proveru na strani n8n-a; kod nas je
+provera `timingSafeEqual`.
 
 ## Endpointi i mapiranje
 
-**Prijem pošte** (n8n → `POST {COLLECT_INBOUND_URL}`), `type: "mail.received"`:
+**Prijem pošte** (n8n → `POST <adresa za prijem>`), `type: "mail.received"`:
 
 ```json
 {

@@ -22,24 +22,44 @@
     },
     {
       "parameters": {
-        "jsCode": "// Builds the signed envelope for Collect (mail.received). Field names differ between trigger\n// nodes (IMAP / Gmail / Outlook) — adjust the right-hand sides if your node uses others.\nconst crypto = require('crypto');\nconst secret = $env.COLLECT_SIGNING_SECRET;\nreturn $input.all().map((item) => {\n  const m = item.json;\n  const headers = m.headers || {};\n  const messageId = m.messageId || headers['message-id'] || m.id;\n  const refs = (m.references || headers['references'] || '').toString().split(/\\s+/).filter(Boolean);\n  const envelope = {\n    id: messageId,\n    type: 'mail.received',\n    occurredAt: new Date(m.date || Date.now()).toISOString(),\n    data: {\n      messageId,\n      from: (m.from && (m.from.value ? m.from.value[0].address : m.from)) || '',\n      subject: m.subject || '',\n      text: m.text || m.textPlain || '',\n      html: m.html || m.textHtml || undefined,\n      inReplyTo: m.inReplyTo || headers['in-reply-to'] || undefined,\n      references: refs,\n      attachments: (m.attachments || []).map((a) => ({\n        filename: a.filename || a.fileName || 'attachment',\n        contentType: a.contentType || a.mimeType || 'application/octet-stream',\n        size: a.size || 0,\n      })),\n    },\n  };\n  const raw = JSON.stringify(envelope);\n  const t = Math.floor(Date.now() / 1000);\n  const v1 = crypto.createHmac('sha256', secret).update(`${t}.${raw}`).digest('hex');\n  return { json: { raw, signature: `t=${t},v1=${v1}` } };\n});"
+        "jsCode": "// Builds the envelope for Collect (mail.received). No secret here — the next node (Crypto,\n// credential \"collect-signing\") signs \"<t>.<raw>\". Field names differ between trigger nodes\n// (IMAP / Gmail / Outlook) — adjust the right-hand sides if your node uses others.\nreturn $input.all().map((item) => {\n  const m = item.json;\n  const headers = m.headers || {};\n  const messageId = m.messageId || headers['message-id'] || m.id;\n  const refs = (m.references || headers['references'] || '').toString().split(/\\s+/).filter(Boolean);\n  const envelope = {\n    id: messageId,\n    type: 'mail.received',\n    occurredAt: new Date(m.date || Date.now()).toISOString(),\n    data: {\n      messageId,\n      from: (m.from && (m.from.value ? m.from.value[0].address : m.from)) || '',\n      subject: m.subject || '',\n      text: m.text || m.textPlain || '',\n      html: m.html || m.textHtml || undefined,\n      inReplyTo: m.inReplyTo || headers['in-reply-to'] || undefined,\n      references: refs,\n      attachments: (m.attachments || []).map((a) => ({\n        filename: a.filename || a.fileName || 'attachment',\n        contentType: a.contentType || a.mimeType || 'application/octet-stream',\n        size: a.size || 0,\n      })),\n    },\n  };\n  return { json: { raw: JSON.stringify(envelope), t: Math.floor(Date.now() / 1000) } };\n});"
       },
       "id": "a2",
-      "name": "Build signed envelope",
+      "name": "Build envelope",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [260, 0]
     },
     {
       "parameters": {
+        "action": "hmac",
+        "type": "SHA256",
+        "value": "={{ $json.t }}.{{ $json.raw }}",
+        "dataPropertyName": "v1",
+        "encoding": "hex"
+      },
+      "id": "a4",
+      "name": "Sign (collect-signing)",
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 2,
+      "position": [480, 0],
+      "credentials": {
+        "crypto": {
+          "id": "",
+          "name": "collect-signing"
+        }
+      }
+    },
+    {
+      "parameters": {
         "method": "POST",
-        "url": "={{ $env.COLLECT_INBOUND_URL }}",
+        "url": "https://COLLECT_HOST/api/integrations/INTEGRATION_ID/inbound",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "x-signature",
-              "value": "={{ $json.signature }}"
+              "value": "=t={{ $json.t }},v1={{ $json.v1 }}"
             },
             {
               "name": "content-type",
@@ -57,7 +77,7 @@
       "name": "Send to Collect",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [520, 0],
+      "position": [720, 0],
       "retryOnFail": true,
       "maxTries": 5,
       "waitBetweenTries": 5000
@@ -68,14 +88,25 @@
       "main": [
         [
           {
-            "node": "Build signed envelope",
+            "node": "Build envelope",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Build signed envelope": {
+    "Build envelope": {
+      "main": [
+        [
+          {
+            "node": "Sign (collect-signing)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sign (collect-signing)": {
       "main": [
         [
           {

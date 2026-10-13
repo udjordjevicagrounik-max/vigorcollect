@@ -25,6 +25,33 @@ cat docs/NEXT.md                # 4. aktivan zadatak
 Alati žive u ovom kontejneru, ne u repou, i mogu da nestanu posle restarta/rebuild-a kontejnera.
 Bez njih pre-commit hook pada — ne zaobilaziti (`--no-verify` je zabranjen).
 
+## n8n povezivanje (tenant Sinergista, sesija 5.1)
+
+Collect ↔ n8n (`N8N_BASE_URL`, `N8N_API_KEY` u `.env` — upisuju se editorom van Claude sesije,
+nikad kroz `!` komandu sa vrednošću). Tajne nikad ne prolaze kroz chat: skript ih čita iz baze i
+`.env` i šalje direktno n8n API-ju, a ispisuje samo statuse i id-jeve.
+
+1. U n8n-u (UI) napraviti credential-e za sanduče: **IMAP** (prijem) i **SMTP** (slanje) —
+   lozinke se kucaju samo u n8n UI.
+2. Pokrenuti (idempotentno — ponavljanje ne pravi novu integraciju ni nove workflow-e):
+
+   ```bash
+   cd /srv/vigor-collect && npx tsx scripts/n8n-connect.ts --imap="<naziv IMAP credential-a>" --smtp="<naziv SMTP credential-a>"
+   ```
+
+   - integracija vrste Pošta za Sinergistu kroz naš servis (audit, šifrovana tajna), outbound
+     `{N8N_BASE_URL}webhook/collect-mail-outbound`; postojeća aktivna sa tim URL-om se koristi
+     ponovo (tajna se ne rotira);
+   - credential `collect-signing` (tip Crypto) — pravi se ponovo, sa istom tajnom;
+   - workflow-i „Collect — mail inbound” / „Collect — mail outbound” se prave ili ažuriraju po
+     imenu, credential-i se vezuju po imenu, aktiviraju se samo ako IMAP / SMTP postoje;
+   - „Test ping” — očekivano `ping: sent (HTTP 200)`.
+
+3. Bez `--imap` / `--smtp` workflow-i ostaju **neaktivni**, a ping je `failed (HTTP 404)` (webhook
+   nije registrovan) — nedovršeno povezivanje, ne greška.
+4. Rotacija tajne: u Administracija → Integracije isključiti staru integraciju, pa ponovo
+   pokrenuti skript (napraviće novu integraciju i upisati novu tajnu u `collect-signing`).
+
 ## Provera ponedeljkom (posle Elestio watchtower-a)
 
 Elestio nedeljom u **01:00 UTC** pokreće `watchtower-upgrade.sh`, koji može da rekreira
@@ -116,8 +143,9 @@ kompaniju (zona UTC); podaci uvoza ostaju između pokretanja (uvoz je idempotent
 
 - **n8n** (pošta Google Workspace / Microsoft 365 / IMAP-SMTP): postupak u
   `docs/integrations/n8n.md`; šabloni workflow-a u `docs/integrations/n8n/`. Tajna integracije i
-  API ključ se prikazuju **jednom** (Administracija → Integracije); u n8n-u idu u env
-  (`COLLECT_INBOUND_URL`, `COLLECT_SIGNING_SECRET`, `NODE_FUNCTION_ALLOW_BUILTIN=crypto`).
+  API ključ se prikazuju **jednom** (Administracija → Integracije); u n8n-u tajna ide u
+  credential `collect-signing` (tip Crypto), bez env promenljivih — za Sinergistu automatski,
+  odeljak „n8n povezivanje".
 - Prijem: `POST /api/integrations/{id}/inbound` (potpis + ±5 min). Neuspelo → Administracija →
   Integracije → „Neuspele poruke" → „Pokušaj ponovo". Dnevnik: „Dnevnik sinhronizacije".
 - Slanje: pošta naplate tenanta koji nije demo, sa aktivnom integracijom vrste „Pošta" i

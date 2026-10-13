@@ -19,20 +19,88 @@
     },
     {
       "parameters": {
-        "jsCode": "// Verifies Collect's signature over the RAW body: t within ±5 min, HMAC-SHA256(secret, t.raw).\n// Anything else is answered 401 and never sent.\nconst crypto = require('crypto');\nconst item = $input.first();\nconst raw = Buffer.from(item.binary.data.data, 'base64').toString('utf8');\nconst header = (item.json.headers['x-signature'] || '').toString();\nconst parts = Object.fromEntries(header.split(',').map((p) => p.split('=')));\nconst t = Number(parts.t);\nconst expected = crypto.createHmac('sha256', $env.COLLECT_SIGNING_SECRET).update(`${t}.${raw}`).digest('hex');\nconst fresh = Math.abs(Date.now() / 1000 - t) <= 300;\nconst ok = fresh && typeof parts.v1 === 'string' && parts.v1.length === expected.length &&\n  crypto.timingSafeEqual(Buffer.from(parts.v1), Buffer.from(expected));\nconst body = ok ? JSON.parse(raw) : null;\nreturn [{ json: { ok, mail: body && body.type === 'mail.send' ? body.data : null } }];"
+        "jsCode": "// Collect -> n8n (mail.send / integration.ping). Only unpacks the request: the RAW body as\n// signed, the timestamp and the v1 MAC from X-Signature. No secret here — the HMAC is computed\n// by the next node (Crypto, credential \"collect-signing\").\nconst item = $input.first();\nconst raw = (await this.helpers.getBinaryDataBuffer(0, 'data')).toString('utf8');\nconst header = (item.json.headers['x-signature'] || '').toString();\nconst parts = Object.fromEntries(header.split(',').map((p) => { const i = p.indexOf('='); return [p.slice(0, i).trim(), p.slice(i + 1).trim()]; }));\nconst t = Number(parts.t);\nconst v1 = /^[0-9a-f]{64}$/.test(parts.v1 || '') ? parts.v1 : '';\nconst fresh = Number.isInteger(t) && Math.abs(Date.now() / 1000 - t) <= 300;\nlet body = null;\ntry { body = JSON.parse(raw); } catch { body = null; }\nreturn [{ json: { t, v1, fresh, raw, type: body && body.type, mail: body && body.type === 'mail.send' ? body.data : null } }];"
       },
       "id": "b2",
-      "name": "Verify signature",
+      "name": "Unpack request",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [240, 0]
     },
     {
       "parameters": {
+        "action": "hmac",
+        "type": "SHA256",
+        "value": "={{ $json.t }}.{{ $json.raw }}",
+        "dataPropertyName": "expected",
+        "encoding": "hex"
+      },
+      "id": "b10",
+      "name": "HMAC (collect-signing)",
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 2,
+      "position": [480, 0],
+      "credentials": {
+        "crypto": {
+          "id": "",
+          "name": "collect-signing"
+        }
+      }
+    },
+    {
+      "parameters": {
         "conditions": {
           "boolean": [
             {
-              "value1": "={{ $json.ok && $json.mail !== null }}",
+              "value1": "={{ $json.fresh && $json.v1 !== '' && $json.v1 === $json.expected }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "b11",
+      "name": "Signature valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [720, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.type === 'integration.ping' }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "b12",
+      "name": "Ping?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [960, -120]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { status: 'pong' } }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "b13",
+      "name": "Answer pong",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1200, -240]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.mail !== null }}",
               "value2": true
             }
           ]
@@ -42,7 +110,7 @@
       "name": "Valid mail.send?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
-      "position": [480, 0]
+      "position": [1200, -60]
     },
     {
       "parameters": {
@@ -52,7 +120,7 @@
       "name": "Already sent?",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [720, -100]
+      "position": [1440, -120]
     },
     {
       "parameters": {
@@ -69,7 +137,7 @@
       "name": "Duplicate?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
-      "position": [960, -100]
+      "position": [1680, -120]
     },
     {
       "parameters": {
@@ -87,7 +155,7 @@
       "name": "Send Email (SMTP)",
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
-      "position": [1200, -160],
+      "position": [1920, -200],
       "credentials": {
         "smtp": {
           "id": "",
@@ -103,7 +171,7 @@
       "name": "Remember key",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1440, -160]
+      "position": [2160, -200]
     },
     {
       "parameters": {
@@ -117,7 +185,7 @@
       "name": "Answer sent",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [1680, -100]
+      "position": [2400, -120]
     },
     {
       "parameters": {
@@ -131,7 +199,7 @@
       "name": "Answer 401",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [720, 120]
+      "position": [960, 160]
     }
   ],
   "connections": {
@@ -139,15 +207,62 @@
       "main": [
         [
           {
-            "node": "Verify signature",
+            "node": "Unpack request",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Verify signature": {
+    "Unpack request": {
       "main": [
+        [
+          {
+            "node": "HMAC (collect-signing)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HMAC (collect-signing)": {
+      "main": [
+        [
+          {
+            "node": "Signature valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Signature valid?": {
+      "main": [
+        [
+          {
+            "node": "Ping?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Answer 401",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ping?": {
+      "main": [
+        [
+          {
+            "node": "Answer pong",
+            "type": "main",
+            "index": 0
+          }
+        ],
         [
           {
             "node": "Valid mail.send?",
@@ -169,17 +284,6 @@
         [
           {
             "node": "Answer 401",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Send Email (SMTP)": {
-      "main": [
-        [
-          {
-            "node": "Remember key",
             "type": "main",
             "index": 0
           }
@@ -209,6 +313,17 @@
         [
           {
             "node": "Send Email (SMTP)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email (SMTP)": {
+      "main": [
+        [
+          {
+            "node": "Remember key",
             "type": "main",
             "index": 0
           }
