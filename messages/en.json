@@ -28,7 +28,9 @@
       "reports": "Reports",
       "notifications": "Notifications",
       "gettingStarted": "Getting started",
-      "platform": "Platform"
+      "platform": "Platform",
+      "disputes": "Disputes",
+      "fields": "Fields"
     },
     "tenant": "Organization",
     "switchTenant": "Switch organization",

@@ -89,3 +89,20 @@ test.describe('platform and libraries (6.4)', () => {
     expect(((await pack.json()) as { version: number }).version).toBe(1);
   });
 });
+
+test.describe('navigation items (preview finding, 2026-10-13)', () => {
+  test('Disputes opens the invoice list filtered to disputed; Fields is under Administration', async ({
+    page,
+  }) => {
+    await page.goto('/');
+    const disputes = page.locator('[data-nav-group="work"] [data-nav-item="disputes"]');
+    await expect(disputes).toHaveAttribute('href', '/invoices?disputed=only');
+    await expect(page.locator('[data-nav-group="admin"] [data-nav-item="fields"]')).toHaveAttribute(
+      'href',
+      '/admin/settings/fields',
+    );
+    await disputes.click();
+    await expect(page).toHaveURL(/\/invoices\?disputed=only$/);
+    await expect(page.locator('select[name="disputed"]')).toHaveValue('only');
+  });
+});
