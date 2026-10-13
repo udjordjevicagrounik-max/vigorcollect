@@ -3,6 +3,7 @@ import { isIP } from 'node:net';
 import { logEvent } from '@/lib/log';
 import type { MasterKeyring } from '@/server/crypto/keyring';
 import { currentTenantId, type Queryable } from '@/server/crypto/subject-keys';
+import type { TenantTx } from '@/server/jobs/tenant-job';
 import { open } from './crypto';
 import { SIGNATURE_HEADER, signatureHeader } from './signing';
 
@@ -37,6 +38,9 @@ export const OUTBOUND_EVENT_TYPES = [
 export const BACKOFF_SECONDS = [60, 300, 1_800, 7_200, 43_200] as const;
 export const MAX_ATTEMPTS = BACKOFF_SECONDS.length + 1;
 const TIMEOUT_MS = 10_000;
+/** A claimed item is not picked up again before this; far longer than one POST (TIMEOUT_MS). */
+export const CLAIM_LEASE_SECONDS = 600;
+export const IDEMPOTENCY_HEADER = 'idempotency-key';
 
 export type Fetch = (
   url: string,
@@ -107,35 +111,50 @@ async function signingSecret(
     : null;
 }
 
-/**
- * Signed POST of `body` to an integration's URL — shared by deliveries, the test ping and the
- * mail dispatcher (4.2). Returns the HTTP status or an error code; never throws on the network.
- */
-export async function postSigned(
+/** Where a signed POST goes: resolved INSIDE a tenant transaction, used outside of it. */
+export type SignedTarget = { url: string; secret: string } | { error: 'invalid_url' | 'no_secret' };
+
+export async function signedTarget(
   db: Queryable,
   keyring: MasterKeyring,
   integrationId: string,
-  body: Record<string, unknown>,
-  fetchImpl: Fetch = fetch,
-  now: Date = new Date(),
-): Promise<{ status: number | null; error: string | null; body?: unknown }> {
+): Promise<SignedTarget> {
   const tenantId = await currentTenantId(db);
   const { rows } = await db.query<{ url: string | null }>(
     `SELECT config->>'outboundUrl' AS url FROM integrations WHERE id = $1 AND status = 'active'`,
     [integrationId],
   );
   const url = rows[0]?.url;
-  if (!url || !validateOutboundUrl(url)) return { status: null, error: 'invalid_url' };
+  if (!url || !validateOutboundUrl(url)) return { error: 'invalid_url' };
   const secret = await signingSecret(db, keyring, tenantId, integrationId);
-  if (!secret) return { status: null, error: 'no_secret' };
+  if (!secret) return { error: 'no_secret' };
+  return { url, secret };
+}
+
+export type SendResult = { status: number | null; error: string | null; body?: unknown };
+
+/**
+ * The POST itself — no database. `idempotencyKey` is stable across retries of the same item
+ * (mail_outbox.id / outbound_deliveries.id), so the receiver can drop a repeat (review S-09).
+ * Returns the HTTP status or an error code; never throws on the network.
+ */
+export async function sendSigned(
+  target: SignedTarget,
+  body: Record<string, unknown>,
+  idempotencyKey: string,
+  fetchImpl: Fetch = fetch,
+  now: Date = new Date(),
+): Promise<SendResult> {
+  if ('error' in target) return { status: null, error: target.error };
   const raw = JSON.stringify(body);
   try {
-    const res = await fetchImpl(url, {
+    const res = await fetchImpl(target.url, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        [SIGNATURE_HEADER]: signatureHeader(secret, raw, now),
+        [SIGNATURE_HEADER]: signatureHeader(target.secret, raw, now),
         'x-event-id': String(body.id ?? ''),
+        [IDEMPOTENCY_HEADER]: idempotencyKey,
       },
       body: raw,
       redirect: 'error',
@@ -160,6 +179,19 @@ export async function postSigned(
   }
 }
 
+/** Signed POST in one step — only for the test ping (nothing to retry, nothing to claim). */
+export async function postSigned(
+  db: Queryable,
+  keyring: MasterKeyring,
+  integrationId: string,
+  body: Record<string, unknown>,
+  fetchImpl: Fetch = fetch,
+  now: Date = new Date(),
+): Promise<SendResult> {
+  const target = await signedTarget(db, keyring, integrationId);
+  return sendSigned(target, body, String(body.id ?? ''), fetchImpl, now);
+}
+
 async function isDemoTenant(db: Queryable, tenantId: string): Promise<boolean> {
   const { rows } = await db.query<{ is_demo: boolean }>(
     'SELECT is_demo FROM tenants WHERE id = $1',
@@ -180,70 +212,110 @@ type Due = {
   payload: Record<string, unknown> | null;
 };
 
-/** Delivers what is due for the CURRENT tenant (inside withTenantJob). */
+/**
+ * Delivers what is due for ONE tenant (review S-09). Every delivery is claimed in its own
+ * committed transaction (next_attempt_at → end of the lease) BEFORE the POST, the POST runs
+ * outside any transaction, and the result is recorded in a third one. An error in one delivery
+ * never rolls back another one's "sent"; a crash after the POST retries only after the lease,
+ * with the same Idempotency-Key.
+ */
 export async function dispatchDue(
-  db: Queryable,
+  run: TenantTx,
   keyring: MasterKeyring,
   fetchImpl: Fetch = fetch,
   now: Date = new Date(),
 ): Promise<{ sent: number; failed: number; dead: number; sink: number }> {
-  const tenantId = await currentTenantId(db);
-  const demo = await isDemoTenant(db, tenantId);
-  const { rows } = await db.query<Due>(
-    `SELECT d.id, d.integration_id, d.event_id, d.event_type, d.attempts,
-            e.created_at AS occurred_at, e.aggregate_type, e.aggregate_id, e.payload
-     FROM outbound_deliveries d LEFT JOIN domain_events e ON e.id = d.event_id
-     WHERE d.status IN ('pending', 'failed') AND d.next_attempt_at <= $1
-     ORDER BY d.next_attempt_at LIMIT 20 FOR UPDATE OF d SKIP LOCKED`,
-    [now],
-  );
-  const counts = { sent: 0, failed: 0, dead: 0, sink: 0 };
-  for (const d of rows) {
-    if (demo) {
-      await db.query(`UPDATE outbound_deliveries SET status = 'sink' WHERE id = $1`, [d.id]);
-      counts.sink += 1;
-      continue;
-    }
-    const body = {
-      id: d.id,
-      type: d.event_type,
-      occurredAt: (d.occurred_at ?? now).toISOString(),
-      data: {
-        eventId: d.event_id,
-        aggregateType: d.aggregate_type,
-        aggregateId: d.aggregate_id,
-        payload: d.payload ?? {},
-      },
-    };
-    const result = await postSigned(db, keyring, d.integration_id, body, fetchImpl, now);
-    const attempts = d.attempts + 1;
-    if (!result.error) {
-      await db.query(
-        `UPDATE outbound_deliveries SET status = 'sent', sent_at = $2, attempts = $3, last_status_code = $4,
-                last_error = NULL WHERE id = $1`,
-        [d.id, now, attempts, result.status],
-      );
-      counts.sent += 1;
-      continue;
-    }
-    const dead =
-      attempts >= MAX_ATTEMPTS || result.error === 'invalid_url' || result.status === 410;
-    const delay = BACKOFF_SECONDS[Math.min(attempts, BACKOFF_SECONDS.length) - 1] ?? 60;
-    await db.query(
-      `UPDATE outbound_deliveries SET status = $2, attempts = $3, last_status_code = $4, last_error = $5,
-              next_attempt_at = $6 WHERE id = $1`,
-      [
-        d.id,
-        dead ? 'dead' : 'failed',
-        attempts,
-        result.status,
-        result.error,
-        new Date(now.getTime() + delay * 1000),
-      ],
+  const leaseUntil = new Date(now.getTime() + CLAIM_LEASE_SECONDS * 1000);
+  const { tenantId, demo, ids } = await run(async (db) => {
+    const t = await currentTenantId(db);
+    const { rows } = await db.query<{ id: string }>(
+      `SELECT id FROM outbound_deliveries
+       WHERE status IN ('pending', 'failed') AND next_attempt_at <= $1
+       ORDER BY next_attempt_at LIMIT 20`,
+      [now],
     );
-    counts[dead ? 'dead' : 'failed'] += 1;
+    return { tenantId: t, demo: await isDemoTenant(db, t), ids: rows.map((r) => r.id) };
+  });
+  const counts = { sent: 0, failed: 0, dead: 0, sink: 0 };
+  for (const id of ids) {
+    try {
+      const claimed = await run(async (db) => {
+        const { rows } = await db.query<Due>(
+          `WITH claimed AS (
+             UPDATE outbound_deliveries SET next_attempt_at = $3
+             WHERE id = $1 AND status IN ('pending', 'failed') AND next_attempt_at <= $2
+             RETURNING id, integration_id, event_id, event_type, attempts)
+           SELECT c.*, e.created_at AS occurred_at, e.aggregate_type, e.aggregate_id, e.payload
+           FROM claimed c LEFT JOIN domain_events e ON e.id = c.event_id`,
+          [id, now, leaseUntil],
+        );
+        const d = rows[0];
+        if (!d) return null;
+        if (demo) {
+          await db.query(`UPDATE outbound_deliveries SET status = 'sink' WHERE id = $1`, [d.id]);
+          return 'sink' as const;
+        }
+        return { d, target: await signedTarget(db, keyring, d.integration_id) };
+      });
+      if (!claimed) continue;
+      if (claimed === 'sink') {
+        counts.sink += 1;
+        continue;
+      }
+      const { d, target } = claimed;
+      const body = {
+        id: d.id,
+        type: d.event_type,
+        occurredAt: (d.occurred_at ?? now).toISOString(),
+        data: {
+          eventId: d.event_id,
+          aggregateType: d.aggregate_type,
+          aggregateId: d.aggregate_id,
+          payload: d.payload ?? {},
+        },
+      };
+      const result = await sendSigned(target, body, d.id, fetchImpl, now);
+      const attempts = d.attempts + 1;
+      if (!result.error) {
+        await run((db) =>
+          db.query(
+            `UPDATE outbound_deliveries SET status = 'sent', sent_at = $2, attempts = $3, last_status_code = $4,
+                    last_error = NULL WHERE id = $1`,
+            [d.id, now, attempts, result.status],
+          ),
+        );
+        counts.sent += 1;
+        continue;
+      }
+      const dead =
+        attempts >= MAX_ATTEMPTS || result.error === 'invalid_url' || result.status === 410;
+      const delay = BACKOFF_SECONDS[Math.min(attempts, BACKOFF_SECONDS.length) - 1] ?? 60;
+      await run((db) =>
+        db.query(
+          `UPDATE outbound_deliveries SET status = $2, attempts = $3, last_status_code = $4, last_error = $5,
+                  next_attempt_at = $6 WHERE id = $1`,
+          [
+            d.id,
+            dead ? 'dead' : 'failed',
+            attempts,
+            result.status,
+            result.error,
+            new Date(now.getTime() + delay * 1000),
+          ],
+        ),
+      );
+      counts[dead ? 'dead' : 'failed'] += 1;
+    } catch (error) {
+      // This delivery stays claimed until the lease ends; the others go on.
+      logEvent('outbound.delivery_error', {
+        level: 'error',
+        tenantId,
+        deliveryId: id,
+        name: error instanceof Error ? error.name : 'unknown',
+      });
+    }
   }
-  if (rows.length) logEvent('outbound.dispatched', { tenantId, ...counts });
+  if (ids.length) logEvent('outbound.dispatched', { tenantId, ...counts });
   return counts;
 }
 

@@ -10,6 +10,7 @@ import { createApiKey, hashToken } from '@/server/integrations/api-keys';
 import { open } from '@/server/integrations/crypto';
 import { receiveInbound } from '@/server/integrations/inbound';
 import { dispatchDue, fanOut, validateOutboundUrl } from '@/server/integrations/outbound';
+import { sameTx } from '@/server/jobs/tenant-job';
 import { processWebhookEvent } from '@/server/integrations/process';
 import { createIntegration, retryDeadLetter } from '@/server/integrations/service';
 import { signatureHeader, verifySignature } from '@/server/integrations/signing';
@@ -342,7 +343,7 @@ describe('golden/db: outbound deliveries (4.1)', () => {
       };
       const now = new Date();
       await db.query('UPDATE tenants SET is_demo = false WHERE id = $1', [FX.tenantA]);
-      const failed = await dispatchDue(db, keyring, fakeFetch, now);
+      const failed = await dispatchDue(sameTx(db), keyring, fakeFetch, now);
       const backoff = await db.query<{ status: string; attempts: number; delay: number }>(
         `SELECT status, attempts, extract(epoch FROM next_attempt_at - $2::timestamptz)::int AS delay
          FROM outbound_deliveries WHERE event_id = $1`,
@@ -350,7 +351,7 @@ describe('golden/db: outbound deliveries (4.1)', () => {
       );
       status = 204;
       const later = new Date(now.getTime() + 61_000);
-      const sent = await dispatchDue(db, keyring, fakeFetch, later);
+      const sent = await dispatchDue(sameTx(db), keyring, fakeFetch, later);
       const secret = await db.query<{ id: string; secret_enc: Buffer; key_version: number }>(
         `SELECT id, secret_enc, secret_key_version AS key_version FROM integration_credentials WHERE integration_id = $1`,
         [sub.id],
@@ -370,7 +371,7 @@ describe('golden/db: outbound deliveries (4.1)', () => {
         [event.id],
       );
       const before = seen.length;
-      const demo = await dispatchDue(db, keyring, fakeFetch, new Date(Date.now() + 1000));
+      const demo = await dispatchDue(sameTx(db), keyring, fakeFetch, new Date(Date.now() + 1000));
       return {
         n1,
         n2,

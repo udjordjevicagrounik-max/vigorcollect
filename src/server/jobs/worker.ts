@@ -17,7 +17,7 @@ import {
   type EventHandlers,
 } from './outbox';
 import { runRetention } from './retention';
-import { withTenantJob } from './tenant-job';
+import { tenantTx } from './tenant-job';
 
 /**
  * The worker process (task 1.3): same image as the app, PROCESS_ROLE=worker (src/instrumentation.ts).
@@ -116,7 +116,7 @@ export async function startWorker(
   await boss.work('mail-dispatch', async () => {
     await dispatchMail(workerPool);
   });
-  // 4.1/4.2: outbound deliveries (and integration mail) per tenant, inside withTenantJob.
+  // 4.1/4.2: outbound deliveries (and integration mail) per tenant, claim → POST → record, each in its own tenant transaction.
   await boss.work('integrations-dispatch', async (jobs) => {
     await dispatchIntegrations(workerPool, appPool, jobs[0]?.id ?? 'integrations-dispatch');
   });
@@ -195,10 +195,10 @@ export async function dispatchIntegrations(
   );
   for (const r of rows) {
     try {
-      await withTenantJob(appPool, r.tenant_id, jobId, async (ctx) => {
-        await dispatchDue(ctx.db, getMasterKeyring());
-        await dispatchIntegrationMail(ctx.db, getMasterKeyring());
-      });
+      // Several short transactions per item, never one around a POST (review S-09).
+      const run = tenantTx(appPool, r.tenant_id, jobId);
+      await dispatchDue(run, getMasterKeyring());
+      await dispatchIntegrationMail(run, getMasterKeyring());
     } catch (error) {
       logEvent('integrations.dispatch_error', {
         level: 'error',
