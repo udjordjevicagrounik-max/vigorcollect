@@ -314,12 +314,17 @@ Posle deploya: smoke (`/health` 200 + `X-App-Version` = očekivani tag).
   tabele da, prazne. Bez recipient-a backup ne radi (alarm „backup missing").
 - **Gde radi:** backup u worker-u (02:00 UTC, `BACKUP_DATABASE_URL` + `BACKUP_AGE_RECIPIENT`).
   **Restore test NIKAD u worker-u** — jedini ima ključ za dešifrovanje: one-shot servis
-  `restore-test` (profil `ops`, `RESTORE_DATABASE_URL` + `BACKUP_AGE_IDENTITY`, backups samo za
-  čitanje), host cron na Elestio-u nedeljom 03:00 UTC:
+  `restore-test` (profil `ops`, `RESTORE_DATABASE_URL` + `BACKUP_AGE_IDENTITY`, volume `backups`
+  samo za čitanje). Repo i privatni ključ (`/root/.vigor-backup-age.key`, mode 600) su u
+  kontejneru `app-vibecoder-1`; crontab je na **Elestio hostu**, nedeljom 03:00 UTC (proveriti
+  zonu hosta sa `date`; ako host nije u UTC, preračunati sat):
 
   ```bash
-  0 3 * * 0  cd /srv/vigor-collect && docker compose --profile ops run --rm restore-test >>/var/log/backup.log 2>&1
+  0 3 * * 0  docker exec app-vibecoder-1 bash -c 'cd /srv/vigor-collect && BACKUP_AGE_IDENTITY="$(grep "^AGE-SECRET-KEY-1" /root/.vigor-backup-age.key)" docker compose --profile ops run --rm restore-test' >>/var/log/backup.log 2>&1
   ```
+
+  Ključ ulazi samo u env tog jednog pokretanja, nikad u `.env` ni u worker; rezultat ide u
+  `ops_runs` (Admin → Status sistema, alarm „restore test failed").
 
   **Fallback za backup** (worker ne radi): `0 2 * * * cd /srv/vigor-collect && ./scripts/backup.sh`
   sa istim env-om (bez identity-ja).
@@ -340,12 +345,22 @@ Posle deploya: smoke (`/health` 200 + `X-App-Version` = očekivani tag).
 
 - **Off-site:** `BACKUP_S3_*` → `rclone sync` iz worker-a; bez `BACKUP_S3_BUCKET` →
   `offsite: not_configured` u `ops_runs` (blokada za staging).
-- **Kopija na hostu** (P1, Uroš, 2026-10-13): cron na Elestio hostu u 03:30 (vreme hosta) —
-  posle backup-a u 02:00 UTC — `docker cp` kopira backup iz kontejnera u `/opt/app/backups` na
-  hostu (`daily/` + `monthly/`); retencija na hostu 30 dana. Tako lokalne kopije preživljavaju
-  rekreiranje kontejnera. Crontab je na hostu, nije u repou: proveriti ga posle izmene servera
-  (`crontab -l` na hostu) i da `/opt/app/backups` dobija nov dnevni direktorijum. Ovo **nije**
-  off-site kopija (isti server) — off-site i dalje ide kroz `BACKUP_S3_*`.
+- **Kopija na hostu** (P1, Uroš, 2026-10-13; ispravljeno u 5.0): cron na Elestio hostu u 03:30
+  (vreme hosta) — posle backup-a u 02:00 UTC. **Izvor je volume `backups` u worker-u**
+  (`collect-worker-1:/srv/backups/.`), ne `app-vibecoder-1`: tamo noćni backup piše, šifrovan
+  (`*.age` + `manifest.json`). Odredište `/opt/app/backups` (`daily/` + `monthly/`), retencija na
+  hostu 30 dana (postojeći korak u crontab-u hosta, nepromenjen):
+
+  ```bash
+  30 3 * * *  docker cp collect-worker-1:/srv/backups/. /opt/app/backups/ >>/var/log/backup.log 2>&1
+  ```
+
+  Tako kopije preživljavaju rekreiranje kontejnera. Crontab je na hostu, nije u repou: proveriti
+  ga posle izmene servera (`crontab -l` na hostu) i da `/opt/app/backups/daily` dobija nov
+  direktorijum sa `.age` fajlovima. `/srv/backups` u `app-vibecoder-1` je samo za ručni
+  `./scripts/backup.sh` (fallback), ne izvor kopije. Ovo **nije** off-site kopija (isti server) —
+  off-site i dalje ide kroz `BACKUP_S3_*`.
+
 - **Restore test:** `scripts/restore-test.sh` (kao `vigor_restore`) dešifruje poslednji dump glavne
   baze u privremeni fajl (briše se na izlazu), vraća ga u `<db>_restore_test` (`--no-owner`),
   poredi broj redova svake tabele sa dump-om (`auth.session` / `auth.verification` moraju biti
