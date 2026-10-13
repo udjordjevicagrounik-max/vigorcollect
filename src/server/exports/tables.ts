@@ -21,6 +21,8 @@ import {
   listReceivableCustomers,
 } from '@/server/receivables/service';
 import { listColumnValues, listDefinitions } from '@/server/custom-fields/service';
+import { definitionSchema } from '@/server/reporting/query';
+import { runSpec } from '@/server/reporting/service';
 import { REPORT_KEYS, reportConfig, runReport, type ReportKey } from '@/server/reports/service';
 import { amount, date, int, MIME, text, toCsv, toXlsx, type Cell, type Table } from './tabular';
 
@@ -39,6 +41,8 @@ export const MAX_ROWS = 100_000;
 const EXPORT_TYPES = [
   'customers',
   'invoices',
+  // 6.2: a report builder definition (filters = { definition }).
+  'builder',
   ...REPORT_KEYS.map((k) => `report.${k}` as const),
 ] as const;
 export type ExportType = (typeof EXPORT_TYPES)[number];
@@ -163,6 +167,31 @@ async function buildTable(
         ]),
       },
     );
+  }
+  if (type === 'builder') {
+    const def = definitionSchema.parse((filters as { definition?: unknown }).definition);
+    const r = await runSpec(ctx, def, { rowLimit: limit, permission: 'report.export', locale });
+    const tf = createTranslator({ locale, messages: MESSAGES[locale], namespace: 'reports' });
+    const header = (c: (typeof r.columns)[number]) =>
+      c.label ??
+      (tf.has(`fields.${c.field}` as 'fields.customer')
+        ? tf(`fields.${c.field}` as 'fields.customer')
+        : c.field);
+    return {
+      columns: r.columns.map(header),
+      rows: r.rows.map((row) =>
+        r.columns.map((c): Cell => {
+          const v = row[c.id] ?? null;
+          if (
+            c.role === 'measure' &&
+            (c.type === 'money' || c.type === 'number' || c.type === 'percent')
+          )
+            return amount(v);
+          if (c.codeList && v !== null) return text(r.labels[c.codeList]?.[v] ?? v);
+          return c.type === 'date' ? date(v) : text(v);
+        }),
+      ),
+    };
   }
   const key = type.slice('report.'.length) as ReportKey;
   const r = await runReport(ctx, key, reportConfig.parse(filters), 'report.export');

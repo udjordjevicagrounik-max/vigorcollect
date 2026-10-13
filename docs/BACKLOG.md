@@ -311,6 +311,15 @@ i P4 bez roka, plus preostali rizici P2 ispravki.
 - **Digest — šabloni:** tekst digest-a je iz `messages` (mail.digest.*), ne iz tenant šablona;
   tenant-izmenljiv digest šablon kad bude traženo.
 
+## Iz Sprinta 6 (6.1–6.5)
+
+- **Mapa:** „po regionu/gradu" je za sada grouped table + bar (dimenzija iz custom polja tipa
+  izbor); prava SVG mapa (GeoJSON granice, bez paketa) kasnije.
+- **Izveštaji 5.2 → 6.2 (contract):** `saved_reports` i `src/server/reports/service.ts` ostaju
+  dok stari izvozi `report.<key>` postoje; ukloniti posle pilota (nova migracija, pravilo 15).
+- **Custom polja — kontakt i faktura u formi:** vrednosti kontakta i fakture se menjaju kroz uvoz
+  i API (PATCH); polja u formi kontakta / detalju fakture kad ti ekrani postoje.
+
 ## Roadmap
 
 ### Marketing sajt — paralelan tok uz Sprint 1

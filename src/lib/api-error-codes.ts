@@ -28,6 +28,8 @@ export const API_ERROR_CODES = [
   'not_ready',
   'limit_exceeded',
   'not_bulk',
+  'mixed_currencies',
+  'too_many_rows',
   'internal',
 ] as const;
 export type ApiErrorCode = (typeof API_ERROR_CODES)[number];
