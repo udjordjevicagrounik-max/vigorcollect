@@ -595,7 +595,8 @@
       "promises": "Obećanja",
       "activities": "Aktivnosti",
       "cases": "Case-ovi",
-      "documents": "Dokumenti"
+      "documents": "Dokumenti",
+      "communication": "Komunikacija"
     },
     "aging": "Aging",
     "openCases": "Otvoreni case-ovi ({n})",
@@ -765,7 +766,11 @@
         "call": "Poziv",
         "email": "Email",
         "note": "Beleška",
-        "meeting": "Sastanak"
+        "meeting": "Sastanak",
+        "mail": {
+          "out": "Poslat mail",
+          "in": "Primljen mail"
+        }
       }
     }
   },
@@ -969,7 +974,8 @@
       "no_activity": "Nema aktivnosti",
       "unassigned_case": "Case bez vlasnika",
       "notification": "Obaveštenje",
-      "rule_proposal": "Predlog pravila čeka čoveka"
+      "rule_proposal": "Predlog pravila čeka čoveka",
+      "mail_undelivered": "Pošta nije isporučena"
     },
     "actions": {
       "approval_pending": "Odluči",
@@ -981,7 +987,8 @@
       "no_activity": "Kontaktiraj",
       "unassigned_case": "Dodeli",
       "notification": "Otvori",
-      "rule_proposal": "Otvori"
+      "rule_proposal": "Otvori",
+      "mail_undelivered": "Otvori prepisku"
     },
     "messages": {
       "rule_attention": "kupac traži pažnju",
@@ -1091,5 +1098,48 @@
       "unsupported": "nije podržano"
     },
     "urlPlaceholder": "https://n8n.example.com/webhook/…"
+  },
+  "communication": {
+    "empty": "Još nema prepiske sa ovim kupcem. Pošaljite poruku iz šablona ili slobodnim tekstom — odgovori kupca stižu ovde kad je povezana pošta (Administracija → Integracije).",
+    "newTitle": "Nova poruka",
+    "replyTitle": "Odgovor na: {subject}",
+    "cancelReply": "Nova poruka umesto odgovora",
+    "free": "Slobodan tekst",
+    "template": "Šablon",
+    "legalEffect": "pravno dejstvo",
+    "subject": "Naslov",
+    "body": "Tekst",
+    "send": "Pošalji",
+    "sent": "Poruka je zakazana za slanje.",
+    "sendHint": "Šalje se sa poštanskog sandučeta organizacije preko integracije; demo organizacija šalje samo u sink. Svaka poruka se beleži kao aktivnost.",
+    "reply": "Odgovori",
+    "openLink": "otvori",
+    "direction": {
+      "out": "poslato",
+      "in": "primljeno",
+      "activity": "aktivnost"
+    },
+    "activity": {
+      "call": "poziv",
+      "note": "beleška",
+      "meeting": "sastanak",
+      "email": "email"
+    },
+    "status": {
+      "captured": "u sink-u",
+      "pending": "čeka slanje",
+      "sent": "poslato",
+      "failed": "nije poslato",
+      "bounced": "vraćeno"
+    },
+    "unlinkedTitle": "Nepovezane poruke",
+    "unlinkedDescription": "Primljena pošta koju nijedno pravilo nije povezalo sa kupcem (nepoznat pošiljalac ili više kupaca sa istom adresom). Sadržaj je nepouzdan i prikazuje se samo kao tekst.",
+    "unlinkedEmpty": "Sve primljene poruke su povezane.",
+    "noSubject": "(bez naslova)",
+    "customer": "Kupac",
+    "link": "Poveži",
+    "linked": "Poruka je povezana sa kupcem.",
+    "ignore": "Zanemari",
+    "ignored": "Poruka je zanemarena."
   }
 }

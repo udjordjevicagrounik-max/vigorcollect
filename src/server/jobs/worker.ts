@@ -4,6 +4,7 @@ import { logEvent } from '@/lib/log';
 import { getMasterKeyring } from '@/server/crypto/keyring';
 import { fxRatesJob } from '@/server/fx/rates-job';
 import { dispatchDue } from '@/server/integrations/outbound';
+import { dispatchIntegrationMail } from '@/server/mail/dispatch-integration';
 import { DAILY_QUEUE, runTenantDaily, tenantClockTick, type DailyJob } from './clock';
 import { EVENT_HANDLERS } from './handlers';
 import { dispatchMail } from './mail-dispatch';
@@ -171,6 +172,7 @@ export async function dispatchIntegrations(
     try {
       await withTenantJob(appPool, r.tenant_id, jobId, async (ctx) => {
         await dispatchDue(ctx.db, getMasterKeyring());
+        await dispatchIntegrationMail(ctx.db, getMasterKeyring());
       });
     } catch (error) {
       logEvent('integrations.dispatch_error', {

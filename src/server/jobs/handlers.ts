@@ -5,7 +5,8 @@ import { chromiumPath } from '@/server/documents/pdf';
 import { renderDocumentPdf } from '@/server/documents/service';
 import { applyImport } from '@/server/imports/process';
 import { fanOut, OUTBOUND_EVENT_TYPES } from '@/server/integrations/outbound';
-import { processWebhookEvent } from '@/server/integrations/process';
+import { processWebhookEvent, registerWebhookHandler } from '@/server/integrations/process';
+import { handleMailReceived, handleMailStatus } from '@/server/mail/inbox';
 import { EVENT_TRIGGERS } from '@/server/workflows/definition';
 import { runDailyWorkflows, runWorkflowsForEvent } from '@/server/workflows/engine';
 import type { EventHandlers } from './outbox';
@@ -79,6 +80,10 @@ const BASE_HANDLERS: EventHandlers = {
     logEvent('import.applied', { tenantId: ctx.tenantId, eventId: event.id, result });
   },
 };
+
+// 4.2: inbound mail types of the n8n mailbox integration.
+registerWebhookHandler('mail.received', handleMailReceived);
+registerWebhookHandler('mail.status', handleMailStatus);
 
 // 4.1: inbound webhooks are processed here (never in the request), outbound subscriptions fan out.
 // A subscribable event keeps its own handler (rules, PDF …) and additionally gets one delivery

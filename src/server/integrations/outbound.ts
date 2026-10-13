@@ -19,7 +19,9 @@ import { SIGNATURE_HEADER, signatureHeader } from './signing';
 
 export const OUTBOUND_EVENT_TYPES = [
   'mail.queued',
+  'mail.received',
   'mail.bounced',
+  'mail.failed',
   'document.rendered',
   'promise.broken',
   'promise.fulfilled',
@@ -36,7 +38,10 @@ export const BACKOFF_SECONDS = [60, 300, 1_800, 7_200, 43_200] as const;
 export const MAX_ATTEMPTS = BACKOFF_SECONDS.length + 1;
 const TIMEOUT_MS = 10_000;
 
-export type Fetch = (url: string, init: RequestInit) => Promise<{ status: number }>;
+export type Fetch = (
+  url: string,
+  init: RequestInit,
+) => Promise<{ status: number; text?: () => Promise<string> }>;
 
 /**
  * Where we may POST. https only in production; never credentials in the URL; never a literal
@@ -113,7 +118,7 @@ export async function postSigned(
   body: Record<string, unknown>,
   fetchImpl: Fetch = fetch,
   now: Date = new Date(),
-): Promise<{ status: number | null; error: string | null }> {
+): Promise<{ status: number | null; error: string | null; body?: unknown }> {
   const tenantId = await currentTenantId(db);
   const { rows } = await db.query<{ url: string | null }>(
     `SELECT config->>'outboundUrl' AS url FROM integrations WHERE id = $1 AND status = 'active'`,
@@ -136,9 +141,18 @@ export async function postSigned(
       redirect: 'error',
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
+    // The answer is untrusted too: read at most 64 KB, parse as JSON or ignore.
+    let answer: unknown = null;
+    try {
+      const text = res.text ? (await res.text()).slice(0, 65_536) : '';
+      answer = text ? (JSON.parse(text) as unknown) : null;
+    } catch {
+      answer = null;
+    }
     return {
       status: res.status,
       error: res.status >= 200 && res.status < 300 ? null : `http_${res.status}`,
+      body: answer,
     };
   } catch (error) {
     const name = error instanceof Error ? error.name : 'unknown';

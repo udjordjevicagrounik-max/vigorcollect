@@ -2,6 +2,7 @@ import { getTranslations } from 'next-intl/server';
 import { ForbiddenState } from '@/components/admin/forbidden-state';
 import { IntegrationsAdmin } from '@/components/admin/integrations-admin';
 import { PageHeader } from '@/components/admin/page-header';
+import { UnlinkedMessages } from '@/components/admin/unlinked-messages';
 import { Screen } from '@/components/shell/screen';
 import { getAuthBaseURL } from '@/server/auth/better-auth';
 import { PermissionDeniedError, permissionKeys } from '@/server/auth/permissions';
@@ -9,6 +10,7 @@ import { withTenantPage } from '@/server/auth/with-tenant';
 import { listApiKeys, NEVER_FOR_KEYS } from '@/server/integrations/api-keys';
 import { OUTBOUND_EVENT_TYPES } from '@/server/integrations/outbound';
 import { listDeadLetters, listIntegrations, listSyncRuns } from '@/server/integrations/service';
+import { linkTargets, listUnlinked } from '@/server/mail/communication';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,6 +29,9 @@ export default async function IntegrationsPage() {
         deadLetters: await listDeadLetters(ctx),
         canManage: keys.has('integration.manage'),
         grantableScopes: [...keys].filter((k) => !NEVER_FOR_KEYS.has(k)).sort(),
+        unlinked: await listUnlinked(ctx),
+        targets:
+          keys.has('integration.manage') && keys.has('customer.read') ? await linkTargets(ctx) : [],
       };
     });
   } catch (error) {
@@ -50,6 +55,11 @@ export default async function IntegrationsPage() {
         events={OUTBOUND_EVENT_TYPES}
         grantableScopes={data.grantableScopes}
         origin={origin}
+      />
+      <UnlinkedMessages
+        messages={data.unlinked}
+        customers={data.targets}
+        canManage={data.canManage}
       />
     </Screen>
   );

@@ -332,6 +332,7 @@ async function runAction(rc: RunContext, action: Action): Promise<Outcome> {
         customerId: rc.entity.customerId,
         templateId: rendered.templateId,
         sourceRunId: rc.runId,
+        caseId: rc.caseId,
       });
       await workflowEvent(rc, 'mail.queued', 'mail_outbox', mail.id, {
         customer_id: rc.entity.customerId,

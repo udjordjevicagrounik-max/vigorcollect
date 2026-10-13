@@ -595,7 +595,8 @@
       "promises": "Promises",
       "activities": "Activities",
       "cases": "Cases",
-      "documents": "Documents"
+      "documents": "Documents",
+      "communication": "Communication"
     },
     "aging": "Aging",
     "openCases": "Open cases ({n})",
@@ -765,7 +766,11 @@
         "call": "Call",
         "email": "Email",
         "note": "Note",
-        "meeting": "Meeting"
+        "meeting": "Meeting",
+        "mail": {
+          "out": "Mail sent",
+          "in": "Mail received"
+        }
       }
     }
   },
@@ -969,7 +974,8 @@
       "no_activity": "No activity",
       "unassigned_case": "Case without owner",
       "notification": "Notification",
-      "rule_proposal": "Rule proposal waits for a person"
+      "rule_proposal": "Rule proposal waits for a person",
+      "mail_undelivered": "Mail not delivered"
     },
     "actions": {
       "approval_pending": "Decide",
@@ -981,7 +987,8 @@
       "no_activity": "Contact",
       "unassigned_case": "Assign",
       "notification": "Open",
-      "rule_proposal": "Open"
+      "rule_proposal": "Open",
+      "mail_undelivered": "Open correspondence"
     },
     "messages": {
       "rule_attention": "customer needs attention",
@@ -1091,5 +1098,48 @@
       "unsupported": "not supported"
     },
     "urlPlaceholder": "https://n8n.example.com/webhook/…"
+  },
+  "communication": {
+    "empty": "No correspondence with this customer yet. Send a message from a template or as free text — the customer's replies arrive here once mail is connected (Administration → Integrations).",
+    "newTitle": "New message",
+    "replyTitle": "Reply to: {subject}",
+    "cancelReply": "New message instead of a reply",
+    "free": "Free text",
+    "template": "Template",
+    "legalEffect": "legal effect",
+    "subject": "Subject",
+    "body": "Text",
+    "send": "Send",
+    "sent": "The message is queued for sending.",
+    "sendHint": "Sent from the organization's mailbox through the integration; a demo organization sends only to the sink. Every message is logged as an activity.",
+    "reply": "Reply",
+    "openLink": "open",
+    "direction": {
+      "out": "sent",
+      "in": "received",
+      "activity": "activity"
+    },
+    "activity": {
+      "call": "call",
+      "note": "note",
+      "meeting": "meeting",
+      "email": "email"
+    },
+    "status": {
+      "captured": "in the sink",
+      "pending": "waiting",
+      "sent": "sent",
+      "failed": "not sent",
+      "bounced": "bounced"
+    },
+    "unlinkedTitle": "Unlinked messages",
+    "unlinkedDescription": "Received mail no rule could link to a customer (unknown sender or several customers with the same address). The content is untrusted and shown only as text.",
+    "unlinkedEmpty": "All received messages are linked.",
+    "noSubject": "(no subject)",
+    "customer": "Customer",
+    "link": "Link",
+    "linked": "The message is linked to the customer.",
+    "ignore": "Ignore",
+    "ignored": "The message is ignored."
   }
 }

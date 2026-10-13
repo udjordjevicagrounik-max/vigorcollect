@@ -19,6 +19,7 @@ import { listRuleProposals } from '@/server/decisions/service';
 export const ATTENTION_KINDS = [
   'approval_pending',
   'rule_proposal',
+  'mail_undelivered',
   'promise_broken',
   'workflow_failed',
   'large_overdue',
@@ -103,6 +104,41 @@ export async function listAttention(ctx: TenantContext, limit = 50): Promise<Att
         amount: null,
         currency: null,
         code: r.action_type,
+        severity: 3,
+      });
+    }
+  }
+
+  // 4.2: our mail bounced or failed for good (last 14 days), for customers in scope.
+  if (keys.has('activity.read')) {
+    const mf = scopeFilter('customers', { userId: ctx.userId, scope }, 'c', 1);
+    const undelivered = await ctx.db.query<{
+      id: string;
+      customer_id: string;
+      customer_name: string | null;
+      case_id: string | null;
+      at: Date;
+      status: string;
+    }>(
+      `SELECT m.id, m.customer_id, c.display_name AS customer_name, m.case_id,
+              coalesce(m.bounced_at, m.updated_at) AS at, m.status
+       FROM mail_outbox m JOIN customers c ON c.id = m.customer_id AND ${mf.sql}
+       WHERE m.status IN ('bounced', 'failed') AND m.customer_id IS NOT NULL
+         AND coalesce(m.bounced_at, m.updated_at) > now() - interval '14 days'
+       ORDER BY at DESC LIMIT 20`,
+      mf.params,
+    );
+    for (const r of undelivered.rows) {
+      items.push({
+        kind: 'mail_undelivered',
+        refId: r.id,
+        customerId: r.customer_id,
+        customerName: r.customer_name,
+        caseId: r.case_id,
+        since: r.at.toISOString(),
+        amount: null,
+        currency: null,
+        code: r.status,
         severity: 3,
       });
     }

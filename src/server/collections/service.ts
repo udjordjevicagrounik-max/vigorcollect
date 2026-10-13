@@ -249,7 +249,7 @@ export type CaseDetail = {
   }[];
   timeline: {
     at: string;
-    kind: 'event' | 'activity' | 'run';
+    kind: 'event' | 'activity' | 'run' | 'mail';
     type: string;
     actorName: string | null;
     data: Record<string, unknown>;
@@ -298,7 +298,7 @@ export async function getCase(ctx: TenantContext, caseId: string): Promise<CaseD
   // Timeline: domain events of the case and its promises + activities logged on the case.
   const timeline = await ctx.db.query<{
     at: Date;
-    kind: 'event' | 'activity' | 'run';
+    kind: 'event' | 'activity' | 'run' | 'mail';
     type: string;
     actor_name: string | null;
     data: Record<string, unknown>;
@@ -315,6 +315,12 @@ export async function getCase(ctx: TenantContext, caseId: string): Promise<CaseD
      UNION ALL
      SELECT r.started_at, 'run', r.status, NULL, r.explanation
      FROM workflow_runs r WHERE r.case_id = $1 AND r.status <> 'skipped'
+     UNION ALL
+     SELECT m.created_at, 'mail', 'mail.out', NULL, jsonb_build_object('kind', m.kind, 'status', m.status)
+     FROM mail_outbox m WHERE m.case_id = $1
+     UNION ALL
+     SELECT i.received_at, 'mail', 'mail.in', NULL, '{}'::jsonb
+     FROM mail_inbox i WHERE i.case_id = $1 AND NOT i.is_bounce
      ORDER BY 1 DESC LIMIT 200`,
     [caseId],
   );
