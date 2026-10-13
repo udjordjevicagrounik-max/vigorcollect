@@ -43,6 +43,39 @@ Svaka stavka: ✅ / ❌ (sa linijom u diff-u) / N/A.
 - [ ] Izlaz je `ai_suggestion`, upis kroz iste servise kao ručna akcija (pravilo 22).
 - [ ] Nepouzdan ulaz (email, komentar, import) nikad kao instrukcija; alati read-only.
 
+## Tajne po kontejneru i roli (security review 2026-10-13, odeljak E.1)
+
+- [ ] Za svaki servis u `docker-compose.yml`: koje tajne i koje DB role vidi? Nijedan proces koji
+      obrađuje nepouzdan ulaz (Chromium, parser uvoza, inbound) ne deli kontejner ni env sa
+      BYPASSRLS rolom, `vigor_migrate`-om, `PII_MASTER_KEYS` ili ključem za dešifrovanje backup-a.
+- [ ] `vigor_migrate` samo u one-shot servisu `migrate`; ključ za dešifrovanje backup-a samo u
+      `restore-test`; renderer samo `RENDER_DATABASE_URL` (`tests/unit/containers.test.ts`).
+- [ ] Inventar SECURITY DEFINER funkcija i BYPASSRLS rola: vlasnik, `search_path` (sa `pg_temp`
+      na kraju), šta vraća, da li čita objekte koje kontroliše manje privilegovana rola.
+- [ ] Backup šifrovan (`age`, javni ključ u worker-u), bez podataka `auth.session` /
+      `auth.verification`; off-site bez `--delete`; privatni ključ samo u vault-u.
+
+## Ko sme da postane checker (odeljak E.2)
+
+- [ ] Pozivnica, promena role, imenovanje vođe tima i API ključ šireg obima od `OWN` za
+      privilegovane role (owner, admin, cfo, collection_manager i svaka rola sa 🅼 /
+      `approval.*`) idu kroz `approval_requests` drugog administratora (bootstrap izuzetak: tačno
+      jedan aktivan administrator).
+- [ ] Nijedan put ne daje sebi ili drugome dozvolu checker-a bez četiri oka: izmena matrice,
+      članstvo u timu (TEAM scope), scope korisnika, API ključ (scope ≤ kreator).
+- [ ] MFA se ne može zaobići (`trustDevice`, sesija bez TOTP-a); checker je uvek osoba, nikad
+      API ključ; podnosilac ≠ odlučilac i u bazi.
+
+## Spoljni efekti, SSRF i poverenje u proxy (odeljak E.3)
+
+- [ ] Akcija sa spoljnim efektom (mejl, webhook ka n8n-u) se ne ponavlja posle rollback-a: claim
+      commit-ovan pre POST-a, POST van transakcije, `Idempotency-Key` stabilan kroz pokušaje,
+      `FOR UPDATE SKIP LOCKED` / lease za više worker-a; prijemnik deduplikuje po ključu.
+- [ ] Outbound URL koji unosi tenant: provera RAZREŠENOG IP-a (privatni, loopback, link-local,
+      CGNAT, IPv4-mapped), bez redirect-a, jedinstven kod greške (nema skenera internih servisa).
+- [ ] Klijentski IP samo iz pouzdanog kraja `X-Forwarded-For` (`TRUSTED_PROXY_HOPS`), jedan
+      izvor za rate limit, Turnstile i Better Auth (`x-client-ip` koji postavlja proxy).
+
 ## Zaštićeni fajlovi (pravilo 13)
 
 - [ ] Diff dira `src/server/auth/*`, `src/server/tenant/*`, `db/migrations/*`, RLS, `docker-compose.yml`, `CODEOWNERS` ili `CLAUDE.md`? → potpis vlasnika.
