@@ -61,7 +61,14 @@ const NAV_GROUPS: NavGroup[] = [
   },
 ];
 
-export async function AppNav({ permissions }: { permissions: readonly string[] }) {
+export async function AppNav({
+  permissions,
+  onboarding = null,
+}: {
+  permissions: readonly string[];
+  /** 5.4: shown while the onboarding checklist is not complete. */
+  onboarding?: { done: number; total: number } | null;
+}) {
   const t = await getTranslations('nav');
   // Rule 31: Resolution is hidden (not disabled) while every settlement flag is off.
   const showResolution = await isAnySettlementFlagEnabled();
@@ -77,6 +84,16 @@ export async function AppNav({ permissions }: { permissions: readonly string[] }
 
   return (
     <nav aria-label={t('label')} className="flex flex-col gap-4">
+      {onboarding ? (
+        <Link
+          href="/admin/getting-started"
+          data-nav-item="gettingStarted"
+          className="flex min-h-11 items-center justify-between rounded-md bg-brand-purple-soft px-3 font-medium text-brand-purple"
+        >
+          {t('items.gettingStarted')}
+          <span className="text-xs">{t('onboardingProgress', onboarding)}</span>
+        </Link>
+      ) : null}
       {groups.map((group) => (
         <div key={group.key} data-nav-group={group.key}>
           <p className="px-3 text-xs font-semibold uppercase tracking-wide text-text-muted">

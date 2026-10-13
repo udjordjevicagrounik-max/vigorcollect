@@ -151,6 +151,12 @@ export async function previewBulk(ctx: TenantContext, input: BulkRequest): Promi
     PERMISSION[data.bulk.action](data.entity),
   );
   await checkParams(ctx, data.bulk);
+  await ctx.audit({
+    action: 'bulk_run.previewed',
+    entityType: 'bulk_runs',
+    entityId: ctx.requestId,
+    after: { entity: data.entity, action: data.bulk.action, items: targets.length },
+  });
   return {
     count: targets.length,
     skipped: new Set(data.ids).size - targets.length,

@@ -21,19 +21,60 @@
 
 ## Aktivan zadatak
 
-**5.0 — ispravke iz security review-a 2026-10-13 urađene (`feature/security-fixes`).** Sledeće,
-redom:
+**MVP funkcionalno kompletan; sledeće: Sprint 6 staging + Agrounik pilot.**
 
-1. **Staging:** jedina blokada su pravi Turnstile ključevi (S-08). Rutinski koraci okruženja
-   (runbook, na dev-u urađeno 2026-10-13): `scripts/create-service-roles.sh` sa
-   `RENDERER_DB_PASSWORD` (rola `vigor_renderer`) PRE migracije 021; age par za backup van chata
-   (runbook „Šifrovanje backup-a") → `BACKUP_AGE_RECIPIENT` (worker) i `BACKUP_AGE_IDENTITY`
-   (samo servis `restore-test`); host cron za restore test nedeljom 03:00 UTC (dev: urađeno);
-   pravi Turnstile ključevi (S-08 — jedina preostala blokada za staging); migracije kroz
-   `docker compose --profile ops run --rm --build migrate up`.
-2. **Sprint 5 security** (BACKLOG „Iz security review-a"): P3 auth / tenant / webhook (S-13, S-14,
-   S-15, S-17, S-18 ostatak, S-19, S-20, S-22, S-27) + rola `vigor_auth` (S-03 ostatak).
-3. Zatim AI sloj predloga i izveštaji (ranije „Aktivan zadatak", nepromenjeno).
+1. **Staging:** jedina blokada su pravi Turnstile ključevi (S-08); migracije 024–026 kroz
+   `docker compose --profile ops run --rm --build migrate up`; worker sada traži `BETTER_AUTH_URL`
+   (docker-compose.yml, 5.3).
+2. **Agrounik pilot:** tenant + pozivnice → „Početak rada" (12 koraka) → uvoz → sanduče kroz
+   formu (Admin → Integracije → Pošta) → pravila → prvi digest.
+3. **Sprint 6 security** (BACKLOG „Iz security review-a", P3) + review opsega Sprinta 5
+   (`scripts/security-review-input.sh`).
+
+## Poslednja sesija — Sprint 5 (5.1–5.4, 2026-10-13)
+
+Grana `feature/sprint-5` → `develop`. Domen sekcije 12, 35, 38, 39, 51, 52, 57, 62 i 92 **nisu u
+repou** — rađeno iz teksta zadatka; pretpostavke ispod.
+
+- **5.1** `5caf95e` — sporovi (status mašina, napomena šifrovana, sporna faktura ostaje u aging-u
+  označena, pravila preskaču podsetnik — `has_open_dispute`), ponašanje pri plaćanju
+  (unwilling/unable/disputed), „sporno" na dashboard-u / 360 / listi; globalna pretraga
+  (Ctrl/Cmd+K, POST telo — upit nikad u URL-u, scope, max 20, semgrep `no-unescaped-like`); bulk
+  akcije (preview → potvrda → worker kao pokretač → izveštaj; limit `bulk_max_items`; audit po
+  stavci + run; šabloni sa pravnim dejstvom odbijeni); lista faktura. Migracija 024.
+- **5.2** `58362bd` — exportService CSV + sopstveni XLSX (zip kroz `node:zlib`, iznos = decimalni
+  string), `export_log`, async preko 5.000 redova (`export_files`, 7 dana); 6 izveštaja
+  (`docs/metrics.md`) + sačuvani izveštaji; Admin → Podešavanja (aging granice, šifarnici bez
+  brisanja, pragovi, ponderi rizika, radni dani/praznici); digest „Moj dan" 07:00 po zoni člana +
+  nedeljni menadžerski, preference. Migracija 025.
+- **5.3** `9082fd6` — forma IMAP/SMTP (tajne zapečaćene), „Proveri vezu" (worker: IMAP LOGIN +
+  SMTP EHLO/AUTH, SSRF zaštita) → n8n po tenantu; Microsoft 365 (PKCE, state vezan za sesiju,
+  refresh token kod nas, access token PATCH u n8n — ADR 0007); Google „uskoro". Migracija 026.
+- **5.4** — „Početak rada" (12 koraka, auto detekcija, u meniju dok nije 100%), i18n pokrivenost
+  runtime ključeva (test), prazna stanja na novim ekranima, Playwright 375 px: spor → bulk
+  podsetnik → CSV → izveštaj → aging → digest u sink-u. „Pošalji mi pregled sada" (Nalog →
+  Obaveštenja).
+
+### Pretpostavke i odstupanja (pročitati pre pilota)
+
+- **Sekcija 62 (MVP granica) i 92 (onboarding)** nisu u repou: 12 koraka checklist-e izvedeno iz
+  postojećih funkcija (`src/server/onboarding/service.ts`); MVP stavke iz zadatka sprinta postoje.
+- **„Proveri vezu" nije kroz n8n test workflow:** n8n IMAP čvor je samo trigger, javni API nema
+  test credential-a → probu radi worker (`node:tls`), n8n dobija credential-e tek posle uspeha.
+- **Microsoft 365:** izabrano „mi obnavljamo token i guramo ga" (n8n podržava PATCH credential-a);
+  Graph workflow-i umesto Outlook čvorova. Netestirano uživo dok ne postoji Azure aplikacija.
+- **Digest tekst** je iz `messages` (mail.digest.*), ne iz tenant šablona (BACKLOG).
+- **Pretraga i bulk preview pišu audit** (withTenant traži audit za svaki uspešan POST): pretraga
+  beleži ko je tražio i broj pogodaka, nikad upit.
+
+### Čeka Uroša
+
+- `!` komanda: commit zaštićenih (024–026, docker-compose.yml), merge → develop, push, migracije
+  (ops profil), `docker compose up -d --build app worker renderer`.
+- Azure aplikacija (runbook „Povezivanje sandučeta kroz formu") → `MS_CLIENT_ID`,
+  `MS_CLIENT_SECRET` u `.env` van sesije.
+- Dev: `MAILBOX_ALLOW_PRIVATE_HOSTS=1` u `.env` ako forma treba lokalni relay (172.17.0.1).
+- Rotirati `N8N_API_KEY` (prošao kroz chat u ranijoj sesiji); Elestio tiket za borg lozinku.
 
 ## Poslednja sesija — 5.0 ispravke iz security review-a (2026-10-13)
 

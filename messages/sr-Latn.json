@@ -26,11 +26,13 @@
       "integrations": "Integracije",
       "invoices": "Fakture",
       "reports": "Izveštaji",
-      "notifications": "Obaveštenja"
+      "notifications": "Obaveštenja",
+      "gettingStarted": "Početak rada"
     },
     "tenant": "Organizacija",
     "switchTenant": "Promeni organizaciju",
-    "account": "Nalog"
+    "account": "Nalog",
+    "onboardingProgress": "{done}/{total}"
   },
   "error": {
     "title": "Nešto nije u redu",
@@ -1570,7 +1572,9 @@
     "inAppAttention": "Prikaži „Zahteva pažnju“ na dashboard-u",
     "inAppMail": "Prikaži stavke o neisporučenoj i novoj pošti u aplikaciji",
     "save": "Sačuvaj",
-    "saved": "Podešavanja su sačuvana."
+    "saved": "Podešavanja su sačuvana.",
+    "digestNow": "Pošalji mi današnji „Moj dan“ sada",
+    "digestSent": "Poslato na vašu adresu (demo organizacija: samo u test sanduče)."
   },
   "mailbox": {
     "title": "Pošta",
@@ -1595,7 +1599,16 @@
       "smtp_insecure_auth": "SMTP: prijava bez šifrovanja nije dozvoljena — izaberite STARTTLS ili TLS.",
       "n8n_not_configured": "n8n nije podešen na serveru (N8N_BASE_URL / N8N_API_KEY).",
       "n8n_failed": "Sanduče radi, ali n8n je odbio podešavanje — pogledajte log servera.",
-      "ms_token_failed": "Microsoft 365: prijava je istekla ili je opozvana — povežite ponovo."
+      "ms_token_failed": "Microsoft 365: prijava je istekla ili je opozvana — povežite ponovo.",
+      "imap_dns_failed": "IMAP: ime servera se ne razrešava.",
+      "smtp_dns_failed": "SMTP: ime servera se ne razrešava.",
+      "imap_tls_failed": "IMAP: TLS veza nije uspela (sertifikat?).",
+      "smtp_tls_failed": "SMTP: TLS veza nije uspela (sertifikat?).",
+      "imap_insecure_auth": "IMAP: prijava bez šifrovanja nije dozvoljena.",
+      "imap_protocol_error": "IMAP: server je odgovorio neočekivano — da li je ovo IMAP port?",
+      "smtp_protocol_error": "SMTP: server je odgovorio neočekivano — da li je ovo SMTP port?",
+      "imap_timeout": "IMAP: nema odgovora na vreme.",
+      "smtp_timeout": "SMTP: nema odgovora na vreme."
     },
     "imapHost": "IMAP server",
     "imapPort": "IMAP port",
@@ -1628,5 +1641,63 @@
       "failed": "Microsoft 365: povezivanje nije završeno — pokušajte ponovo."
     },
     "google": "Google Workspace (OAuth) — uskoro. Do tada koristite IMAP/SMTP formu sa lozinkom za aplikaciju."
+  },
+  "onboarding": {
+    "title": "Početak rada",
+    "description": "Dvanaest koraka do naplate koja radi. Svaki se proverava automatski iz vaših podataka; stranica ostaje u meniju dok svi ne budu završeni.",
+    "progress": "Završeno {done} od {total} koraka",
+    "complete": "Svi koraci su završeni — stavka nestaje iz menija.",
+    "done": "završeno",
+    "todo": "za uraditi",
+    "steps": {
+      "organization": {
+        "title": "Podešavanja organizacije",
+        "hint": "Jezik, vremenska zona, izveštajna valuta i zemlja."
+      },
+      "companies": {
+        "title": "Vaše kompanije",
+        "hint": "Bar jedna aktivna kompanija koja fakturiše."
+      },
+      "calendar": {
+        "title": "Radni dani i praznici",
+        "hint": "Po kompaniji — podsetnici i obećanja ih poštuju."
+      },
+      "users": {
+        "title": "Pozovite tim",
+        "hint": "Naplatari, menadžeri, finansije — svako sa svojom ulogom."
+      },
+      "teams": {
+        "title": "Timovi",
+        "hint": "Grupišite naplatare; menadžeri vide svoj tim."
+      },
+      "customers": {
+        "title": "Uvezite kupce",
+        "hint": "CSV ili XLSX iz vašeg knjigovodstva."
+      },
+      "invoices": {
+        "title": "Uvezite otvorene fakture",
+        "hint": "Od njih kreću aging, dashboard i podsetnici."
+      },
+      "owners": {
+        "title": "Dodelite vlasnike kupcima",
+        "hint": "Kupci → izaberite → grupna akcija „Dodeli vlasnika\"."
+      },
+      "collection_settings": {
+        "title": "Podešavanja naplate",
+        "hint": "Aging razredi, politike, razlozi spora, pragovi pažnje."
+      },
+      "templates": {
+        "title": "Pregledajte šablone",
+        "hint": "Vaš ton u podsetnicima i opomenama."
+      },
+      "rules": {
+        "title": "Objavite svoja pravila",
+        "hint": "Prilagodite standardnu politiku i objavite verziju."
+      },
+      "mailbox": {
+        "title": "Povežite sanduče",
+        "hint": "Odgovori stižu u Collect, a podsetnici idu sa vaše adrese."
+      }
+    }
   }
 }

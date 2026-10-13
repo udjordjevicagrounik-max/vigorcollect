@@ -14,16 +14,18 @@ import { connect as tlsConnect, type TLSSocket } from 'node:tls';
  * and the public API has no credential test — see docs/adr/0007.
  */
 
-export type ProbeError =
-  | 'blocked_host'
-  | 'dns_failed'
-  | 'connect_failed'
-  | 'tls_failed'
-  | 'no_starttls'
-  | 'auth_failed'
-  | 'insecure_auth'
-  | 'protocol_error'
-  | 'timeout';
+export const PROBE_ERRORS = [
+  'blocked_host',
+  'dns_failed',
+  'connect_failed',
+  'tls_failed',
+  'no_starttls',
+  'auth_failed',
+  'insecure_auth',
+  'protocol_error',
+  'timeout',
+] as const;
+export type ProbeError = (typeof PROBE_ERRORS)[number];
 export type ProbeResult = { ok: true } | { ok: false; error: ProbeError };
 
 export type ImapTarget = {

@@ -31,6 +31,9 @@ const ALLOWED = new Set([
   // 5.2: Admin → Settings counts how many rows use a code (policy / stage / reason) so the screen
   // can say "in use" — a tenant-wide COUNT behind settings.read, no row or field leaves.
   'server/settings/configuration.ts',
+  // 5.4: "Getting started" asks whether customers / owners exist at all — EXISTS over the tenant
+  // behind settings.read, a yes/no per step, no row or field leaves.
+  'server/onboarding/service.ts',
 ]);
 
 function files(dir: string): string[] {

@@ -20,6 +20,7 @@ import {
 } from '@/server/exports/tables';
 import { readOutbox } from '@/server/mail/adapter';
 import { runTenantDigests, savePreferences } from '@/server/notifications/digest';
+import { onboardingState } from '@/server/onboarding/service';
 import { runReport } from '@/server/reports/service';
 import {
   saveAgingBounds,
@@ -419,5 +420,20 @@ describe('golden/db: digest (5.2)', () => {
       return runTenantDigests(job(db), new Date('2026-10-13T08:00:00Z'), keyring);
     });
     expect(out).toEqual({ sent: 0, empty: 0, failed: 0 });
+  });
+});
+
+describe('golden/db: getting started (5.4)', () => {
+  it('twelve steps detected from data; importing customers ticks the step', async () => {
+    const out = await inTenant(appPool, FX.tenantA, async (db) => {
+      const before = await onboardingState(ctxFor(db));
+      await company(db, 'Onboarding Kupac d.o.o.');
+      const after = await onboardingState(ctxFor(db));
+      return { before, after };
+    });
+    expect(out.before.total).toBe(12);
+    expect(out.after.steps.find((s) => s.key === 'customers')?.done).toBe(true);
+    expect(out.after.steps.find((s) => s.key === 'owners')?.done).toBe(true);
+    expect(out.after.done).toBeGreaterThanOrEqual(out.before.done);
   });
 });

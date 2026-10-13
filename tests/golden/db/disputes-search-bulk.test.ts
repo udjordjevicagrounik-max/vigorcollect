@@ -293,6 +293,18 @@ describe('golden/db: bulk actions (5.1)', () => {
     expect(preview.sample.map((s) => s.label)).toEqual(['Bulk Moj d.o.o.']);
   });
 
+  it('preview of a reminder with a template without legal effect counts the selection', async () => {
+    const out = await inTenant(appPool, FX.tenantA, async (db) => {
+      const a = await company(db, 'Preview Podsetnik d.o.o.');
+      return previewBulk(ctxFor(db), {
+        entity: 'customers',
+        ids: [a],
+        bulk: { action: 'send_reminder', params: { templateKey: 'reminder_overdue' } },
+      });
+    });
+    expect(out).toMatchObject({ count: 1, skipped: 0 });
+  });
+
   it('a template with legal effect is never bulk (rule 19); the tenant limit holds', async () => {
     const out = await inTenant(appPool, FX.tenantA, async (db) => {
       const a = await company(db, 'Limit A d.o.o.');

@@ -17,6 +17,7 @@ const KEYS = ['dailyDigest', 'weeklyDigest', 'inAppAttention', 'inAppMail'] as c
 export function NotificationPreferences({ current }: { current: Prefs }) {
   const t = useTranslations('notifications');
   const { run, problem, notice, busy } = useAction();
+  const now = useAction();
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -46,6 +47,21 @@ export function NotificationPreferences({ current }: { current: Prefs }) {
       </button>
       <FormError problem={problem} />
       <FormSuccess message={notice} />
+      <div className="mt-4 border-t border-border pt-4">
+        <button
+          type="button"
+          disabled={now.busy}
+          data-digest-now
+          className="min-h-11 rounded-md border border-border bg-surface px-3 text-sm font-medium text-brand-purple disabled:opacity-60"
+          onClick={() =>
+            void now.run('POST', '/api/notification-preferences/digest-now', {}, t('digestSent'))
+          }
+        >
+          {t('digestNow')}
+        </button>
+        <FormError problem={now.problem} />
+        <FormSuccess message={now.notice} />
+      </div>
     </form>
   );
 }

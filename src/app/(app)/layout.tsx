@@ -9,6 +9,7 @@ import { getAuthPool } from '@/server/auth/better-auth';
 import { activeMemberships } from '@/server/auth/memberships';
 import { permissionKeys } from '@/server/auth/permissions';
 import { withTenantPage } from '@/server/auth/with-tenant';
+import { onboardingState } from '@/server/onboarding/service';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,10 +21,13 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     const { rows } = await ctx.db.query<{ display_name: string }>(
       'SELECT display_name FROM tenants',
     );
+    const permissions = [...(await permissionKeys(ctx.db, ctx.userId))];
     return {
       tenantName: rows[0]?.display_name ?? '',
-      permissions: [...(await permissionKeys(ctx.db, ctx.userId))],
+      permissions,
       authUserId: ctx.authUserId,
+      // 5.4: "Getting started" stays in the navigation until every step is done.
+      onboarding: permissions.includes('settings.read') ? await onboardingState(ctx) : null,
     };
   });
   const memberships = await activeMemberships(getAuthPool(), shell.authUserId);
@@ -46,7 +50,14 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           ) : null}
         </div>
         {shell.permissions.includes('customer.read') ? <GlobalSearch /> : null}
-        <AppNav permissions={shell.permissions} />
+        <AppNav
+          permissions={shell.permissions}
+          onboarding={
+            shell.onboarding && !shell.onboarding.complete
+              ? { done: shell.onboarding.done, total: shell.onboarding.total }
+              : null
+          }
+        />
         <div className="flex flex-col border-t border-border pt-3" data-nav-account>
           <p className="px-3 text-xs font-semibold uppercase tracking-wide text-text-muted">
             {t('account')}

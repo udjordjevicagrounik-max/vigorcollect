@@ -26,11 +26,13 @@
       "integrations": "Integrations",
       "invoices": "Invoices",
       "reports": "Reports",
-      "notifications": "Notifications"
+      "notifications": "Notifications",
+      "gettingStarted": "Getting started"
     },
     "tenant": "Organization",
     "switchTenant": "Switch organization",
-    "account": "Account"
+    "account": "Account",
+    "onboardingProgress": "{done}/{total}"
   },
   "error": {
     "title": "Something went wrong",
@@ -1570,7 +1572,9 @@
     "inAppAttention": "Show “Needs attention” on the dashboard",
     "inAppMail": "Show undelivered and new mail items in the app",
     "save": "Save",
-    "saved": "Preferences saved."
+    "saved": "Preferences saved.",
+    "digestNow": "Send me today's “My day” now",
+    "digestSent": "Sent to your address (a demo organization: to the test inbox only)."
   },
   "mailbox": {
     "title": "Mail",
@@ -1595,7 +1599,16 @@
       "smtp_insecure_auth": "SMTP: login without encryption is not allowed — choose STARTTLS or TLS.",
       "n8n_not_configured": "n8n is not configured on the server (N8N_BASE_URL / N8N_API_KEY).",
       "n8n_failed": "The mailbox works, but n8n refused the setup — see the server log.",
-      "ms_token_failed": "Microsoft 365: the sign-in expired or was revoked — connect again."
+      "ms_token_failed": "Microsoft 365: the sign-in expired or was revoked — connect again.",
+      "imap_dns_failed": "IMAP: the server name does not resolve.",
+      "smtp_dns_failed": "SMTP: the server name does not resolve.",
+      "imap_tls_failed": "IMAP: the TLS connection failed (certificate?).",
+      "smtp_tls_failed": "SMTP: the TLS connection failed (certificate?).",
+      "imap_insecure_auth": "IMAP: login without encryption is not allowed.",
+      "imap_protocol_error": "IMAP: the server answered unexpectedly — is this the IMAP port?",
+      "smtp_protocol_error": "SMTP: the server answered unexpectedly — is this the SMTP port?",
+      "imap_timeout": "IMAP: no answer in time.",
+      "smtp_timeout": "SMTP: no answer in time."
     },
     "imapHost": "IMAP server",
     "imapPort": "IMAP port",
@@ -1628,5 +1641,63 @@
       "failed": "Microsoft 365: the connection could not be completed — try again."
     },
     "google": "Google Workspace (OAuth) — coming soon. Until then use the IMAP/SMTP form with an app password."
+  },
+  "onboarding": {
+    "title": "Getting started",
+    "description": "Twelve steps to a working collection. Each one is checked automatically from your data; this page stays in the menu until all are done.",
+    "progress": "{done} of {total} steps done",
+    "complete": "All steps are done — the item disappears from the menu.",
+    "done": "done",
+    "todo": "to do",
+    "steps": {
+      "organization": {
+        "title": "Organization settings",
+        "hint": "Language, time zone, reporting currency and country."
+      },
+      "companies": {
+        "title": "Your companies",
+        "hint": "At least one active invoicing company."
+      },
+      "calendar": {
+        "title": "Working days and holidays",
+        "hint": "Per company — reminders and promises respect them."
+      },
+      "users": {
+        "title": "Invite your team",
+        "hint": "Collectors, managers, finance — each with their role."
+      },
+      "teams": {
+        "title": "Teams",
+        "hint": "Group collectors; managers see their team."
+      },
+      "customers": {
+        "title": "Import customers",
+        "hint": "CSV or XLSX from your accounting system."
+      },
+      "invoices": {
+        "title": "Import open invoices",
+        "hint": "Aging, the dashboard and reminders start from them."
+      },
+      "owners": {
+        "title": "Assign customer owners",
+        "hint": "Customers → select → bulk action \"Assign owner\"."
+      },
+      "collection_settings": {
+        "title": "Collection settings",
+        "hint": "Aging buckets, policies, dispute reasons, attention thresholds."
+      },
+      "templates": {
+        "title": "Review the templates",
+        "hint": "Your tone in reminders and letters."
+      },
+      "rules": {
+        "title": "Publish your rules",
+        "hint": "Adjust the standard policy and publish a version."
+      },
+      "mailbox": {
+        "title": "Connect the mailbox",
+        "hint": "Replies arrive in Collect and reminders leave from your address."
+      }
+    }
   }
 }

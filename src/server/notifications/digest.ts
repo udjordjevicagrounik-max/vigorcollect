@@ -255,3 +255,36 @@ export async function digestTick(workerPool: Pool, appPool: Pool, now: Date, job
     }
   }
 }
+
+/**
+ * "Send me my digest now" (Account → Notifications): today's "My day" to the member's own
+ * address through the same way out (a demo tenant only the sink — rule 24). Does not count as
+ * the scheduled run (digest_runs untouched); with nothing to report the mail says so.
+ */
+export async function sendDigestNow(
+  ctx: TenantContext,
+  keyring: MasterKeyring = getMasterKeyring(),
+): Promise<{ transport: string }> {
+  const { rows } = await ctx.db.query<{ email: string; locale: string }>(
+    `SELECT email::text, locale FROM users WHERE id = $1 AND status = 'active'`,
+    [ctx.userId],
+  );
+  const me = rows[0];
+  if (!me) throw new PermissionDeniedError();
+  const content = (await dailyContent(ctx)) ?? {
+    kind: 'daily' as const,
+    attention: 0,
+    promisesDue: 0,
+    tasks: 0,
+    newMail: 0,
+    top: [],
+  };
+  const mail = await sendDigestMail(ctx.db, keyring, { to: me.email, locale: me.locale, content });
+  await ctx.audit({
+    action: 'digest.sent_on_request',
+    entityType: 'mail_outbox',
+    entityId: mail.id,
+    after: { kind: 'daily', transport: mail.transport },
+  });
+  return { transport: mail.transport };
+}

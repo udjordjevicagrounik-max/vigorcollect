@@ -11,7 +11,8 @@ import { likeContains, likePrefix } from '@/server/db-like';
  * open cases (by their customer), contacts (exact e-mail through the blind index — the address
  * itself is encrypted and never compared in clear). Everything goes through the CUSTOMER's
  * scopeFilter, so a member finds only what Customer 360 would show them; RLS keeps tenants apart.
- * At most 20 results. The query never reaches a log (it may be a name or an e-mail, P1).
+ * At most 20 results. The query never reaches a log or the audit (it may be a name or an e-mail,
+ * P1); the audit keeps who searched and how much was found.
  */
 
 export const SEARCH_LIMIT = 20;
@@ -143,5 +144,17 @@ export async function globalSearch(
         detail: r.stage,
       });
   }
-  return hits.slice(0, SEARCH_LIMIT);
+  const result = hits.slice(0, SEARCH_LIMIT);
+  // Access trail of a lookup (who searched, how much was found) — never the query itself.
+  await ctx.audit({
+    action: 'search.performed',
+    entityType: 'search',
+    entityId: ctx.requestId,
+    after: {
+      hits: result.length,
+      kinds: [...new Set(result.map((h) => h.kind))].sort(),
+      by_email: EMAIL.test(q),
+    },
+  });
+  return result;
 }
