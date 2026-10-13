@@ -115,7 +115,8 @@ export function TeamsAdmin({
                                   'PUT',
                                   `/api/teams/${team.id}/lead`,
                                   { userId: m.userId },
-                                  t('leadChanged'),
+                                  (status) =>
+                                    status === 202 ? t('leadApprovalRequested') : t('leadChanged'),
                                 )
                               }
                             >

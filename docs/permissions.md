@@ -108,14 +108,26 @@ Izvoz (`*.export`) ide samo kroz `exportService` koji piše `export_log` (pravil
 
 ## Korisnici: pozivnica, rola, deaktivacija (1.5)
 
-| radnja                             | potrebno                                              | napomena                                                                 |
-| ---------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------ |
-| pozivnica / ponovno slanje         | `user.create`                                         | owner poziva sve role, admin sve osim owner-a                            |
-| deaktivacija                       | `user.update`                                         | status `disabled`, nikad DELETE; ne sebe; admin ne dira owner-a          |
-| promena role (obične role)         | `user.update`                                         | odmah, uz audit; scope ostaje (širenje = `user.assign`)                  |
-| promena role koja dira owner/admin | `user.update` (podnosilac) + `user.assign` (odlučuje) | `approval_requests` `user_role.change`; podnosilac ≠ odlučilac (baza); 🅼 |
-| podešavanja tenanta                | `settings.read` / `settings.manage`                   | audit + `domain_events` `tenant_settings.updated`                        |
-| status sistema                     | `settings.read`                                       | isto što `/health`, samo čitanje                                         |
+| radnja                               | potrebno                                              | napomena                                                                   |
+| ------------------------------------ | ----------------------------------------------------- | -------------------------------------------------------------------------- |
+| pozivnica / ponovno slanje           | `user.create`                                         | owner poziva sve role, admin sve osim owner-a                              |
+| pozivnica u privilegovanu rolu       | `user.create` (podnosilac) + `user.assign` (odlučuje) | S-06: `approval_requests` `user.invite`; token i email tek posle odobrenja |
+| deaktivacija                         | `user.update`                                         | status `disabled`, nikad DELETE; ne sebe; admin ne dira owner-a            |
+| promena role (obične role)           | `user.update`                                         | odmah, uz audit; scope ostaje (širenje = `user.assign`)                    |
+| promena role koja dira privilegovanu | `user.update` (podnosilac) + `user.assign` (odlučuje) | `approval_requests` `user_role.change`; podnosilac ≠ odlučilac (baza); 🅼   |
+| imenovanje vođe tima                 | `team.manage` (podnosilac) + `user.assign` (odlučuje) | S-06: `approval_requests` `team.lead_change`; uklanjanje vođe odmah        |
+| API ključ sa obimom `ORGANIZATION`   | `integration.manage` (podnosilac) + `user.assign`     | S-06/S-16: `api_key.scope`; ključ ne radi do odobrenja; `OWN` odmah        |
+
+**Privilegovane role (security review S-06):** `owner`, `admin`, `cfo`, `collection_manager` —
+odobravaju ili nadziru druge, pa ulazak u njih (pozivnica, promena role), imenovanje vođe tima
+(TEAM scope vidi ceo tim) i API ključ šireg obima od `OWN` traže **drugog administratora**
+(`user.assign`; podnosilac ≠ odlučilac). **Bootstrap izuzetak:** tenant sa tačno jednim
+aktivnim administratorom (owner/admin) nema koga da pita — tu se izmena primenjuje odmah; od
+drugog administratora pa nadalje uvek četiri oka. API ključ: `OWN` (ne vidi podatke pod
+scope-om — ključ ništa ne poseduje) ili `ORGANIZATION` (samo ako kreator svaku izabranu dozvolu
+ima sa `ORGANIZATION`).
+| podešavanja tenanta | `settings.read` / `settings.manage` | audit + `domain_events` `tenant_settings.updated` |
+| status sistema | `settings.read` | isto što `/health`, samo čitanje |
 
 ## Obim (scope), timovi i matrica (1.6)
 
@@ -133,13 +145,13 @@ Izvoz (`*.export`) ide samo kroz `exportService` koji piše `export_log` (pravil
 
 Izuzeci od pravila 7. Svaki izuzetak mora biti ovde, sa razlogom. Ekrani i rute tenanta (sve ostalo) traže punu sesiju (lozinka + TOTP + aktivno članstvo) i `requirePermission` (1.2).
 
-| ruta                                    | metoda    | razlog                                                              | zaštita                                                                                                                                                                    |
-| --------------------------------------- | --------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/health`                               | GET       | liveness/readiness za Docker/Elestio i post-deploy smoke            | samo `status`, `db` i zbirovi poslova (pending, failed, starost, poslednji retention) — nikad podaci (ADR 0005)                                                            |
-| `/manifest.webmanifest`                 | GET       | PWA manifest                                                        | samo `productName` i boje                                                                                                                                                  |
-| `/api/auth/*`                           | GET, POST | Better Auth: prijava, MFA, reset lozinke (pre sesije po definiciji) | rate limit po IP-u, zaključavanje 5 / 15 min, isti odgovor za nepostojeći nalog, bez javne registracije (ADR 0004)                                                         |
-| `/api/invitations/accept`               | POST      | prihvatanje pozivnice (osoba još nema tenant sesiju)                | token 256 bita, jednokratan, 72 h, u bazi samo heš; Turnstile + honeypot; samo naš origin; postojeći nalog samo iz verifikovane sesije; odgovor samo kod greške (ADR 0004) |
+| ruta                                    | metoda    | razlog                                                              | zaštita                                                                                                                                                                                                                                          |
+| --------------------------------------- | --------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `/health`                               | GET       | liveness/readiness za Docker/Elestio i post-deploy smoke            | samo `status`, `db` i zbirovi poslova (pending, failed, starost, poslednji retention) — nikad podaci (ADR 0005)                                                                                                                                  |
+| `/manifest.webmanifest`                 | GET       | PWA manifest                                                        | samo `productName` i boje                                                                                                                                                                                                                        |
+| `/api/auth/*`                           | GET, POST | Better Auth: prijava, MFA, reset lozinke (pre sesije po definiciji) | rate limit po IP-u, zaključavanje 5 / 15 min, isti odgovor za nepostojeći nalog, bez javne registracije (ADR 0004)                                                                                                                               |
+| `/api/invitations/accept`               | POST      | prihvatanje pozivnice (osoba još nema tenant sesiju)                | token 256 bita, jednokratan, 72 h, u bazi samo heš; Turnstile + honeypot; samo naš origin; postojeći nalog samo iz verifikovane sesije; odgovor samo kod greške (ADR 0004)                                                                       |
 | `/api/integrations/[id]/inbound`        | POST      | webhook integracije (n8n → nas, 4.1): pozivalac nema sesiju         | HMAC-SHA256 potpis tajnom integracije + vreme ±5 min (replay), exactly-once po `external_event_id`, ≤1 MB, rate limit po IP-u; nepoznata/isključena integracija i loš potpis = isti 401; ništa se ne čuva bez važećeg potpisa; obrada u worker-u |
-| `/login`, `/login/mfa`                  | GET       | ekrani prijave (lozinka, TOTP kod)                                  | isti tekst za pogrešnu lozinku, nepostojeći i zaključan nalog; Turnstile + honeypot; rate limit i zaključavanje kroz `/api/auth/*`                                         |
-| `/invite/[token]`                       | GET       | ekran pozivnice                                                     | iskorišćen, opozvan i nepostojeći token izgledaju isto; podaci samo za važeći token                                                                                        |
-| `/settings/mfa-setup`, `/select-tenant` | GET       | koraci pre tenant sesije (obavezan TOTP, izbor organizacije)        | zahtevaju Better Auth sesiju; bez nje → `/login`; nema podataka tenanta                                                                                                    |
+| `/login`, `/login/mfa`                  | GET       | ekrani prijave (lozinka, TOTP kod)                                  | isti tekst za pogrešnu lozinku, nepostojeći i zaključan nalog; Turnstile + honeypot; rate limit i zaključavanje kroz `/api/auth/*`                                                                                                               |
+| `/invite/[token]`                       | GET       | ekran pozivnice                                                     | iskorišćen, opozvan i nepostojeći token izgledaju isto; podaci samo za važeći token                                                                                                                                                              |
+| `/settings/mfa-setup`, `/select-tenant` | GET       | koraci pre tenant sesije (obavezan TOTP, izbor organizacije)        | zahtevaju Better Auth sesiju; bez nje → `/login`; nema podataka tenanta                                                                                                                                                                          |

@@ -377,7 +377,8 @@
         "role": "Rola",
         "submit": "Pošalji pozivnicu",
         "sent": "Pozivnica je poslata. Važi 72 sata.",
-        "none": "Nemate dozvolu da pozivate korisnike."
+        "none": "Nemate dozvolu da pozivate korisnike.",
+        "approvalRequested": "Pozivnica za ovu rolu čeka odobrenje drugog administratora; email se šalje posle odobrenja."
       },
       "status": {
         "invited": "Pozvan",
@@ -403,7 +404,7 @@
       "changeRole": "Promeni rolu",
       "applyRole": "Sačuvaj rolu",
       "roleChanged": "Rola je promenjena.",
-      "approvalRequested": "Promena role vlasnika/administratora čeka odobrenje druge osobe.",
+      "approvalRequested": "Promena u ili iz role vlasnika, administratora, finansijskog direktora ili rukovodioca naplate čeka odobrenje drugog administratora.",
       "pendingApproval": "Čeka odobrenje: {role}",
       "approve": "Odobri",
       "reject": "Odbij",
@@ -479,11 +480,12 @@
       "noFreeMembers": "Svi aktivni korisnici su već u timovima.",
       "emptyTitle": "Još nema timova",
       "emptyDescription": "Napravite timove (npr. po regionu ili portfoliju) da bi referenti sa obimom „tim” videli kupce svojih kolega.",
-      "emptyMembers": "Tim još nema članova."
+      "emptyMembers": "Tim još nema članova.",
+      "leadApprovalRequested": "Imenovanje vođe tima čeka odobrenje drugog administratora."
     },
     "approvals": {
       "title": "Odobrenja",
-      "description": "Promene koje traže drugu osobu (četiri oka): role vlasnika/administratora i dozvole rola. Dok zahtev ne bude odobren, važi staro stanje.",
+      "description": "Promene koje traže drugu osobu (četiri oka): privilegovane role i pozivnice, vođe timova, API ključevi sa obimom organizacije, dozvole rola, kritične odluke. Dok zahtev ne bude odobren, važi staro stanje.",
       "pendingTitle": "Na čekanju",
       "emptyTitle": "Nema zahteva na čekanju",
       "emptyDescription": "Kada neko predloži promenu role ili dozvole, zahtev se pojavljuje ovde, a odlučuje druga osoba.",
@@ -509,7 +511,10 @@
       "openCase": "Otvori case",
       "workflowPublish": "Objava pravila — verzija {version} · otvori",
       "ruleDecision": "Odluka iz pravila: {type}",
-      "naturalPerson": "fizičko lice"
+      "naturalPerson": "fizičko lice",
+      "invite": "Pozivnica za {user} kao {role}",
+      "teamLead": "Vođa tima {team}: {user}",
+      "apiKeyScope": "API ključ „{name}“ sa obimom: {scope}"
     }
   },
   "pwa": {
@@ -1103,7 +1108,14 @@
       "failed": "neuspešno",
       "unsupported": "nije podržano"
     },
-    "urlPlaceholder": "https://n8n.example.com/webhook/…"
+    "urlPlaceholder": "https://n8n.example.com/webhook/…",
+    "keyScope": "Obim podataka",
+    "keyScopeOWN": "Samo svoje — ključ ne vidi podatke kupaca",
+    "keyScopeORGANIZATION": "Cela organizacija — traži odobrenje drugog administratora",
+    "keyScopeHint": "Obim organizacije samo za dozvole koje i sami imate za celu organizaciju.",
+    "keyPending": "čeka odobrenje",
+    "keyApprovalNote": "Ključ radi tek kad ga drugi administrator odobri (Administracija → Odobrenja).",
+    "scopeLabel": "obim: {scope}"
   },
   "communication": {
     "empty": "Još nema prepiske sa ovim kupcem. Pošaljite poruku iz šablona ili slobodnim tekstom — odgovori kupca stižu ovde kad je povezana pošta (Administracija → Integracije).",

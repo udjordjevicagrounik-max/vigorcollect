@@ -18,6 +18,8 @@ type Pending = {
   caseRef: { caseId: string; customerId: string } | null;
   workflowRef: { workflowId: string; version: number } | null;
   decisionRef: { customerId: string; decisionType: string; naturalPerson: boolean } | null;
+  teamRef: { teamName: string; leadName: string } | null;
+  apiKeyRef: { name: string; scope: string } | null;
   canDecide: boolean;
   requestedByMe: boolean;
 };
@@ -139,6 +141,15 @@ export function ApprovalsAdmin({
                     >
                       {t('legalHandover')} · {t('openCase')}
                     </a>
+                  ) : p.teamRef ? (
+                    t('teamLead', { team: p.teamRef.teamName, user: p.teamRef.leadName })
+                  ) : p.apiKeyRef ? (
+                    t('apiKeyScope', { name: p.apiKeyRef.name, scope: p.apiKeyRef.scope })
+                  ) : p.actionType === 'user.invite' ? (
+                    t('invite', {
+                      user: p.targetUser?.displayName ?? '',
+                      role: roleName(p.roleKey),
+                    })
                   ) : p.actionType === 'user_role.change' ? (
                     t('roleChange', {
                       user: p.targetUser?.displayName ?? '',

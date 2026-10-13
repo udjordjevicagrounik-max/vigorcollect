@@ -1,11 +1,21 @@
 import { z } from 'zod';
 import { ConflictError, NotFoundError, type TenantContext } from '@/server/auth/with-tenant';
 import { emitEvent } from '@/server/events';
+import {
+  closeApproval,
+  lockApproval,
+  openApproval,
+  secondAdminRequired,
+  TEAM_LEAD_ACTION,
+} from '@/server/governance/four-eyes';
 
 /**
  * Teams (task 1.6). Viewing needs `team.read`, managing `team.manage` (migration 011). One primary
  * team per person (DB unique index); the lead must be a member; lead changes write audit + a
  * domain event. Teams are archived, never deleted.
+ * Review S-06: NAMING a lead (the lead's TEAM scope sees the whole team) needs a second
+ * administrator — an approval_request 'team.lead_change' (checker `user.assign`); the bootstrap
+ * tenant with one active administrator applies it directly. Removing a lead applies at once.
  */
 
 export type Team = {
@@ -199,17 +209,55 @@ export async function setTeamLead(
   ctx: TenantContext,
   teamId: string,
   input: z.input<typeof leadSchema>,
-) {
+): Promise<{ status: 'applied' } | { status: 'approval_required'; approvalId: string }> {
   await ctx.requirePermission('team.manage');
   const { userId } = leadSchema.parse(input);
   const team = await lockTeam(ctx, teamId);
-  if (userId) {
-    const member = await ctx.db.query(
-      'SELECT 1 FROM team_members WHERE team_id = $1 AND user_id = $2',
-      [teamId, userId],
-    );
-    if (!member.rowCount) throw new ConflictError('conflict');
+  if (userId) await requireMember(ctx, teamId, userId);
+  if (team.lead_user_id === userId) return { status: 'applied' };
+  if (userId && (await secondAdminRequired(ctx.db))) {
+    const approvalId = await openApproval(ctx, {
+      actionType: TEAM_LEAD_ACTION,
+      entityType: 'teams',
+      entityId: teamId,
+      payload: { team_id: teamId, user_id: userId },
+    });
+    return { status: 'approval_required', approvalId };
   }
-  if (team.lead_user_id === userId) return;
   await writeLead(ctx, teamId, team.lead_user_id, userId);
+  return { status: 'applied' };
+}
+
+async function requireMember(ctx: TenantContext, teamId: string, userId: string) {
+  const member = await ctx.db.query(
+    'SELECT 1 FROM team_members WHERE team_id = $1 AND user_id = $2',
+    [teamId, userId],
+  );
+  if (!member.rowCount) throw new ConflictError('conflict');
+}
+
+export const leadDecisionSchema = z.object({
+  decision: z.enum(['approve', 'reject']),
+  note: z.string().trim().min(1).max(500).optional(),
+});
+
+/** Checker side of naming a team lead (review S-06). The person must still be a member. */
+export async function decideTeamLead(
+  ctx: TenantContext,
+  approvalId: string,
+  input: z.input<typeof leadDecisionSchema>,
+): Promise<{ status: 'approved' | 'rejected' }> {
+  const req = await lockApproval(ctx, approvalId, TEAM_LEAD_ACTION);
+  const { decision, note } = leadDecisionSchema.parse(input);
+  const status = decision === 'approve' ? 'approved' : 'rejected';
+  await closeApproval(ctx, approvalId, status, note);
+  if (status === 'approved') {
+    const userId = String(req.payload.user_id ?? '');
+    const team = await lockTeam(ctx, req.entityId);
+    await requireMember(ctx, req.entityId, userId);
+    if (team.lead_user_id !== userId) {
+      await writeLead(ctx, req.entityId, team.lead_user_id, userId);
+    }
+  }
+  return { status };
 }

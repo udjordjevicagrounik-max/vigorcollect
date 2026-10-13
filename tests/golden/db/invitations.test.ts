@@ -74,11 +74,13 @@ async function invite(
   let created: { invitationId: string; userId: string } | undefined;
   let token = '';
   await inTenantCommit(appPool, tenantId, async (c) => {
-    created = await createInvitation(
+    const result = await createInvitation(
       memberContext(c, tenantId, actor),
       { keyring, baseURL: BASE_URL },
       { email: to, displayName: 'Golden Invitee', roleKey },
     );
+    if (result.status !== 'sent') throw new Error('invitation waits for approval');
+    created = { invitationId: result.invitationId, userId: result.userId };
     const [mail] = await readOutbox(c, keyring, { kind: 'invitation', limit: 1 });
     token = /\/invite\/([A-Za-z0-9_-]{43})/.exec(mail?.text ?? '')?.[1] ?? '';
   });

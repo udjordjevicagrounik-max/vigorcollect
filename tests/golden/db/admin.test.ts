@@ -164,7 +164,7 @@ beforeAll(async () => {
          country_code = 'XX', default_locale = 'en'`,
       [TENANT],
     );
-    for (const role of new Set(Object.values(ROLES))) {
+    for (const role of new Set([...Object.values(ROLES), 'finance_manager'])) {
       await c.query(
         `INSERT INTO roles (tenant_id, key, is_system) VALUES ($1, $2, true)
          ON CONFLICT (tenant_id, key) DO NOTHING`,
@@ -249,12 +249,30 @@ describe('golden/db: deactivation is a status, never a DELETE, and ends access a
   });
 });
 
-describe('golden/db: role changes — direct for ordinary roles, four eyes for owner/admin', () => {
-  it('collector → cfo applies at once, keeps the narrow scope, audited', async () => {
+describe('golden/db: role changes — direct for ordinary roles, four eyes for privileged ones', () => {
+  // Review S-06: cfo and collection_manager approve or oversee others — like owner/admin they
+  // need a second administrator (before: collector → cfo applied at once).
+  it('collector → cfo (privileged) becomes an approval request; nothing changes yet', async () => {
     const r = req('admin', 'POST', `/api/users/${U.collector}/role`, { roleKey: 'cfo' });
     const res = await changeRole(r.req, params({ id: U.collector }));
+    const body = await json(res);
+    expect([res.status, body.status]).toEqual([202, 'approval_required']);
+    expect(await rolesOf(U.collector)).toEqual([{ key: 'collector', scope: 'OWN' }]);
+    const reject = req('owner1', 'POST', `/api/approvals/${String(body.approvalId)}/decision`, {
+      decision: 'reject',
+      note: 'not now',
+    });
+    expect((await decide(reject.req, params({ id: String(body.approvalId) }))).status).toBe(200);
+    expect(await rolesOf(U.collector)).toEqual([{ key: 'collector', scope: 'OWN' }]);
+  });
+
+  it('collector → finance_manager (not privileged) applies at once, keeps the narrow scope, audited', async () => {
+    const r = req('admin', 'POST', `/api/users/${U.collector}/role`, {
+      roleKey: 'finance_manager',
+    });
+    const res = await changeRole(r.req, params({ id: U.collector }));
     expect([res.status, (await json(res)).status]).toEqual([200, 'applied']);
-    expect(await rolesOf(U.collector)).toEqual([{ key: 'cfo', scope: 'OWN' }]);
+    expect(await rolesOf(U.collector)).toEqual([{ key: 'finance_manager', scope: 'OWN' }]);
     expect(await audited(r.requestId)).toEqual(['user_role.changed']);
   });
 

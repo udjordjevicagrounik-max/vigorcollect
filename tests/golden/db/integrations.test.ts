@@ -107,8 +107,8 @@ describe('golden/db: API keys (4.1)', () => {
     let keyId = '';
     await inTenantCommit(migratePool, FX.tenantA, async (db) => {
       const r = await db.query<{ id: string }>(
-        `INSERT INTO api_keys (tenant_id, name, token_prefix, key_hash, scopes, created_by)
-         VALUES ($1, 'golden key', $2, $3, ARRAY['customer.read'], $4) RETURNING id`,
+        `INSERT INTO api_keys (tenant_id, name, token_prefix, key_hash, scopes, created_by, scope, activated_at)
+         VALUES ($1, 'golden key', $2, $3, ARRAY['customer.read'], $4, 'ORGANIZATION', now()) RETURNING id`,
         [FX.tenantA, token.slice(0, 12), hashToken(token), FX.userA],
       );
       keyId = r.rows[0]?.id ?? '';

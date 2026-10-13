@@ -377,7 +377,8 @@
         "role": "Role",
         "submit": "Send invitation",
         "sent": "The invitation was sent. It is valid for 72 hours.",
-        "none": "You are not allowed to invite users."
+        "none": "You are not allowed to invite users.",
+        "approvalRequested": "An invitation to this role waits for approval by another administrator; the e-mail is sent after approval."
       },
       "status": {
         "invited": "Invited",
@@ -403,7 +404,7 @@
       "changeRole": "Change role",
       "applyRole": "Save role",
       "roleChanged": "The role was changed.",
-      "approvalRequested": "Changing an owner/administrator role waits for approval by another person.",
+      "approvalRequested": "Changing to or from an owner, administrator, CFO or collection manager role waits for approval by another administrator.",
       "pendingApproval": "Awaiting approval: {role}",
       "approve": "Approve",
       "reject": "Reject",
@@ -479,11 +480,12 @@
       "noFreeMembers": "All active users are already in teams.",
       "emptyTitle": "No teams yet",
       "emptyDescription": "Create teams (e.g. by region or portfolio) so that collectors with “team” scope see their colleagues’ customers.",
-      "emptyMembers": "The team has no members yet."
+      "emptyMembers": "The team has no members yet.",
+      "leadApprovalRequested": "Naming a team lead waits for approval by another administrator."
     },
     "approvals": {
       "title": "Approvals",
-      "description": "Changes that need a second person (four eyes): owner/administrator roles and role permissions. Until a request is approved, the old state applies.",
+      "description": "Changes that need a second person (four eyes): privileged roles and invitations, team leads, API keys with organization scope, role permissions, critical decisions. Until a request is approved, the old state applies.",
       "pendingTitle": "Pending",
       "emptyTitle": "No pending requests",
       "emptyDescription": "When someone proposes a role or permission change, the request appears here and another person decides.",
@@ -509,7 +511,10 @@
       "openCase": "Open case",
       "workflowPublish": "Publish a rule — version {version} · open",
       "ruleDecision": "Decision from a rule: {type}",
-      "naturalPerson": "natural person"
+      "naturalPerson": "natural person",
+      "invite": "Invitation of {user} as {role}",
+      "teamLead": "Team lead of {team}: {user}",
+      "apiKeyScope": "API key „{name}“ with scope: {scope}"
     }
   },
   "pwa": {
@@ -1103,7 +1108,14 @@
       "failed": "failed",
       "unsupported": "not supported"
     },
-    "urlPlaceholder": "https://n8n.example.com/webhook/…"
+    "urlPlaceholder": "https://n8n.example.com/webhook/…",
+    "keyScope": "Data scope",
+    "keyScopeOWN": "Own only — the key reaches no customer data",
+    "keyScopeORGANIZATION": "Whole organization — needs approval by another administrator",
+    "keyScopeHint": "Organization scope only for permissions you hold for the whole organization.",
+    "keyPending": "waiting for approval",
+    "keyApprovalNote": "The key works only after another administrator approves it (Administration → Approvals).",
+    "scopeLabel": "scope: {scope}"
   },
   "communication": {
     "empty": "No correspondence with this customer yet. Send a message from a template or as free text — the customer's replies arrive here once mail is connected (Administration → Integrations).",

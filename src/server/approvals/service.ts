@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { mayInvite } from '@/server/auth/invitations';
+import { decideInvitation, mayInvite, type InvitationDeps } from '@/server/auth/invitations';
 import { decideLegalHandover, LEGAL_HANDOVER_ACTION } from '@/server/collections/service';
 import {
   DECISION_APPROVAL_ACTION,
@@ -10,6 +10,14 @@ import { decidePublish, PUBLISH_ACTION } from '@/server/workflows/service';
 import { PermissionDeniedError, permissionKeys } from '@/server/auth/permissions';
 import { ConflictError, NotFoundError, type TenantContext } from '@/server/auth/with-tenant';
 import { emitEvent } from '@/server/events';
+import {
+  API_KEY_SCOPE_ACTION,
+  GOVERNANCE_CHECKER,
+  INVITE_ACTION,
+  TEAM_LEAD_ACTION,
+} from '@/server/governance/four-eyes';
+import { decideApiKeyScope } from '@/server/integrations/api-keys';
+import { decideTeamLead } from '@/server/teams/service';
 import { decideRoleChange, decisionSchema, ROLE_CHANGE_ACTION } from '@/server/users/service';
 
 /**
@@ -33,6 +41,10 @@ export const CHECKER: Record<string, string> = {
   [DECISION_APPROVAL_ACTION]: 'decision.approve',
   // 4.3, rule 11: a company's credit status proposed by the risk score.
   [RISK_OVERRIDE_ACTION]: 'approval.risk_override',
+  // Review S-06: who may become a checker — a second administrator decides.
+  [INVITE_ACTION]: GOVERNANCE_CHECKER,
+  [TEAM_LEAD_ACTION]: GOVERNANCE_CHECKER,
+  [API_KEY_SCOPE_ACTION]: GOVERNANCE_CHECKER,
 };
 export const APPROVAL_VIEW_KEYS = [
   'approval.read',
@@ -60,6 +72,9 @@ export type PendingApproval = {
   workflowRef: { workflowId: string; version: number } | null;
   /** Rule proposal (decision.approve): the customer and the proposed decision type. */
   decisionRef: { customerId: string; decisionType: string; naturalPerson: boolean } | null;
+  /** Review S-06: a team lead (team + person) or an API key wider than OWN. */
+  teamRef: { teamName: string; leadName: string } | null;
+  apiKeyRef: { name: string; scope: string } | null;
   canDecide: boolean;
   requestedByMe: boolean;
 };
@@ -84,6 +99,10 @@ export async function listPendingApprovals(ctx: TenantContext): Promise<PendingA
     workflow_version: number | null;
     decision_type: string | null;
     natural_person: boolean | null;
+    team_name: string | null;
+    lead_name: string | null;
+    api_key_name: string | null;
+    api_key_scope: string | null;
   }>(
     `SELECT a.id, a.action_type, a.created_at, a.requested_by, r.display_name AS requester_name,
             a.payload->>'role_key' AS role_key, a.payload->>'permission_key' AS permission_key,
@@ -94,10 +113,15 @@ export async function listPendingApprovals(ctx: TenantContext): Promise<PendingA
             CASE WHEN a.action_type = 'workflow.publish' THEN (a.payload->>'workflow_id')::uuid END AS workflow_id,
             CASE WHEN a.action_type = 'workflow.publish' THEN (a.payload->>'version')::int END AS workflow_version,
             CASE WHEN a.action_type IN ('decision.approve', 'customer.risk_override') THEN a.payload->>'decision_type' END AS decision_type,
-            (a.payload->>'natural_person')::boolean AS natural_person
+            (a.payload->>'natural_person')::boolean AS natural_person,
+            tm.name AS team_name, lead.display_name AS lead_name,
+            k.name AS api_key_name, a.payload->>'scope' AS api_key_scope
      FROM approval_requests a
      JOIN users r ON r.id = a.requested_by
      LEFT JOIN users t ON a.entity_type = 'users' AND t.id = a.entity_id
+     LEFT JOIN teams tm ON a.entity_type = 'teams' AND tm.id = a.entity_id
+     LEFT JOIN users lead ON a.action_type = 'team.lead_change' AND lead.id = (a.payload->>'user_id')::uuid
+     LEFT JOIN api_keys k ON a.entity_type = 'api_keys' AND k.id = a.entity_id
      WHERE a.status = 'pending' AND a.action_type = ANY($1::text[])
      ORDER BY a.created_at`,
     [Object.keys(CHECKER)],
@@ -127,6 +151,8 @@ export async function listPendingApprovals(ctx: TenantContext): Promise<PendingA
       r.workflow_id && r.workflow_version
         ? { workflowId: r.workflow_id, version: r.workflow_version }
         : null,
+    teamRef: r.team_name ? { teamName: r.team_name, leadName: r.lead_name ?? '' } : null,
+    apiKeyRef: r.api_key_name ? { name: r.api_key_name, scope: r.api_key_scope ?? '' } : null,
     canDecide: r.requested_by !== ctx.userId && mine.has(CHECKER[r.action_type] ?? ''),
     requestedByMe: r.requested_by === ctx.userId,
   }));
@@ -297,6 +323,7 @@ export async function decideApproval(
   ctx: TenantContext,
   approvalId: string,
   input: z.input<typeof decisionSchema>,
+  deps?: InvitationDeps,
 ): Promise<{ status: 'approved' | 'rejected' }> {
   const { rows } = await ctx.db.query<{ action_type: string }>(
     'SELECT action_type FROM approval_requests WHERE id = $1',
@@ -311,5 +338,11 @@ export async function decideApproval(
   if (type === DECISION_APPROVAL_ACTION) return decideDecisionApproval(ctx, approvalId, input);
   if (type === RISK_OVERRIDE_ACTION)
     return decideDecisionApproval(ctx, approvalId, input, RISK_OVERRIDE_ACTION);
+  if (type === INVITE_ACTION) {
+    if (!deps) throw new ConflictError('unsupported');
+    return decideInvitation(ctx, deps, approvalId, input);
+  }
+  if (type === TEAM_LEAD_ACTION) return decideTeamLead(ctx, approvalId, input);
+  if (type === API_KEY_SCOPE_ACTION) return decideApiKeyScope(ctx, approvalId, input);
   throw new ConflictError('unsupported');
 }

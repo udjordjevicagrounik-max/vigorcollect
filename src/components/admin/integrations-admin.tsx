@@ -25,9 +25,11 @@ type ApiKey = {
   name: string;
   tokenPrefix: string;
   scopes: string[];
+  scope: 'OWN' | 'ORGANIZATION';
   rateLimitPerMinute: number;
   lastUsedAt: string | null;
   revokedAt: string | null;
+  pendingApproval: boolean;
 };
 type SyncRun = {
   id: string;
@@ -91,6 +93,7 @@ export function IntegrationsAdmin({
   const { run, problem, notice, busy } = useAction();
   const [created, setCreated] = useState<{ secret: string; inboundUrl: string } | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [keyAwaitsApproval, setKeyAwaitsApproval] = useState(false);
   const [formProblem, setFormProblem] = useState<FormProblem | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -125,11 +128,13 @@ export function IntegrationsAdmin({
       name: String(form.get('keyName') ?? ''),
       scopes: form.getAll('scopes').map(String),
       rateLimitPerMinute: Number(form.get('rate') ?? 60),
+      scope: form.get('keyScope') === 'ORGANIZATION' ? 'ORGANIZATION' : 'OWN',
     });
     setPending(false);
-    const body = res.json as { token?: string } | null;
+    const body = res.json as { token?: string; approvalId?: string | null } | null;
     if (res.status === 201 && body?.token) {
       setToken(body.token);
+      setKeyAwaitsApproval(Boolean(body.approvalId));
       return;
     }
     setFormProblem(apiProblem(res, tErrors));
@@ -288,12 +293,15 @@ export function IntegrationsAdmin({
                   <span className="font-medium text-text">{k.name}</span>{' '}
                   <code className="text-text-muted">{k.tokenPrefix}…</code>
                   <span className="block break-words text-xs text-text-muted">
-                    {k.scopes.join(', ')} · {t('rate', { n: k.rateLimitPerMinute })} ·{' '}
+                    {k.scopes.join(', ')} · {t('scopeLabel', { scope: t(`keyScope${k.scope}`) })} ·{' '}
+                    {t('rate', { n: k.rateLimitPerMinute })} ·{' '}
                     {k.revokedAt
                       ? t('revoked')
-                      : k.lastUsedAt
-                        ? t('lastUsed', { at: k.lastUsedAt.slice(0, 16).replace('T', ' ') })
-                        : t('neverUsed')}
+                      : k.pendingApproval
+                        ? t('keyPending')
+                        : k.lastUsedAt
+                          ? t('lastUsed', { at: k.lastUsedAt.slice(0, 16).replace('T', ' ') })
+                          : t('neverUsed')}
                   </span>
                 </span>
                 {canManage && !k.revokedAt ? (
@@ -316,6 +324,11 @@ export function IntegrationsAdmin({
           token ? (
             <div className="flex flex-col gap-2" data-api-key-created>
               <OnceBox label={t('token')} value={token} hint={t('tokenHint')} />
+              {keyAwaitsApproval ? (
+                <p className="text-sm text-text" data-api-key-pending>
+                  {t('keyApprovalNote')}
+                </p>
+              ) : null}
               <button type="button" className={button} onClick={() => window.location.reload()}>
                 {t('done')}
               </button>
@@ -343,6 +356,16 @@ export function IntegrationsAdmin({
                 defaultValue={60}
                 className={input}
               />
+              <fieldset className="flex flex-col gap-1">
+                <legend className="text-sm font-medium text-text">{t('keyScope')}</legend>
+                <p className="text-xs text-text-muted">{t('keyScopeHint')}</p>
+                {(['OWN', 'ORGANIZATION'] as const).map((s) => (
+                  <label key={s} className="flex min-h-11 items-center gap-2 text-sm text-text">
+                    <input type="radio" name="keyScope" value={s} defaultChecked={s === 'OWN'} />{' '}
+                    {t(`keyScope${s}`)}
+                  </label>
+                ))}
+              </fieldset>
               <fieldset className="flex flex-col gap-1">
                 <legend className="text-sm font-medium text-text">{t('scopes')}</legend>
                 <p className="text-xs text-text-muted">{t('scopesHint')}</p>
