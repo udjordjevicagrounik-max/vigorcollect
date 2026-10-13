@@ -295,6 +295,7 @@
         "customer_country": "Država kupca",
         "customer_registration_number": "Matični broj kupca",
         "customer_external_id": "Šifra kupca u ERP-u",
+        "customer_is_natural_person": "Fizičko lice (da/ne)",
         "buyer_reference": "Referenca kupca",
         "order_reference": "Broj narudžbenice"
       },
@@ -311,7 +312,8 @@
         "invalid_currency": "valuta nije ISO kod",
         "invalid_country": "država nije ISO kod",
         "duplicate_in_file": "isti ID se ponavlja u fajlu",
-        "invalid_value": "neispravna vrednost"
+        "invalid_value": "neispravna vrednost",
+        "invalid_flag": "fizičko lice: upišite da ili ne"
       },
       "preview": {
         "title": "Pregled",
@@ -342,7 +344,8 @@
         "open_amount_increased": "saldo je veći nego ranije",
         "currency_changed": "promenjena valuta",
         "customer_changed": "faktura je sada na drugom kupcu",
-        "rollback_blocked": "faktura je u međuvremenu menjana — nije poništena"
+        "rollback_blocked": "faktura je u međuvremenu menjana — nije poništena",
+        "review_required": "kupac za proveru: možda fizičko lice — nije uvezeno"
       },
       "rolledBack": "Uvoz je poništen: vraćeno {reverted}, ostalo za odluku {blocked}."
     },
@@ -358,6 +361,14 @@
         "failed": "neuspešan",
         "cancelled": "otkazan",
         "rolled_back": "poništen"
+      }
+    },
+    "suspicious": {
+      "title": "Kupci za proveru ({n})",
+      "description": "Raniji uvozi su ove kupce napravili kao pravna lica, a po pravilima njihove zemlje poreski broj liči na lični broj ili ne odgovara nijednom broju privrednog subjekta. Ništa nije menjano: otvorite kupca i ispravite ga — fizičko lice ne sme da dobije automatsku odluku sa pravnim dejstvom.",
+      "reason": {
+        "personal_identifier": "broj liči na lični broj (JMBG)",
+        "no_business_identifier": "broj ne odgovara nijednom broju privrednog subjekta"
       }
     }
   },

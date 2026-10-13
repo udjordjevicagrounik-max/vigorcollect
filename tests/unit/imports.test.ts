@@ -9,6 +9,7 @@ import {
   validateRows,
   type Mapping,
 } from '@/server/imports/rows';
+import { classifyParty, parseYesNo } from '@/server/imports/party';
 import { readXlsx, XlsxError } from '@/server/imports/xlsx';
 import { buildXlsx } from './fixtures/xlsx-builder';
 
@@ -213,5 +214,34 @@ describe('imports: demo file (scripts/demo-import)', () => {
     const results = validateRows(grid, mapping, { currency: 'EUR', country: 'RS' });
     expect(results.filter((r) => !r.ok)).toEqual([]);
     expect(results).toHaveLength(40);
+  });
+});
+
+// Review S-02: who is the customer of a row — by the country rules and the optional column.
+describe('imports: party classification (natural persons never become companies)', () => {
+  const RS = { natural_person: '^[0-9]{13}$', company: '^[0-9]{9}$' };
+  it.each([
+    ['0101990710006', null, 'consumer'],
+    ['101234567', null, 'company'],
+    ['DEMO-1', null, 'uncertain'],
+    ['0101990710006', false, 'uncertain'], // "not a natural person" with a personal id
+    ['101234567', true, 'sole_trader'],
+    ['0101990710006', true, 'consumer'],
+    ['ABC', true, 'uncertain'],
+    ['DEMO-1', false, 'company'], // the file vouches; no rule contradicts
+  ] as const)('RS %s, stated %s → %s', (id, stated, kind) => {
+    expect(classifyParty(RS, id, stated)).toBe(kind);
+  });
+
+  it('a country without rules cannot be judged unless the file says so', () => {
+    expect(classifyParty({}, '123456789', null)).toBe('uncertain');
+    expect(classifyParty({}, '123456789', false)).toBe('company');
+    expect(classifyParty({ natural_person: '([' }, '1', null)).toBe('uncertain'); // broken rule
+  });
+
+  it('the column: yes / no / empty, anything else is a row error', () => {
+    expect(['da', 'Yes', 'X', ''].map(parseYesNo)).toEqual([true, true, true, null]);
+    expect(['ne', 'NO', '0'].map(parseYesNo)).toEqual([false, false, false]);
+    expect(parseYesNo('možda')).toBe('invalid');
   });
 });

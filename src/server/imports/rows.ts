@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { fromMinor, toMinor } from '@/server/fx/money';
+import { parseYesNo } from './party';
 import type { Grid } from './xlsx';
 
 /**
@@ -24,6 +25,8 @@ export const IMPORT_FIELDS = [
   'customer_country',
   'customer_registration_number',
   'customer_external_id',
+  // Review S-02: "is the customer a natural person?" (yes / no / empty) — optional.
+  'customer_is_natural_person',
   'buyer_reference',
   'order_reference',
 ] as const;
@@ -101,6 +104,15 @@ const SYNONYMS: Record<ImportField, string[]> = {
     'registration_number',
   ],
   customer_external_id: ['customer_external_id', 'sifra kupca', 'customer_id', 'id kupca'],
+  customer_is_natural_person: [
+    'customer_is_natural_person',
+    'is_natural_person',
+    'natural_person',
+    'natural person',
+    'fizicko lice',
+    'fizicko',
+    'potrosac',
+  ],
   buyer_reference: ['buyer_reference', 'referenca kupca', 'poziv na broj'],
   order_reference: ['order_reference', 'narudzbenica', 'order', 'po number'],
 };
@@ -216,6 +228,8 @@ export type ImportRow = {
   customerCountry: string;
   customerRegistrationNumber: string | null;
   customerExternalId: string | null;
+  /** Stated in the file (S-02); null = not stated — the country's identifier rules decide. */
+  customerIsNaturalPerson: boolean | null;
   buyerReference: string | null;
   orderReference: string | null;
 };
@@ -284,6 +298,14 @@ function rowSchema(mapping: Mapping, defaults: RowDefaults) {
         .pipe(z.string().regex(/^[A-Z]{2}$/, 'invalid_country')),
       customer_registration_number: optionalText(40),
       customer_external_id: optionalText(200),
+      customer_is_natural_person: z.string().transform((v, ctx) => {
+        const flag = parseYesNo(v);
+        if (flag === 'invalid') {
+          ctx.addIssue({ code: 'custom', message: 'invalid_flag' });
+          return null;
+        }
+        return flag;
+      }),
       buyer_reference: optionalText(200),
       order_reference: optionalText(200),
     })
@@ -359,6 +381,7 @@ export function validateRows(grid: Grid, mapping: Mapping, defaults: RowDefaults
         customerCountry: r.customer_country,
         customerRegistrationNumber: r.customer_registration_number,
         customerExternalId: r.customer_external_id,
+        customerIsNaturalPerson: r.customer_is_natural_person,
         buyerReference: r.buyer_reference,
         orderReference: r.order_reference,
       },

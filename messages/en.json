@@ -295,6 +295,7 @@
         "customer_country": "Customer country",
         "customer_registration_number": "Customer registration no.",
         "customer_external_id": "Customer ID in ERP",
+        "customer_is_natural_person": "Natural person (yes/no)",
         "buyer_reference": "Buyer reference",
         "order_reference": "Purchase order"
       },
@@ -311,7 +312,8 @@
         "invalid_currency": "currency is not an ISO code",
         "invalid_country": "country is not an ISO code",
         "duplicate_in_file": "the same ID repeats in the file",
-        "invalid_value": "invalid value"
+        "invalid_value": "invalid value",
+        "invalid_flag": "natural person: use yes or no"
       },
       "preview": {
         "title": "Preview",
@@ -342,7 +344,8 @@
         "open_amount_increased": "open amount is higher than before",
         "currency_changed": "currency changed",
         "customer_changed": "invoice now belongs to another customer",
-        "rollback_blocked": "invoice was changed meanwhile — not undone"
+        "rollback_blocked": "invoice was changed meanwhile — not undone",
+        "review_required": "customer to check: possibly a natural person — not imported"
       },
       "rolledBack": "Import undone: {reverted} reverted, {blocked} left to decide."
     },
@@ -358,6 +361,14 @@
         "failed": "failed",
         "cancelled": "cancelled",
         "rolled_back": "undone"
+      }
+    },
+    "suspicious": {
+      "title": "Customers to check ({n})",
+      "description": "Earlier imports created these customers as companies, but by the rules of their country the tax ID looks like a natural person's or matches no business ID. Nothing has been changed: open the customer and correct it — a natural person must not receive automatic decisions with legal effect.",
+      "reason": {
+        "personal_identifier": "the ID looks like a personal number",
+        "no_business_identifier": "the ID matches no business ID"
       }
     }
   },
