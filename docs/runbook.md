@@ -298,6 +298,12 @@ Posle deploya: smoke (`/health` 200 + `X-App-Version` = očekivani tag).
 
 - **Off-site:** `BACKUP_S3_*` → `rclone sync` iz worker-a; bez `BACKUP_S3_BUCKET` →
   `offsite: not_configured` u `ops_runs` (blokada za staging).
+- **Kopija na hostu** (P1, Uroš, 2026-10-13): cron na Elestio hostu u 03:30 (vreme hosta) —
+  posle backup-a u 02:00 UTC — `docker cp` kopira backup iz kontejnera u `/opt/app/backups` na
+  hostu (`daily/` + `monthly/`); retencija na hostu 30 dana. Tako lokalne kopije preživljavaju
+  rekreiranje kontejnera. Crontab je na hostu, nije u repou: proveriti ga posle izmene servera
+  (`crontab -l` na hostu) i da `/opt/app/backups` dobija nov dnevni direktorijum. Ovo **nije**
+  off-site kopija (isti server) — off-site i dalje ide kroz `BACKUP_S3_*`.
 - **Restore test:** `scripts/restore-test.sh` (kao `vigor_restore`) vraća poslednji dump glavne
   baze u `<db>_restore_test` (`--no-owner`), poredi broj redova svake tabele sa dump-om, briše kopiju, upisuje rezultat.
 - **Pravi restore (incident):** `createdb collect_new && pg_restore -d collect_new <dump>`, pa
