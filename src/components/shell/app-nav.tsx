@@ -6,6 +6,7 @@ type NavGroupKey = 'work' | 'resolution' | 'intelligence' | 'admin';
 type NavItemKey =
   | 'home'
   | 'customers'
+  | 'invoices'
   | 'import'
   | 'users'
   | 'teams'
@@ -27,6 +28,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { key: 'home', href: '/', anyOf: [] },
       { key: 'customers', href: '/customers', anyOf: ['customer.read'] },
+      { key: 'invoices', href: '/invoices', anyOf: ['invoice.read'] },
       { key: 'import', href: '/import', anyOf: ['import.read', 'import.create'] },
     ],
   },

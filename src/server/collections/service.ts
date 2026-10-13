@@ -35,7 +35,7 @@ const amountSchema = z.string().regex(/^\d{1,16}(\.\d{1,2})?$/);
 const dateSchema = z.iso.date();
 
 /** The customer within the caller's scope (for `permission`) or 404. */
-async function scopedCustomer(ctx: TenantContext, customerId: string, permission: string) {
+export async function scopedCustomer(ctx: TenantContext, customerId: string, permission: string) {
   const { scope } = await ctx.requirePermission(permission);
   const filter = scopeFilter('customers', { userId: ctx.userId, scope }, 'c', 2);
   const { rows } = await ctx.db.query<{ id: string; is_natural_person: boolean }>(

@@ -12,3 +12,8 @@ export function formatAmount(decimal: string, currency: string, locale: string):
     return `${decimal} ${currency}`;
   }
 }
+
+/** true for "0", "0.00", "-0.00" — a decimal string compared without a float (rule 18). */
+export function isZeroAmount(decimal: string): boolean {
+  return /^-?0*(\.0*)?$/.test(decimal.trim()) || decimal.trim() === '';
+}

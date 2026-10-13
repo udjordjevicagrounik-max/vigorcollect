@@ -8,11 +8,13 @@ import { Thread } from '@/components/communication/thread';
 import { RiskPanel } from '@/components/risk/risk-panel';
 import { AgingBars } from '@/components/receivables/aging-bars';
 import { CustomerActions, PromiseActions } from '@/components/receivables/customer-actions';
+import { DisputePanel, PaymentBehaviour } from '@/components/receivables/dispute-actions';
 import { Screen } from '@/components/shell/screen';
 import { formatAmount } from '@/lib/format-amount';
 import { PermissionDeniedError, permissionKeys } from '@/server/auth/permissions';
 import { NotFoundError, withTenantPage } from '@/server/auth/with-tenant';
 import { localToday } from '@/server/collections/service';
+import { listDisputes } from '@/server/disputes/service';
 import { listDocuments } from '@/server/documents/service';
 import { emailTemplateOptions, listThread } from '@/server/mail/communication';
 import { getRisk } from '@/server/risk/service';
@@ -35,6 +37,7 @@ const TABS = [
   'promises',
   'activities',
   'cases',
+  'disputes',
   'communication',
   'risk',
   'documents',
@@ -47,6 +50,7 @@ const TAB_PERMISSION: Record<Tab, string> = {
   promises: 'promise.read',
   activities: 'activity.read',
   cases: 'case.read',
+  disputes: 'dispute.read',
   communication: 'activity.read',
   risk: 'customer.read',
   documents: 'document.read',
@@ -54,6 +58,7 @@ const TAB_PERMISSION: Record<Tab, string> = {
 const KPIS = ['exposure', 'overdue', 'oldest', 'promises'] as const;
 const CURRENT = 'page' as const;
 const OVERDUE = 'overdue' as const;
+const DISPUTED = 'disputed' as const;
 const NONE = '—' as const;
 
 const paramsSchema = z.object({ id: z.uuid() });
@@ -113,6 +118,10 @@ export default async function Customer360Page({
         outcomes: await codeLabels(ctx, 'activity_outcome', locale),
         nextActions: await codeLabels(ctx, 'next_action', locale),
         reasons: await codeLabels(ctx, 'adjustment_reason', locale),
+        disputeReasons: await codeLabels(ctx, 'dispute_reason', locale),
+        behaviours: await codeLabels(ctx, 'payment_behaviour', locale),
+        disputes:
+          active === 'disputes' ? await listDisputes(ctx, { customerId: id, status: 'all' }) : [],
         documents: active === 'documents' ? await listDocuments(ctx, id) : [],
         thread: active === 'communication' ? await listThread(ctx, id) : [],
         risk: active === 'risk' ? await getRisk(ctx, id) : null,
@@ -147,6 +156,23 @@ export default async function Customer360Page({
           {t(`statuses.${c.status as 'active' | 'inactive' | 'blocked'}`)} ·{' '}
           {c.ownerName ?? t('noOwner')}
         </p>
+        <div className="mt-2 flex flex-wrap items-center gap-3">
+          <PaymentBehaviour
+            customerId={c.id}
+            current={c.paymentBehaviour}
+            options={Object.entries(data.behaviours).map(([code, label]) => ({ code, label }))}
+            canEdit={data.keys.includes('customer.update')}
+          />
+          {c.openDisputes ? (
+            <Link
+              href={`/customers/${c.id}?tab=disputes`}
+              className="rounded-md bg-status-warning-bg px-2 py-1 text-sm text-status-warning-fg"
+              data-disputed={c.disputed}
+            >
+              {t('disputedBadge', { n: c.openDisputes, amount: money(c.disputed) })}
+            </Link>
+          ) : null}
+        </div>
       </header>
       <dl className="grid grid-cols-2 gap-3 md:grid-cols-4" data-customer-kpis>
         {KPIS.map((k) => {
@@ -236,10 +262,19 @@ export default async function Customer360Page({
             empty={t('empty.invoices')}
             items={data.invoices.map((i) => ({
               key: i.id,
-              attr: i.isOverdue ? OVERDUE : i.status,
-              title: `${i.number} · ${money(i.amountOpen, i.currency)}`,
+              attr: i.isDisputed ? DISPUTED : i.isOverdue ? OVERDUE : i.status,
+              title: `${i.number} · ${money(i.amountOpen, i.currency)}${i.isDisputed ? ` · ${t('disputedMark')}` : ''}`,
               line: `${t('invoiceLine', { total: money(i.amountTotal, i.currency), due: i.dueDate })} · ${t(`invoiceStatus.${i.status as 'open'}`)}${i.isOverdue ? ` · ${t('days', { n: i.daysOverdue })}` : ''}`,
             }))}
+          />
+        ) : null}
+        {data.active === 'disputes' ? (
+          <DisputePanel
+            customerId={c.id}
+            disputes={data.disputes}
+            openInvoices={data.openInvoices}
+            reasons={Object.entries(data.disputeReasons).map(([code, label]) => ({ code, label }))}
+            permissions={data.keys}
           />
         ) : null}
         {data.active === 'payments' ? (

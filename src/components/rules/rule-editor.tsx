@@ -39,7 +39,9 @@ const FIELDS = [
   'owner',
   'case_stage',
   'is_natural_person',
+  'has_open_dispute',
 ] as const;
+const BOOLEAN_FIELDS: readonly string[] = ['is_natural_person', 'has_open_dispute'];
 const OPS = ['eq', 'ne', 'gt', 'gte', 'lt', 'lte', 'in'] as const;
 const ACTIONS = [
   'create_case',
@@ -137,7 +139,7 @@ export function RuleEditor({
     setDef({ ...def, actions: def.actions.map((x, j) => (j === i ? a : x)) });
 
   function conditionValue(c: Condition, raw: string): Condition['value'] {
-    if (c.field === 'is_natural_person') return raw === 'true';
+    if (BOOLEAN_FIELDS.includes(c.field)) return raw === 'true';
     if (c.field === 'days_overdue') return toInt(raw);
     if (c.op === 'in')
       return raw
@@ -317,7 +319,7 @@ export function RuleEditor({
                     setCondition(i, {
                       field: e.target.value,
                       op: 'eq',
-                      value: e.target.value === 'is_natural_person' ? false : '',
+                      value: BOOLEAN_FIELDS.includes(e.target.value) ? false : '',
                     })
                   }
                 >
@@ -345,7 +347,7 @@ export function RuleEditor({
                     </option>
                   ))}
                 </select>
-                {c.field === 'is_natural_person' ? (
+                {BOOLEAN_FIELDS.includes(c.field) ? (
                   <select
                     className={field}
                     aria-label={t('value')}

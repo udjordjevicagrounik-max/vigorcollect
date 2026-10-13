@@ -120,6 +120,14 @@ export default async function HomePage({
           definitionLabel={t('definition')}
         />
         <KpiCard
+          id="disputed"
+          label={t('kpi.disputed.label')}
+          value={t('kpi.disputed.count', { amount: money(d.disputedTotal), n: d.openDisputes })}
+          definition={t('kpi.disputed.definition')}
+          definitionLabel={t('definition')}
+          note={fxNote}
+        />
+        <KpiCard
           id="open_cases"
           label={t('kpi.open_cases.label')}
           value={d.openCases}

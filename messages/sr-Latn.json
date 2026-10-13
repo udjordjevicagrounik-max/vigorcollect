@@ -23,7 +23,8 @@
       "rules": "Pravila",
       "templates": "Šabloni",
       "approvals": "Odobrenja",
-      "integrations": "Integracije"
+      "integrations": "Integracije",
+      "invoices": "Fakture"
     },
     "tenant": "Organizacija",
     "switchTenant": "Promeni organizaciju",
@@ -183,7 +184,9 @@
     "self_action": "Ovu radnju ne možete izvršiti nad sopstvenim nalogom — zamolite drugog administratora.",
     "last_owner": "Ovo je jedini vlasnik organizacije; prvo dodelite vlasnika nekom drugom.",
     "not_ready": "PDF se još pravi. Sačekajte nekoliko sekundi i pokušajte ponovo.",
-    "unsupported": "Ova vrsta zahteva se još ne odlučuje na ovom mestu."
+    "unsupported": "Ova vrsta zahteva se još ne odlučuje na ovom mestu.",
+    "limit_exceeded": "Previše stavki za jednu grupnu akciju — suzite izbor (limit je u Admin → Podešavanja).",
+    "not_bulk": "Ova akcija traži odluku po stavci (pravno dejstvo ili četiri oka) i ne može grupno."
   },
   "dashboard": {
     "title": "Pregled naplate",
@@ -225,6 +228,11 @@
       "collection_rate": {
         "label": "Stopa naplate",
         "definition": "Naplaćeno (30 dana) ÷ (naplaćeno + dospelo ukupno), u procentima. Korekcije ne ulaze."
+      },
+      "disputed": {
+        "label": "Sporno",
+        "definition": "Otvoren iznos faktura u otvorenom sporu ili sporu u obradi (izveštajna valuta). I dalje su u dospelom i aging-u; prikazano zasebno, podsetnici se za njih ne šalju.",
+        "count": "{amount} · sporova: {n}"
       }
     },
     "aging": {
@@ -562,7 +570,9 @@
       "oldest": "Najstarije",
       "status": "Status",
       "owner": "Vlasnik",
-      "risk": "Rizik"
+      "risk": "Rizik",
+      "disputed": "Sporno",
+      "behaviour": "Ponašanje"
     },
     "emptyTitle": "Nema kupaca za ovaj prikaz",
     "emptyDescription": "Promenite pretragu ili filtere. Ako još niste uvezli fakture, kupci nastaju automatski pri uvozu.",
@@ -576,7 +586,9 @@
       "delete": "Obriši filter {name}",
       "deleteShort": "×",
       "confirmDelete": "Obriši?"
-    }
+    },
+    "disputedLine": "sporno {amount}",
+    "select": "Izaberi za grupnu akciju"
   },
   "customer360": {
     "back": "← Kupci",
@@ -618,7 +630,8 @@
       "cases": "Case-ovi",
       "documents": "Dokumenti",
       "communication": "Komunikacija",
-      "risk": "Rizik"
+      "risk": "Rizik",
+      "disputes": "Sporovi"
     },
     "aging": "Aging",
     "openCases": "Otvoreni case-ovi ({n})",
@@ -673,7 +686,9 @@
       "dunning_letter": "Opomena",
       "statement": "IOS"
     },
-    "pdfPending": "PDF u izradi"
+    "pdfPending": "PDF u izradi",
+    "disputedBadge": "Sporno: {n} otvoreno · {amount}",
+    "disputedMark": "sporno"
   },
   "collections": {
     "actionsLabel": "Akcije nad kupcem",
@@ -864,7 +879,8 @@
       "team": "tim",
       "owner": "vlasnik",
       "case_stage": "faza case-a",
-      "is_natural_person": "fizičko lice"
+      "is_natural_person": "fizičko lice",
+      "has_open_dispute": "Otvoren spor"
     },
     "ops": {
       "eq": "=",
@@ -1242,5 +1258,129 @@
       "unsupported": "nije podržan (vidi dokumentaciju integracije)"
     },
     "outOf": "od 100"
+  },
+  "disputes": {
+    "behaviour": "Ponašanje pri plaćanju",
+    "behaviourNone": "nije procenjeno",
+    "behaviourSaved": "Ponašanje pri plaćanju je sačuvano.",
+    "emptyTitle": "Nema sporova",
+    "emptyDescription": "Kad kupac ospori fakturu, otvorite spor ispod: faktura ostaje u aging-u, označena, a pravila za nju ne šalju podsetnike.",
+    "invoices": "Fakture: {list}",
+    "openedOn": "otvoren {date}",
+    "expectedBy": "odgovor do {date}",
+    "resolutionNote": "Rešenje (opciono)",
+    "cancel": "Otkaži",
+    "openTitle": "Otvori spor",
+    "chooseInvoices": "Sporne fakture",
+    "reason": "Razlog",
+    "expectedByLabel": "Očekivan odgovor do (opciono)",
+    "open": "Otvori spor",
+    "opened": "Spor je otvoren; fakture su označene kao sporne.",
+    "updated": "Spor je ažuriran.",
+    "status": {
+      "open": "otvoren",
+      "in_review": "u obradi",
+      "resolved_accepted": "rešen — prihvaćen",
+      "resolved_rejected": "rešen — odbijen",
+      "withdrawn": "povučen"
+    },
+    "to": {
+      "in_review": "U obradu",
+      "resolved_accepted": "Prihvati",
+      "resolved_rejected": "Odbij",
+      "withdrawn": "Povučen"
+    }
+  },
+  "search": {
+    "label": "Pretraga",
+    "placeholder": "Traži kupce, fakture, e-mail… (Ctrl+K)",
+    "none": "Ništa nije pronađeno u vašem opsegu.",
+    "naturalPerson": "Fizičko lice",
+    "kind": {
+      "customer": "Kupac",
+      "invoice": "Faktura",
+      "case": "Otvoren case",
+      "contact": "Kontakt"
+    }
+  },
+  "invoices": {
+    "title": "Otvorene fakture",
+    "description": "Otvorene fakture kupaca koje vidite. Sporne fakture ostaju ovde i u aging-u, označene.",
+    "search": "Pretraga",
+    "searchPlaceholder": "Broj fakture ili kupac",
+    "bucket": "Aging razred",
+    "disputed": "Sporovi",
+    "disputedFilter": {
+      "only": "samo sporne",
+      "exclude": "bez spornih"
+    },
+    "any": "sve",
+    "onlyOverdue": "Samo dospele",
+    "apply": "Primeni",
+    "emptyTitle": "Nema otvorenih faktura",
+    "emptyDescription": "Ništa ne odgovara filterima ili fakture još nisu uvezene.",
+    "emptyAction": "Uvezi fakture",
+    "select": "Izaberi za grupnu akciju",
+    "naturalPerson": "Fizičko lice",
+    "due": "dospeva {date}",
+    "days": "{n} d kašnjenja",
+    "disputedMark": "sporno",
+    "truncated": "Prikazano prvih {n} — suzite filtere za ostale."
+  },
+  "bulk": {
+    "label": "Grupna akcija",
+    "selectAll": "Izaberi sve",
+    "selectNone": "Poništi izbor",
+    "action": "Akcija",
+    "choose": "— izaberite —",
+    "noneSelected": "Prvo izaberite bar jedan red.",
+    "preview": "Pregled",
+    "previewCount": "Biće obrađeno stavki: {n} (limit {limit}).",
+    "previewSkipped": "Izabranih stavki van vašeg opsega: {n} — neće biti obrađene.",
+    "previewMore": "… i još {n}",
+    "confirm": "Potvrdi ({n})",
+    "cancel": "Otkaži",
+    "naturalPerson": "Fizičko lice",
+    "actions": {
+      "assign_owner": "Dodeli vlasnika",
+      "assign_team": "Dodeli tim",
+      "change_policy": "Promeni politiku naplate",
+      "send_reminder": "Pošalji podsetnik",
+      "open_case": "Otvori case",
+      "export": "Izvoz (CSV)"
+    },
+    "params": {
+      "assign_owner": "Vlasnik",
+      "assign_team": "Tim",
+      "change_policy": "Politika",
+      "send_reminder": "Šablon (bez pravnog dejstva)"
+    },
+    "reportTitle": "Grupna akcija: {action}",
+    "reportDescription": "Pokrenuto {date}. Svaka stavka je izvršena sa vašim permisijama i opsegom.",
+    "runStatus": {
+      "queued": "Čeka na obradu…",
+      "running": "U toku…",
+      "completed": "Završeno",
+      "failed": "Neuspelo"
+    },
+    "totals": "Stavki {total} · uspelo {ok} · palo {failed} · preskočeno {skipped}",
+    "download": "Preuzmi fajl",
+    "itemStatus": {
+      "ok": "uspelo",
+      "failed": "palo",
+      "skipped": "preskočeno",
+      "pending": "čeka"
+    },
+    "itemError": {
+      "not_found": "više nije u vašem opsegu",
+      "forbidden": "nema permisije",
+      "unchanged": "već postavljeno",
+      "disputed_or_not_overdue": "nema dospelog bez spora",
+      "case_exists": "već postoji otvoren case",
+      "not_overdue": "ništa nije dospelo",
+      "requester_inactive": "pokretač više nije aktivan",
+      "conflict": "nema e-mail kontakta ili konflikt",
+      "internal": "interna greška"
+    }
   }
 }

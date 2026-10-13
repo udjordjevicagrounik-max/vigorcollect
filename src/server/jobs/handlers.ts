@@ -5,6 +5,7 @@ import { getAppPool } from '@/db/client';
 import { queuedRender } from '@/server/documents/render-queue';
 import { renderDocumentPdf } from '@/server/documents/service';
 import { applyImport } from '@/server/imports/process';
+import { runBulk } from '@/server/bulk/service';
 import { runDailyRisk } from '@/server/risk/service';
 import { fanOut, OUTBOUND_EVENT_TYPES } from '@/server/integrations/outbound';
 import { processWebhookEvent, registerWebhookHandler } from '@/server/integrations/process';
@@ -68,6 +69,12 @@ const BASE_HANDLERS: EventHandlers = {
   // 1.5: settings changed → nothing to recompute yet; the event is the audit trail for jobs.
   'tenant_settings.updated': async (ctx, event) => {
     logEvent('tenant_settings.updated.handled', { tenantId: ctx.tenantId, eventId: event.id });
+  },
+  // 5.1: a confirmed bulk action — every item as the requester, one SAVEPOINT per item.
+  'bulk.requested': async (ctx, event) => {
+    if (!event.aggregateId) return;
+    const result = await runBulk(ctx, event.aggregateId);
+    logEvent('bulk.handled', { tenantId: ctx.tenantId, eventId: event.id, ...(result ?? {}) });
   },
   // 2.2: a confirmed import run is applied in one transaction; redelivery is a no-op.
   'import.confirmed': async (ctx, event) => {

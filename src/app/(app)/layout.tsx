@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { getTranslations } from 'next-intl/server';
 import { SignOutButton } from '@/components/auth/sign-out-button';
 import { AppNav } from '@/components/shell/app-nav';
+import { GlobalSearch } from '@/components/shell/global-search';
 import { InstallPrompt } from '@/components/shell/install-prompt';
 import { getAuthPool } from '@/server/auth/better-auth';
 import { activeMemberships } from '@/server/auth/memberships';
@@ -44,6 +45,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
             </Link>
           ) : null}
         </div>
+        {shell.permissions.includes('customer.read') ? <GlobalSearch /> : null}
         <AppNav permissions={shell.permissions} />
         <div className="flex flex-col border-t border-border pt-3" data-nav-account>
           <p className="px-3 text-xs font-semibold uppercase tracking-wide text-text-muted">

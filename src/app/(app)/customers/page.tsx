@@ -2,13 +2,16 @@ import Link from 'next/link';
 import { getLocale, getTranslations } from 'next-intl/server';
 import { ForbiddenState } from '@/components/admin/forbidden-state';
 import { PageHeader } from '@/components/admin/page-header';
+import { BulkBar } from '@/components/receivables/bulk-bar';
 import { SavedFilters } from '@/components/receivables/saved-filters';
 import { RiskBadge } from '@/components/risk/risk-badge';
 import { Screen } from '@/components/shell/screen';
-import { formatAmount } from '@/lib/format-amount';
+import { formatAmount, isZeroAmount } from '@/lib/format-amount';
 import { PermissionDeniedError } from '@/server/auth/permissions';
 import { withTenantPage } from '@/server/auth/with-tenant';
+import { bulkOptions } from '@/server/bulk/service';
 import {
+  codeLabels,
   customerListQuery,
   listReceivableCustomers,
   listSavedFilters,
@@ -18,6 +21,8 @@ export const dynamic = 'force-dynamic';
 
 const ME = 'me' as const;
 const STATUSES = ['active', 'inactive', 'blocked'] as const;
+const BULK_FORM = 'bulk-customers';
+const ENTITY = 'customers' as const;
 
 // Customers (task 2.3), mobile-compact: search (name / tax id / external id), filters, saved
 // filters; cards on a phone, a table from md up. Scope through scopeFilter() in the service.
@@ -39,6 +44,9 @@ export default async function CustomersPage({
     data = await withTenantPage(async (ctx) => ({
       customers: await listReceivableCustomers(ctx, query),
       saved: await listSavedFilters(ctx),
+      behaviours: await codeLabels(ctx, 'payment_behaviour', locale),
+      bulk: await bulkOptions(ctx, 'customers'),
+      policies: await codeLabels(ctx, 'collection_policy', locale),
     }));
   } catch (error) {
     if (error instanceof PermissionDeniedError) return <ForbiddenState />;
@@ -107,6 +115,16 @@ export default async function CustomersPage({
         </button>
       </form>
       <SavedFilters current={query} saved={data.saved} />
+      {data.customers.length > 0 ? (
+        <BulkBar
+          entity={ENTITY}
+          actions={data.bulk.actions}
+          users={data.bulk.users}
+          teams={data.bulk.teams}
+          templates={data.bulk.templates}
+          policies={Object.entries(data.policies).map(([id, label]) => ({ id, label }))}
+        />
+      ) : null}
 
       {data.customers.length === 0 ? (
         <section className="mt-4 rounded-lg border border-border bg-surface p-6 text-center">
@@ -123,10 +141,20 @@ export default async function CustomersPage({
         <>
           <ul className="mt-4 flex flex-col gap-2 md:hidden" data-customer-cards>
             {data.customers.map((c) => (
-              <li key={c.id} data-customer-row={c.id}>
+              <li key={c.id} data-customer-row={c.id} className="flex items-stretch gap-2">
+                <label className="flex min-h-11 min-w-11 items-center justify-center">
+                  <span className="sr-only">{t('select')}</span>
+                  <input
+                    type="checkbox"
+                    name="ids"
+                    value={c.id}
+                    form={BULK_FORM}
+                    className="size-5"
+                  />
+                </label>
                 <Link
                   href={`/customers/${c.id}`}
-                  className="block rounded-lg border border-border bg-surface p-3 hover:bg-brand-purple-soft"
+                  className="block flex-1 rounded-lg border border-border bg-surface p-3 hover:bg-brand-purple-soft"
                 >
                   <span className="font-medium text-text">
                     {c.displayName ?? t('naturalPerson')}
@@ -141,7 +169,16 @@ export default async function CustomersPage({
                   <span className="block text-xs text-text-muted">
                     {t(`statuses.${c.status as (typeof STATUSES)[number]}`)} ·{' '}
                     {c.ownerName ?? t('noOwner')} · <RiskBadge band={c.riskBand} />
+                    {c.paymentBehaviour ? ` · ${data.behaviours[c.paymentBehaviour] ?? ''}` : ''}
                   </span>
+                  {!isZeroAmount(c.disputed) ? (
+                    <span
+                      className="block text-xs font-medium text-status-warning-fg"
+                      data-disputed
+                    >
+                      {t('disputedLine', { amount: money(c.disputed, c.currency) })}
+                    </span>
+                  ) : null}
                 </Link>
               </li>
             ))}
@@ -150,11 +187,16 @@ export default async function CustomersPage({
             <table className="w-full text-sm">
               <thead className="text-left text-text-muted">
                 <tr>
+                  <th className="w-11 p-3 font-medium">
+                    <span className="sr-only">{t('select')}</span>
+                  </th>
                   <th className="p-3 font-medium">{t('columns.customer')}</th>
                   <th className="p-3 text-right font-medium">{t('columns.exposure')}</th>
                   <th className="p-3 text-right font-medium">{t('columns.overdue')}</th>
                   <th className="p-3 text-right font-medium">{t('columns.oldest')}</th>
+                  <th className="p-3 text-right font-medium">{t('columns.disputed')}</th>
                   <th className="p-3 font-medium">{t('columns.risk')}</th>
+                  <th className="p-3 font-medium">{t('columns.behaviour')}</th>
                   <th className="p-3 font-medium">{t('columns.status')}</th>
                   <th className="p-3 font-medium">{t('columns.owner')}</th>
                 </tr>
@@ -162,6 +204,16 @@ export default async function CustomersPage({
               <tbody>
                 {data.customers.map((c) => (
                   <tr key={c.id} className="border-t border-border">
+                    <td className="p-3">
+                      <input
+                        type="checkbox"
+                        name="ids"
+                        value={c.id}
+                        form={BULK_FORM}
+                        aria-label={t('select')}
+                        className="size-5"
+                      />
+                    </td>
                     <td className="p-3">
                       <Link
                         href={`/customers/${c.id}`}
@@ -178,8 +230,14 @@ export default async function CustomersPage({
                     <td className="p-3 text-right">
                       {c.oldestDaysOverdue ? t('days', { n: c.oldestDaysOverdue }) : '—'}
                     </td>
+                    <td className="p-3 text-right" data-disputed={c.disputed}>
+                      {!isZeroAmount(c.disputed) ? money(c.disputed, c.currency) : '—'}
+                    </td>
                     <td className="p-3">
                       <RiskBadge band={c.riskBand} />
+                    </td>
+                    <td className="p-3">
+                      {c.paymentBehaviour ? (data.behaviours[c.paymentBehaviour] ?? '') : '—'}
                     </td>
                     <td className="p-3">
                       {t(`statuses.${c.status as (typeof STATUSES)[number]}`)}

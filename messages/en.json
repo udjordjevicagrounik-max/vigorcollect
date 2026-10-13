@@ -23,7 +23,8 @@
       "rules": "Rules",
       "templates": "Templates",
       "approvals": "Approvals",
-      "integrations": "Integrations"
+      "integrations": "Integrations",
+      "invoices": "Invoices"
     },
     "tenant": "Organization",
     "switchTenant": "Switch organization",
@@ -183,7 +184,9 @@
     "self_action": "You cannot do this to your own account — ask another administrator.",
     "last_owner": "This is the organization’s only owner; make someone else owner first.",
     "not_ready": "The PDF is still being prepared. Wait a few seconds and try again.",
-    "unsupported": "This kind of request cannot be decided here yet."
+    "unsupported": "This kind of request cannot be decided here yet.",
+    "limit_exceeded": "Too many items for one bulk action — narrow the selection (the limit is in Admin → Settings).",
+    "not_bulk": "This action needs a decision per item (legal effect or four eyes) and cannot run in bulk."
   },
   "dashboard": {
     "title": "Collections overview",
@@ -225,6 +228,11 @@
       "collection_rate": {
         "label": "Collection rate",
         "definition": "Collected (30 days) ÷ (collected + overdue total), in percent. Adjustments are excluded."
+      },
+      "disputed": {
+        "label": "Disputed",
+        "definition": "Open amount of invoices in an open or in-review dispute (reporting currency). Still included in overdue and aging; shown separately, reminders are not sent for them.",
+        "count": "{amount} · {n} disputes"
       }
     },
     "aging": {
@@ -562,7 +570,9 @@
       "oldest": "Oldest",
       "status": "Status",
       "owner": "Owner",
-      "risk": "Risk"
+      "risk": "Risk",
+      "disputed": "Disputed",
+      "behaviour": "Behaviour"
     },
     "emptyTitle": "No customers for this view",
     "emptyDescription": "Change the search or filters. If you have not imported invoices yet, customers are created by the import.",
@@ -576,7 +586,9 @@
       "delete": "Delete filter {name}",
       "deleteShort": "×",
       "confirmDelete": "Delete?"
-    }
+    },
+    "disputedLine": "disputed {amount}",
+    "select": "Select for a bulk action"
   },
   "customer360": {
     "back": "← Customers",
@@ -618,7 +630,8 @@
       "cases": "Cases",
       "documents": "Documents",
       "communication": "Communication",
-      "risk": "Risk"
+      "risk": "Risk",
+      "disputes": "Disputes"
     },
     "aging": "Aging",
     "openCases": "Open cases ({n})",
@@ -673,7 +686,9 @@
       "dunning_letter": "Payment reminder",
       "statement": "Statement"
     },
-    "pdfPending": "PDF in progress"
+    "pdfPending": "PDF in progress",
+    "disputedBadge": "Disputed: {n} open · {amount}",
+    "disputedMark": "disputed"
   },
   "collections": {
     "actionsLabel": "Customer actions",
@@ -864,7 +879,8 @@
       "team": "team",
       "owner": "owner",
       "case_stage": "case stage",
-      "is_natural_person": "private person"
+      "is_natural_person": "private person",
+      "has_open_dispute": "Open dispute"
     },
     "ops": {
       "eq": "=",
@@ -1242,5 +1258,129 @@
       "unsupported": "not supported (see the integration document)"
     },
     "outOf": "of 100"
+  },
+  "disputes": {
+    "behaviour": "Payment behaviour",
+    "behaviourNone": "not assessed",
+    "behaviourSaved": "Payment behaviour saved.",
+    "emptyTitle": "No disputes",
+    "emptyDescription": "When the customer contests an invoice, open a dispute below: the invoice stays in aging, marked, and rules send no reminders for it.",
+    "invoices": "Invoices: {list}",
+    "openedOn": "opened {date}",
+    "expectedBy": "answer by {date}",
+    "resolutionNote": "Resolution (optional)",
+    "cancel": "Cancel",
+    "openTitle": "Open a dispute",
+    "chooseInvoices": "Disputed invoices",
+    "reason": "Reason",
+    "expectedByLabel": "Answer expected by (optional)",
+    "open": "Open dispute",
+    "opened": "The dispute is open; the invoices are marked as disputed.",
+    "updated": "The dispute was updated.",
+    "status": {
+      "open": "open",
+      "in_review": "in review",
+      "resolved_accepted": "resolved — accepted",
+      "resolved_rejected": "resolved — rejected",
+      "withdrawn": "withdrawn"
+    },
+    "to": {
+      "in_review": "Start review",
+      "resolved_accepted": "Accept",
+      "resolved_rejected": "Reject",
+      "withdrawn": "Withdrawn"
+    }
+  },
+  "search": {
+    "label": "Search",
+    "placeholder": "Search customers, invoices, e-mail… (Ctrl+K)",
+    "none": "Nothing found in your scope.",
+    "naturalPerson": "Natural person",
+    "kind": {
+      "customer": "Customer",
+      "invoice": "Invoice",
+      "case": "Open case",
+      "contact": "Contact"
+    }
+  },
+  "invoices": {
+    "title": "Open invoices",
+    "description": "Open invoices of the customers you can see. Disputed invoices stay here and in aging, marked.",
+    "search": "Search",
+    "searchPlaceholder": "Invoice number or customer",
+    "bucket": "Aging bucket",
+    "disputed": "Disputes",
+    "disputedFilter": {
+      "only": "only disputed",
+      "exclude": "without disputed"
+    },
+    "any": "any",
+    "onlyOverdue": "Only overdue",
+    "apply": "Apply",
+    "emptyTitle": "No open invoices",
+    "emptyDescription": "Nothing matches the filters, or no invoices have been imported yet.",
+    "emptyAction": "Import invoices",
+    "select": "Select for a bulk action",
+    "naturalPerson": "Natural person",
+    "due": "due {date}",
+    "days": "{n} d overdue",
+    "disputedMark": "disputed",
+    "truncated": "Showing the first {n} — narrow the filters to see the rest."
+  },
+  "bulk": {
+    "label": "Bulk action",
+    "selectAll": "Select all",
+    "selectNone": "Clear selection",
+    "action": "Action",
+    "choose": "— choose —",
+    "noneSelected": "Select at least one row first.",
+    "preview": "Preview",
+    "previewCount": "{n} items will be processed (limit {limit}).",
+    "previewSkipped": "{n} selected items are outside your scope and will not be processed.",
+    "previewMore": "… and {n} more",
+    "confirm": "Confirm ({n})",
+    "cancel": "Cancel",
+    "naturalPerson": "Natural person",
+    "actions": {
+      "assign_owner": "Assign owner",
+      "assign_team": "Assign team",
+      "change_policy": "Change collection policy",
+      "send_reminder": "Send reminder",
+      "open_case": "Open case",
+      "export": "Export (CSV)"
+    },
+    "params": {
+      "assign_owner": "Owner",
+      "assign_team": "Team",
+      "change_policy": "Policy",
+      "send_reminder": "Template (without legal effect)"
+    },
+    "reportTitle": "Bulk action: {action}",
+    "reportDescription": "Started {date}. Each item ran with your permissions and scope.",
+    "runStatus": {
+      "queued": "Waiting for the worker…",
+      "running": "Running…",
+      "completed": "Completed",
+      "failed": "Failed"
+    },
+    "totals": "{total} items · {ok} done · {failed} failed · {skipped} skipped",
+    "download": "Download file",
+    "itemStatus": {
+      "ok": "done",
+      "failed": "failed",
+      "skipped": "skipped",
+      "pending": "waiting"
+    },
+    "itemError": {
+      "not_found": "not in your scope any more",
+      "forbidden": "no permission",
+      "unchanged": "already set",
+      "disputed_or_not_overdue": "nothing undisputed is overdue",
+      "case_exists": "an open case exists",
+      "not_overdue": "nothing overdue",
+      "requester_inactive": "the requester is no longer active",
+      "conflict": "no e-mail contact or a conflict",
+      "internal": "internal error"
+    }
   }
 }
