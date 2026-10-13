@@ -34,6 +34,32 @@ function txDb(client: PoolClient) {
   return { executeSql: (text: string, values?: unknown[]) => client.query(text, values) };
 }
 
+/**
+ * /health aggregates (review S-05): a SECURITY DEFINER function OWNED BY vigor_worker, the owner
+ * of the pg-boss tables. job_health() (migration 022) is an INVOKER wrapper around it. Whatever
+ * stands behind pgboss.job therefore runs as vigor_worker — never as vigor_migrate, which the
+ * old DEFINER-as-owner version allowed. Only counts and ages leave the function, never payloads.
+ */
+export async function installJobHealth(pool: Pool): Promise<void> {
+  await pool.query(`
+    CREATE OR REPLACE FUNCTION pgboss.job_health()
+      RETURNS TABLE (pending integer, failed integer, oldest_pending_seconds integer,
+                     last_retention_at timestamptz)
+      LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog
+    AS $q$
+      SELECT count(*) FILTER (WHERE state IN ('created', 'retry'))::int,
+             count(*) FILTER (WHERE state = 'failed')::int,
+             extract(epoch FROM now() - min(created_on) FILTER (
+               WHERE state IN ('created', 'retry') AND start_after <= now()))::int,
+             max(completed_on) FILTER (WHERE name = 'retention' AND state = 'completed')
+      FROM pgboss.job
+    $q$`);
+  await pool.query('REVOKE ALL ON FUNCTION pgboss.job_health() FROM PUBLIC');
+  await pool.query('GRANT EXECUTE ON FUNCTION pgboss.job_health() TO vigor_app');
+  // The 007 design granted this for the vigor_migrate-owned DEFINER; it is no longer needed.
+  await pool.query('REVOKE ALL ON pgboss.job FROM vigor_migrate');
+}
+
 export async function startWorker(
   env: { workerUrl: string; appUrl: string },
   handlers: EventHandlers = EVENT_HANDLERS,
@@ -50,10 +76,9 @@ export async function startWorker(
     logEvent('worker.error', { level: 'error', name: error.name }),
   );
   await boss.start();
-  // /health reads aggregates through job_health() (owned by vigor_migrate).
-  await workerPool
-    .query('GRANT SELECT ON pgboss.job TO vigor_migrate')
-    .catch(() => logEvent('worker.health_grant_failed', { level: 'warn' }));
+  await installJobHealth(workerPool).catch(() =>
+    logEvent('worker.health_install_failed', { level: 'warn' }),
+  );
 
   for (const name of [EVENT_QUEUE, DAILY_QUEUE, 'retention']) await boss.createQueue(name, RETRY);
   for (const name of [
