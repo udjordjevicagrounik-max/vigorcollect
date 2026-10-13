@@ -50,6 +50,7 @@ export async function AttentionList({ items, locale }: { items: AttentionItem[];
               key={`${i.kind}-${i.refId}`}
               className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border p-2"
               data-attention-item={i.kind}
+              data-attention-code={i.code ?? undefined}
             >
               <span className="min-w-0 flex-1 text-sm">
                 <span className="font-medium text-text">{t(`kinds.${i.kind}`)}</span>

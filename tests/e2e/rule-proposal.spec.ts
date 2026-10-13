@@ -98,7 +98,13 @@ test('rule D+90 → proposal → submit → pending approval → checker approve
   await expect(page.locator('[data-daily-run] [role="status"]')).toBeVisible();
 
   // The rule's proposal appears in "Needs attention" (worker: outbox poll + run).
-  const item = page.locator('[data-attention-item="rule_proposal"]', { hasText: name });
+  // The same daily run also scores risk, so the customer may have a credit status proposal too.
+  const item = page.locator(
+    '[data-attention-item="rule_proposal"][data-attention-code="legal_handover"]',
+    {
+      hasText: name,
+    },
+  );
   await expect(async () => {
     await page.goto('/');
     await expect(item).toBeVisible({ timeout: 2_000 });
