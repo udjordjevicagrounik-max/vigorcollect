@@ -260,7 +260,7 @@ export async function applyImport(
             ts.default_currency AS currency, ts.country_code AS country
      FROM import_runs r
      JOIN tenant_companies c ON c.id = r.company_id
-     JOIN legal_entities le ON le.id = c.legal_entity_id
+     JOIN legal_entities_public le ON le.id = c.legal_entity_id
      CROSS JOIN tenant_settings ts
      WHERE r.id = $1 FOR UPDATE OF r`,
     [runId],

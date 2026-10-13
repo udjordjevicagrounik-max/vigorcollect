@@ -106,7 +106,7 @@ export async function providerSignals(
   }>(
     `SELECT le.country_code AS country, le.tax_id, le.registration_number AS reg, c.is_natural_person AS natural,
             jp.risk_providers AS keys
-     FROM customers c LEFT JOIN legal_entities le ON le.id = c.legal_entity_id
+     FROM customers c LEFT JOIN legal_entities_public le ON le.id = c.legal_entity_id
      LEFT JOIN jurisdiction_profiles jp ON jp.country_code = le.country_code
      WHERE c.id = $1`,
     [customerId],

@@ -99,11 +99,11 @@ async function loadFacts(
             CASE WHEN $2::uuid IS NOT NULL THEN inv.days_overdue ELSE agg.days END AS days_overdue,
             inv.currency, k.id AS case_id, k.stage_code AS case_stage,
             coalesce(inv.local_today, (SELECT (now() AT TIME ZONE le2.timezone)::date
-                                       FROM tenant_companies tc JOIN legal_entities le2 ON le2.id = tc.legal_entity_id
+                                       FROM tenant_companies tc JOIN legal_entities_public le2 ON le2.id = tc.legal_entity_id
                                        ORDER BY tc.is_default DESC, tc.created_at LIMIT 1))::text AS today
      FROM customers c
      CROSS JOIN tenant_settings ts
-     LEFT JOIN legal_entities le ON le.id = c.legal_entity_id
+     LEFT JOIN legal_entities_public le ON le.id = c.legal_entity_id
      LEFT JOIN invoice_positions inv ON inv.invoice_id = $2::uuid
      LEFT JOIN LATERAL (
        SELECT sum(p.open_reporting) FILTER (WHERE p.is_overdue) AS overdue,

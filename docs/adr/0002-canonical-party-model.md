@@ -104,3 +104,32 @@ klijentske arhitekture — **test prolazi**.
      (pravilo 33).
    - Uvodi se u migraciji 003 aditivno (`DROP NOT NULL` + CHECK + nove `*_enc` kolone), bez
      DROP/RENAME kolona.
+
+## Ispravka — security review S-01 (2026-10-13, sesija 5.0, migracija 022)
+
+**Nalaz:** odluka 2 („vidljivost izvedena iz veze") nije bila dovoljna. Tenant A koji unese
+poreski broj koji je tenant B uneo prvi dobija vezu na **isti** kanonski red i kroz
+`app_read_linked` vidi i njegovo knjigovodstvo: `created_at` (od kada platforma zna to lice),
+`created_by`, `updated_*`, `verification_status` — tj. „ovo lice je već na platformi", suprotno
+pravilu 33 i tvrdnji iz odluke 2.
+
+**Odluka (Uroš):**
+
+1. `vigor_app` ima SELECT **samo na javne registarske kolone** `legal_entities` (column grant:
+   `id`, `country_code`, `tax_id`, `registration_number`, `legal_name`, `normalized_name`,
+   `timezone`, adresa). `created_*`, `updated_*` i `verification_status` aplikacija ne može da
+   pročita ni direktno (42501).
+2. Aplikacija čita isključivo pogled **`legal_entities_public`** (`security_invoker`, pa
+   `app_read_linked` i dalje odlučuje KOJE redove). Golden statički test obara svaki
+   `FROM/JOIN legal_entities` u `src/`.
+3. `find_or_create_legal_entity()` odgovara isto za nađen i kreiran red — samo `id`, jedan put
+   do odgovora (bez grane koju pozivalac može da razlikuje).
+
+**Preostali rizik (svesno, BACKLOG):** javni registarski podaci (naziv, matični broj, zona)
+dolaze od tenanta koji je lice prvi uneo — „first writer wins" (security review nalaz o
+integritetu kanonskog reda). Pravac: kanonska polja popunjavati samo iz registra (APR / VIES /
+provajder) uz `verification_status`, a do tada tenantov prikaz ostaje na `customers`
+(`display_name`). Tenant ne može da prepiše postojeći red (nepromenjeno od 002).
+
+**Ne menjati bez novog ADR-a:** column grant na `legal_entities` za `vigor_app`, čitanje samo kroz
+`legal_entities_public`, isti odgovor `find_or_create` za nađeno i kreirano.
