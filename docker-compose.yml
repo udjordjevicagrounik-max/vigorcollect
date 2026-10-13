@@ -33,6 +33,9 @@ services:
       args:
         APP_VERSION: ${APP_VERSION:-dev}
     restart: unless-stopped
+    # Generated documents (task 3.3): encrypted files shared with the worker (it writes the PDF).
+    volumes:
+      - documents:/srv/documents
     depends_on:
       db:
         condition: service_healthy
@@ -40,6 +43,7 @@ services:
       TZ: UTC
       NODE_ENV: production
       PRODUCT_NAME: ${PRODUCT_NAME:?set in .env}
+      DOCUMENTS_DIR: /srv/documents
       # Inside the compose network the DB host is `db`, not localhost.
       DATABASE_URL: postgres://vigor_app:${APP_DB_PASSWORD}@db:5432/${POSTGRES_DB}
       MIGRATE_DATABASE_URL: postgres://vigor_migrate:${MIGRATE_DB_PASSWORD}@db:5432/${POSTGRES_DB}
@@ -81,6 +85,14 @@ services:
     command: ['node', 'worker.mjs']
     volumes:
       - backups:/srv/backups
+      - documents:/srv/documents
+    # Task 3.3: the worker runs Chromium (HTML → PDF). Nothing here needs root: user node, no
+    # capabilities, no setuid escalation; Docker's default seccomp/AppArmor stay as they are
+    # (src/server/documents/pdf.ts explains why Chromium's own sandbox is off inside this box).
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    # Chromium uses /dev/shm; --disable-dev-shm-usage falls back to /tmp, this keeps it roomy.
+    shm_size: 256m
     depends_on:
       db:
         condition: service_healthy
@@ -89,6 +101,8 @@ services:
       NODE_ENV: production
       PRODUCT_NAME: ${PRODUCT_NAME:?set in .env}
       WORKER_PORT: '3001'
+      DOCUMENTS_DIR: /srv/documents
+      CHROMIUM_PATH: /usr/bin/chromium
       DATABASE_URL: postgres://vigor_app:${APP_DB_PASSWORD}@db:5432/${POSTGRES_DB}
       WORKER_DATABASE_URL: postgres://vigor_worker:${WORKER_DB_PASSWORD:?set in .env}@db:5432/${POSTGRES_DB}
       # The mail dispatcher decrypts mail_outbox once SMTP exists (ADR 0003, 0005).
@@ -128,3 +142,6 @@ volumes:
   pgdata:
   # Local backup copies (30 daily + 12 monthly); the off-site copy goes through rclone.
   backups:
+  # Generated documents and their PDFs, encrypted per tenant (task 3.2/3.3). Not in the DB
+  # backup — S3 storage adapter later (BACKLOG); until then losing it loses document files.
+  documents:
