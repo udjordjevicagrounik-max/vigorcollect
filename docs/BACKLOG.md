@@ -218,6 +218,12 @@ i P4 bez roka, plus preostali rizici P2 ispravki.
 - [ ] **S-06 ostatak:** API ključevi izdati pre 022 ostali su `ORGANIZATION` (kao ranije) —
       pregledati ih i opozvati/ponovo izdati sa `OWN` gde je dovoljno (Uroš, posle deploya).
 
+- [ ] **Off-site mesečnih backup-a** (odluka Uroša 2026-10-13): `monthly/` u B2 ili Hetzner Storage
+      Box (`BACKUP_S3_*`, šifrovano age-om, bez `--delete`, versioning) — **pre prvog plaćenog
+      tenanta**. Dnevne kopije: BorgBase (Elestio borg, 7 dana).
+- [ ] **Tiket Elestio podršci (P3):** rotacija borg lozinke — u čistom tekstu u `/opt/borg/*.sh`,
+      pojavila se u izlazu sesije 5.0. Ne rotiramo sami.
+
 ### P3 — Sprint 5 (auth / tenant / webhook)
 
 - [ ] S-13 `tenant_clock_read` otvara GUC `app.tenant_clock` koji svako može da postavi →

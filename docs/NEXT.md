@@ -1,40 +1,35 @@
 # NEXT
 
-## P1 — zatvoreno osim off-site (2026-10-13)
+## P1 — zatvoreno (2026-10-13)
 
-**Repo i `/srv/backups` žive u kontejneru `app-vibecoder-1`, ne na hostu** — ako se kontejner
-rekreira (update Vibecoder-a, restart stack-a sa novim image-om), nestaje i kod (sa celom git
-istorijom) i sve lokalne backup kopije. Redom:
+**Repo i `/srv/backups` žive u kontejneru `app-vibecoder-1`, ne na hostu** — Elestio watchtower
+(nedeljom 01:00 UTC) može da ga rekreira; ponedeljkom runbook „Provera ponedeljkom".
 
 1. ~~**GitHub remote + push**~~ — urađeno 2026-10-13: `origin` =
    `udjordjevicagrounik-max/vigorcollect`, deploy key (runbook „GitHub"); `main` i `develop` push-ovani.
 2. ~~**Backup kopija na host putanju**~~ — urađeno 2026-10-13 (Uroš): host cron 03:30,
-   `docker cp` u `/opt/app/backups` (daily + monthly), retencija 30 dana na hostu (runbook
-   „Backup → kopija na hostu").
-3. Preostaje: **off-site** kopija (`BACKUP_S3_*`) — host kopija je na istom serveru; blokada za
-   staging.
-   - **Kandidat (provereno 2026-10-13, samo čitanje):** Elestio `/opt/borg/backup.sh` na hostu
-     arhivira ceo **`/opt/app`** — dakle i `/opt/app/backups` (host kopija šifrovanih backup-a) —
-     u BorgBase repo (`repokey-blake2`, zstd), prune `--keep-within=7d`. `preBackup.sh` ne radi
-     ništa (nema DB dump-a). Raspored borg-a nije proveren (Elestio). Otvoreno pre nego što se
-     prihvati kao off-site: retencija 7 dana < naših 30 dnevnih / 12 mesečnih; restore probe iz
-     borg-a; da li host cron 03:30 stigne pre borg snapshot-a.
-   - **Lozinka borg repoa je u čistom tekstu u `/opt/borg/backup.sh`** (i u ostalim borg
-     skriptama) i pojavila se u izlazu Claude sesije 5.0 — razmotriti promenu
-     (`borg key change-passphrase` + ažuriranje skripti, ili kroz Elestio podršku).
-   - Na hostu `/opt/app/backups` još ima nešifrovanih fajlova od 2026-10-12 (`daily/2026-10-12/`,
-     `monthly/2026-10/`) — borg ih nosi off-site dok se ne obrišu.
+   `docker cp collect-worker-1:/srv/backups/. /opt/app/backups/`, retencija 30 dana na hostu.
+   `/opt/app/backups` očišćen i prekopiran — samo šifrovani fajlovi (`*.age` + `manifest.json`),
+   provereno `find` 2026-10-13.
+3. ~~**Off-site**~~ — odluka Uroša 2026-10-13: **BorgBase** (Elestio `/opt/borg/backup.sh` arhivira
+   ceo `/opt/app`, dakle i `/opt/app/backups`; `repokey-blake2`, prune 7 dana) prihvaćen za
+   **dnevne šifrovane kopije**. **Mesečne** idu u B2 / Hetzner Storage Box pre prvog plaćenog
+   tenanta (BACKLOG). Borg lozinka je u čistom tekstu u Elestio skriptama i pojavila se u izlazu
+   sesije 5.0 — ne rotiramo sami: **tiket Elestio podršci, P3**.
+
+**Blokada za staging: samo Turnstile ključevi (S-08).**
 
 ## Aktivan zadatak
 
 **5.0 — ispravke iz security review-a 2026-10-13 urađene (`feature/security-fixes`).** Sledeće,
 redom:
 
-1. **Uroš, pre deploya na staging (blokirajuće):** `scripts/create-service-roles.sh` sa
+1. **Staging:** jedina blokada su pravi Turnstile ključevi (S-08). Rutinski koraci okruženja
+   (runbook, na dev-u urađeno 2026-10-13): `scripts/create-service-roles.sh` sa
    `RENDERER_DB_PASSWORD` (rola `vigor_renderer`) PRE migracije 021; age par za backup van chata
    (runbook „Šifrovanje backup-a") → `BACKUP_AGE_RECIPIENT` (worker) i `BACKUP_AGE_IDENTITY`
-   (samo servis `restore-test`); host cron `docker compose --profile ops run --rm restore-test`
-   nedeljom 03:00 UTC; pravi Turnstile ključevi (S-08); migracije kroz
+   (samo servis `restore-test`); host cron za restore test nedeljom 03:00 UTC (dev: urađeno);
+   pravi Turnstile ključevi (S-08 — jedina preostala blokada za staging); migracije kroz
    `docker compose --profile ops run --rm --build migrate up`.
 2. **Sprint 5 security** (BACKLOG „Iz security review-a"): P3 auth / tenant / webhook (S-13, S-14,
    S-15, S-17, S-18 ostatak, S-19, S-20, S-22, S-27) + rola `vigor_auth` (S-03 ostatak).
