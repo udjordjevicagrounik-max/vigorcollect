@@ -3,11 +3,13 @@ import Link from 'next/link';
 import { getTranslations } from 'next-intl/server';
 import { SignOutButton } from '@/components/auth/sign-out-button';
 import { AppNav } from '@/components/shell/app-nav';
+import { GlobalSearch } from '@/components/shell/global-search';
 import { InstallPrompt } from '@/components/shell/install-prompt';
 import { getAuthPool } from '@/server/auth/better-auth';
 import { activeMemberships } from '@/server/auth/memberships';
 import { permissionKeys } from '@/server/auth/permissions';
 import { withTenantPage } from '@/server/auth/with-tenant';
+import { onboardingState } from '@/server/onboarding/service';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,10 +21,13 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     const { rows } = await ctx.db.query<{ display_name: string }>(
       'SELECT display_name FROM tenants',
     );
+    const permissions = [...(await permissionKeys(ctx.db, ctx.userId))];
     return {
       tenantName: rows[0]?.display_name ?? '',
-      permissions: [...(await permissionKeys(ctx.db, ctx.userId))],
+      permissions,
       authUserId: ctx.authUserId,
+      // 5.4: "Getting started" stays in the navigation until every step is done.
+      onboarding: permissions.includes('settings.read') ? await onboardingState(ctx) : null,
     };
   });
   const memberships = await activeMemberships(getAuthPool(), shell.authUserId);
@@ -44,7 +49,15 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
             </Link>
           ) : null}
         </div>
-        <AppNav permissions={shell.permissions} />
+        {shell.permissions.includes('customer.read') ? <GlobalSearch /> : null}
+        <AppNav
+          permissions={shell.permissions}
+          onboarding={
+            shell.onboarding && !shell.onboarding.complete
+              ? { done: shell.onboarding.done, total: shell.onboarding.total }
+              : null
+          }
+        />
         <div className="flex flex-col border-t border-border pt-3" data-nav-account>
           <p className="px-3 text-xs font-semibold uppercase tracking-wide text-text-muted">
             {t('account')}
@@ -54,6 +67,12 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
             className="flex min-h-11 items-center rounded-md px-3 text-text hover:bg-brand-purple-soft"
           >
             {t('items.settingsPassword')}
+          </Link>
+          <Link
+            href="/settings/notifications"
+            className="flex min-h-11 items-center rounded-md px-3 text-text hover:bg-brand-purple-soft"
+          >
+            {t('items.notifications')}
           </Link>
           <InstallPrompt />
           <SignOutButton />

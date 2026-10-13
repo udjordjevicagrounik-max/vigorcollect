@@ -58,6 +58,8 @@ type RunContext = {
   entity: Entity;
   caseId: string | null;
   facts: Facts & { owner_user: string | null };
+  /** 5.1: something overdue of the customer is NOT disputed (customer-level reminders). */
+  undisputedOverdue: boolean;
   keyring: () => MasterKeyring;
 };
 
@@ -76,7 +78,12 @@ class ActionError extends Error {
 async function loadFacts(
   db: Db,
   entity: Entity,
-): Promise<{ facts: RunContext['facts']; caseId: string | null; today: string } | null> {
+): Promise<{
+  facts: RunContext['facts'];
+  caseId: string | null;
+  today: string;
+  undisputedOverdue: boolean;
+} | null> {
   const { rows } = await db.query<{
     segment: string | null;
     credit_status: string | null;
@@ -90,6 +97,8 @@ async function loadFacts(
     currency: string | null;
     case_id: string | null;
     case_stage: string | null;
+    has_open_dispute: boolean;
+    undisputed_overdue: boolean;
     today: string;
   }>(
     `SELECT c.segment_code AS segment, c.credit_status, le.country_code AS country, c.owner_team_id AS team,
@@ -98,6 +107,10 @@ async function loadFacts(
             CASE WHEN $2::uuid IS NOT NULL THEN inv.open_reporting ELSE agg.overdue END::text AS amount,
             CASE WHEN $2::uuid IS NOT NULL THEN inv.days_overdue ELSE agg.days END AS days_overdue,
             inv.currency, k.id AS case_id, k.stage_code AS case_stage,
+            CASE WHEN $2::uuid IS NOT NULL THEN coalesce(inv.is_disputed, false)
+                 ELSE EXISTS (SELECT 1 FROM disputes d WHERE d.customer_id = c.id AND d.status IN ('open', 'in_review'))
+            END AS has_open_dispute,
+            coalesce(agg.undisputed, false) AS undisputed_overdue,
             coalesce(inv.local_today, (SELECT (now() AT TIME ZONE le2.timezone)::date
                                        FROM tenant_companies tc JOIN legal_entities_public le2 ON le2.id = tc.legal_entity_id
                                        ORDER BY tc.is_default DESC, tc.created_at LIMIT 1))::text AS today
@@ -107,7 +120,8 @@ async function loadFacts(
      LEFT JOIN invoice_positions inv ON inv.invoice_id = $2::uuid
      LEFT JOIN LATERAL (
        SELECT sum(p.open_reporting) FILTER (WHERE p.is_overdue) AS overdue,
-              max(p.days_overdue) FILTER (WHERE p.is_overdue) AS days
+              max(p.days_overdue) FILTER (WHERE p.is_overdue) AS days,
+              bool_or(p.is_overdue AND NOT p.is_disputed) AS undisputed
        FROM invoice_positions p WHERE p.customer_id = c.id) agg ON true
      LEFT JOIN LATERAL (
        SELECT k.id, k.stage_code FROM collection_cases k
@@ -135,8 +149,10 @@ async function loadFacts(
       case_stage: r.case_stage,
       is_natural_person: r.is_natural_person,
       policy: r.policy,
+      has_open_dispute: r.has_open_dispute,
       owner_user: r.owner,
     },
+    undisputedOverdue: r.undisputed_overdue,
     caseId: r.case_id,
     today: r.today,
   };
@@ -303,6 +319,11 @@ async function runAction(rc: RunContext, action: Action): Promise<Outcome> {
           status: 'skipped',
           result: { reason: 'template_missing', template: action.template },
         };
+      // 5.1: no reminder for a disputed invoice; a customer reminder only while something
+      // overdue is NOT disputed.
+      if (rc.facts.has_open_dispute && (rc.entity.invoiceId ? true : !rc.undisputedOverdue)) {
+        return { status: 'skipped', result: { reason: 'disputed', template: action.template } };
+      }
       // Rule 19: a message with legal effect never goes to a natural person automatically.
       if (t.legal && rc.facts.is_natural_person) {
         return { status: 'skipped', result: { reason: 'rule_19', template: action.template } };
@@ -496,6 +517,7 @@ export async function runVersion(
       entity,
       caseId: loaded.caseId,
       facts: loaded.facts,
+      undisputedOverdue: loaded.undisputedOverdue,
       keyring: () => opts.keyring ?? getMasterKeyring(),
     };
     const actions: { type: string; status: string }[] = [];

@@ -293,6 +293,24 @@ i P4 bez roka, plus preostali rizici P2 ispravki.
 - [ ] S-58 rate limiter pada otvoreno kad baza ne radi (namerno; dokumentovati).
 - [ ] S-59 `git bundle --all` nosi celu istoriju — `gitleaks git` pre bundle-a.
 
+## Iz Sprinta 5 (5.1–5.4)
+
+- **Izvoz — čišćenje fajlova:** `export_files` posle `expires_at` (7 dana) se više ne preuzima, ali
+  šifrovani fajl ostaje na disku do retention posla; dodati brisanje u `retention` (worker).
+- **Izvoz — XLSX i preciznost:** iznos je u XLSX-u decimalni string iz baze, ali Excel prikazuje
+  samo 15 značajnih cifara (iznosi ≥ 10^13 sa decimalama). Za takve vrednosti ponuditi CSV.
+- **Šifarnici — nazivi neaktivnih kodova:** `codeLabels()` vraća samo aktivne; istorijski zapis sa
+  neaktivnim kodom prikazuje šifru umesto naziva. Dodati `includeInactive` za prikaz.
+- **Bulk — izbor „sve po filteru":** sada se bira sa stranice (do 500 redova liste); izbor svih
+  rezultata filtera (preko limita liste) kao posebna opcija sa preview-om.
+- **Google Workspace OAuth (5.3):** dugme „Poveži Google Workspace" je placeholder („uskoro");
+  do tada IMAP/SMTP sa lozinkom za aplikaciju. Isti obrazac kao Microsoft 365 (PKCE, token kod
+  nas, Gmail API scope-ovi `gmail.readonly` + `gmail.send` — restricted scope, Google verifikacija).
+- **Pošta — prekid veze:** dugme „Prekini vezu" (deaktivira workflow-e, briše `*-<slug>`
+  credential-e u n8n-u, opoziva Microsoft token); sada ručno u n8n-u.
+- **Digest — šabloni:** tekst digest-a je iz `messages` (mail.digest.*), ne iz tenant šablona;
+  tenant-izmenljiv digest šablon kad bude traženo.
+
 ## Roadmap
 
 ### Marketing sajt — paralelan tok uz Sprint 1

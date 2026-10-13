@@ -25,6 +25,34 @@ cat docs/NEXT.md                # 4. aktivan zadatak
 Alati žive u ovom kontejneru, ne u repou, i mogu da nestanu posle restarta/rebuild-a kontejnera.
 Bez njih pre-commit hook pada — ne zaobilaziti (`--no-verify` je zabranjen).
 
+## Povezivanje sandučeta kroz formu (5.3, ADR 0007)
+
+Novi tenant (i Sinergista kad prelazi sa skripte) povezuje poštu sam: **Admin → Integracije →
+Pošta**.
+
+1. IMAP/SMTP forma: server, port, šifrovanje, korisnik, lozinka, folder/labela (podrazumevano
+   `INBOX`), adresa pošiljaoca. Lozinka se odmah šifruje; ekran posle prikazuje samo „postavljeno".
+2. **Proveri vezu** → worker (tick `integrations-dispatch`, svakog minuta) radi IMAP `LOGIN` i
+   SMTP `EHLO` (+ `AUTH`). Na uspeh pravi u n8n-u `collect-signing-<slug>`, `collect-imap-<slug>`,
+   `collect-smtp-<slug>` i workflow-e „Collect — mail inbound/outbound — <slug>" (webhook
+   `collect-mail-outbound-<slug>`) i aktivira ih. Greška ostaje kao kod na ekranu
+   (`imap_auth_failed`, `smtp_no_starttls`, `n8n_not_configured`…).
+3. Worker mora imati `N8N_BASE_URL`, `N8N_API_KEY`, `BETTER_AUTH_URL` (docker-compose.yml).
+   Lokalni relay (172.17.0.1) radi samo uz `MAILBOX_ALLOW_PRIVATE_HOSTS=1` (dev).
+
+**Microsoft 365** — dugme se pojavljuje tek kad su `MS_CLIENT_ID` i `MS_CLIENT_SECRET` u `.env`
+(`MS_TENANT` podrazumevano `common`). Azure aplikacija (pravi Uroš, Entra ID → App registrations):
+
+- Supported account types: „Accounts in any organizational directory" (multitenant) — za `common`.
+- Redirect URI (Web): `<BETTER_AUTH_URL>/api/integrations/microsoft/callback`.
+- API permissions (Microsoft Graph, Delegated): `Mail.Read`, `Mail.Send`, `offline_access`.
+- Certificates & secrets → client secret → u `.env` van sesije (nikad u chat); rotacija pre
+  isteka: novi secret u `.env`, `docker compose up -d app worker`.
+
+Worker osvežava access token 10 min pre isteka i upisuje ga u n8n credential `collect-ms-<slug>`.
+Ako tenant opozove saglasnost, status postaje `failed` / `ms_token_failed` → „Poveži Microsoft 365"
+ponovo. Brisanje veze: n8n objekti `*-<slug>` se brišu ručno u n8n-u (za sada).
+
 ## n8n povezivanje (tenant Sinergista, sesija 5.1)
 
 Collect ↔ n8n (`N8N_BASE_URL`, `N8N_API_KEY` u `.env` — upisuju se editorom van Claude sesije,

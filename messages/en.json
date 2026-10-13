@@ -23,11 +23,16 @@
       "rules": "Rules",
       "templates": "Templates",
       "approvals": "Approvals",
-      "integrations": "Integrations"
+      "integrations": "Integrations",
+      "invoices": "Invoices",
+      "reports": "Reports",
+      "notifications": "Notifications",
+      "gettingStarted": "Getting started"
     },
     "tenant": "Organization",
     "switchTenant": "Switch organization",
-    "account": "Account"
+    "account": "Account",
+    "onboardingProgress": "{done}/{total}"
   },
   "error": {
     "title": "Something went wrong",
@@ -53,6 +58,24 @@
     "test": {
       "subject": "Test message — {tenant}",
       "text": "This is a test message from {tenant}.\n\nIf you received it, outgoing mail through your mailbox integration works. No reply is needed."
+    },
+    "digest": {
+      "daily": {
+        "subject": "My day — collections",
+        "attention": "Items needing attention: {n}",
+        "promises": "Promises due today (or earlier, still pending): {n}",
+        "tasks": "Tasks due: {n}",
+        "mail": "New customer mail: {n}",
+        "top": "First in line:"
+      },
+      "weekly": {
+        "subject": "Weekly collections summary",
+        "overdue": "Overdue now: {amount}",
+        "collected": "Collected in the last 30 days: {amount}",
+        "broken": "Broken promises (30 days): {n}",
+        "top": "Top 5 customers by overdue amount:"
+      },
+      "footer": "Only customers you can see are included. Turn digests off under Account → Notifications."
     }
   },
   "auth": {
@@ -183,7 +206,9 @@
     "self_action": "You cannot do this to your own account — ask another administrator.",
     "last_owner": "This is the organization’s only owner; make someone else owner first.",
     "not_ready": "The PDF is still being prepared. Wait a few seconds and try again.",
-    "unsupported": "This kind of request cannot be decided here yet."
+    "unsupported": "This kind of request cannot be decided here yet.",
+    "limit_exceeded": "Too many items for one bulk action — narrow the selection (the limit is in Admin → Settings).",
+    "not_bulk": "This action needs a decision per item (legal effect or four eyes) and cannot run in bulk."
   },
   "dashboard": {
     "title": "Collections overview",
@@ -225,6 +250,11 @@
       "collection_rate": {
         "label": "Collection rate",
         "definition": "Collected (30 days) ÷ (collected + overdue total), in percent. Adjustments are excluded."
+      },
+      "disputed": {
+        "label": "Disputed",
+        "definition": "Open amount of invoices in an open or in-review dispute (reporting currency). Still included in overdue and aging; shown separately, reminders are not sent for them.",
+        "count": "{amount} · {n} disputes"
       }
     },
     "aging": {
@@ -530,6 +560,56 @@
       "invite": "Invitation of {user} as {role}",
       "teamLead": "Team lead of {team}: {user}",
       "apiKeyScope": "API key „{name}“ with scope: {scope}"
+    },
+    "configuration": {
+      "saved": "Saved. The change is recorded in the audit log.",
+      "save": "Save",
+      "add": "Add",
+      "inUse": "in use",
+      "labelSr": "Name (Serbian)",
+      "labelEn": "Name (English)",
+      "order": "Order",
+      "active": "active",
+      "newCode": "New code (a-z, 0-9, _)",
+      "neverDeleted": "Codes are never deleted — an inactive code disappears from choices but stays valid on existing records.",
+      "lists": {
+        "collection_policy": "Collection policies",
+        "case_stage": "Case stages",
+        "dispute_reason": "Dispute reasons",
+        "payment_behaviour": "Payment behaviour"
+      },
+      "aging": "Aging buckets",
+      "minDays": "From day",
+      "maxDays": "To day (empty = no limit)",
+      "agingHint": "Buckets must start at 0, follow each other without gaps or overlaps, and the last one has no upper limit.",
+      "thresholds": "Attention, risk and limits",
+      "noActivityDays": "No activity after (days)",
+      "largeOverdue": "Large overdue invoice from (empty = top 5)",
+      "defaultPolicy": "Default collection policy",
+      "bulkMax": "Bulk action limit (items)",
+      "riskWeights": "Risk weights (0–100)",
+      "bandYellow": "Yellow from score",
+      "bandRed": "Red from score",
+      "riskFactors": {
+        "days_overdue": "Days overdue",
+        "exposure_vs_limit": "Exposure vs. limit",
+        "broken_promises_90d": "Broken promises (90 d)",
+        "disputes_90d": "Disputes (90 d)",
+        "inactivity_days": "Inactivity",
+        "external_blocked": "Blocked account (external)"
+      },
+      "calendar": "Working days and holidays per company",
+      "workingDays": "Working days",
+      "holidays": "Holidays — one per line: YYYY-MM-DD name",
+      "days": {
+        "1": "Mon",
+        "2": "Tue",
+        "3": "Wed",
+        "4": "Thu",
+        "5": "Fri",
+        "6": "Sat",
+        "7": "Sun"
+      }
     }
   },
   "pwa": {
@@ -562,7 +642,9 @@
       "oldest": "Oldest",
       "status": "Status",
       "owner": "Owner",
-      "risk": "Risk"
+      "risk": "Risk",
+      "disputed": "Disputed",
+      "behaviour": "Behaviour"
     },
     "emptyTitle": "No customers for this view",
     "emptyDescription": "Change the search or filters. If you have not imported invoices yet, customers are created by the import.",
@@ -576,7 +658,9 @@
       "delete": "Delete filter {name}",
       "deleteShort": "×",
       "confirmDelete": "Delete?"
-    }
+    },
+    "disputedLine": "disputed {amount}",
+    "select": "Select for a bulk action"
   },
   "customer360": {
     "back": "← Customers",
@@ -618,7 +702,8 @@
       "cases": "Cases",
       "documents": "Documents",
       "communication": "Communication",
-      "risk": "Risk"
+      "risk": "Risk",
+      "disputes": "Disputes"
     },
     "aging": "Aging",
     "openCases": "Open cases ({n})",
@@ -673,7 +758,9 @@
       "dunning_letter": "Payment reminder",
       "statement": "Statement"
     },
-    "pdfPending": "PDF in progress"
+    "pdfPending": "PDF in progress",
+    "disputedBadge": "Disputed: {n} open · {amount}",
+    "disputedMark": "disputed"
   },
   "collections": {
     "actionsLabel": "Customer actions",
@@ -864,7 +951,8 @@
       "team": "team",
       "owner": "owner",
       "case_stage": "case stage",
-      "is_natural_person": "private person"
+      "is_natural_person": "private person",
+      "has_open_dispute": "Open dispute"
     },
     "ops": {
       "eq": "=",
@@ -1242,5 +1330,374 @@
       "unsupported": "not supported (see the integration document)"
     },
     "outOf": "of 100"
+  },
+  "disputes": {
+    "behaviour": "Payment behaviour",
+    "behaviourNone": "not assessed",
+    "behaviourSaved": "Payment behaviour saved.",
+    "emptyTitle": "No disputes",
+    "emptyDescription": "When the customer contests an invoice, open a dispute below: the invoice stays in aging, marked, and rules send no reminders for it.",
+    "invoices": "Invoices: {list}",
+    "openedOn": "opened {date}",
+    "expectedBy": "answer by {date}",
+    "resolutionNote": "Resolution (optional)",
+    "cancel": "Cancel",
+    "openTitle": "Open a dispute",
+    "chooseInvoices": "Disputed invoices",
+    "reason": "Reason",
+    "expectedByLabel": "Answer expected by (optional)",
+    "open": "Open dispute",
+    "opened": "The dispute is open; the invoices are marked as disputed.",
+    "updated": "The dispute was updated.",
+    "status": {
+      "open": "open",
+      "in_review": "in review",
+      "resolved_accepted": "resolved — accepted",
+      "resolved_rejected": "resolved — rejected",
+      "withdrawn": "withdrawn"
+    },
+    "to": {
+      "in_review": "Start review",
+      "resolved_accepted": "Accept",
+      "resolved_rejected": "Reject",
+      "withdrawn": "Withdrawn"
+    }
+  },
+  "search": {
+    "label": "Search",
+    "placeholder": "Search customers, invoices, e-mail… (Ctrl+K)",
+    "none": "Nothing found in your scope.",
+    "naturalPerson": "Natural person",
+    "kind": {
+      "customer": "Customer",
+      "invoice": "Invoice",
+      "case": "Open case",
+      "contact": "Contact"
+    }
+  },
+  "invoices": {
+    "title": "Open invoices",
+    "description": "Open invoices of the customers you can see. Disputed invoices stay here and in aging, marked.",
+    "search": "Search",
+    "searchPlaceholder": "Invoice number or customer",
+    "bucket": "Aging bucket",
+    "disputed": "Disputes",
+    "disputedFilter": {
+      "only": "only disputed",
+      "exclude": "without disputed"
+    },
+    "any": "any",
+    "onlyOverdue": "Only overdue",
+    "apply": "Apply",
+    "emptyTitle": "No open invoices",
+    "emptyDescription": "Nothing matches the filters, or no invoices have been imported yet.",
+    "emptyAction": "Import invoices",
+    "select": "Select for a bulk action",
+    "naturalPerson": "Natural person",
+    "due": "due {date}",
+    "days": "{n} d overdue",
+    "disputedMark": "disputed",
+    "truncated": "Showing the first {n} — narrow the filters to see the rest."
+  },
+  "bulk": {
+    "label": "Bulk action",
+    "selectAll": "Select all",
+    "selectNone": "Clear selection",
+    "action": "Action",
+    "choose": "— choose —",
+    "noneSelected": "Select at least one row first.",
+    "preview": "Preview",
+    "previewCount": "{n} items will be processed (limit {limit}).",
+    "previewSkipped": "{n} selected items are outside your scope and will not be processed.",
+    "previewMore": "… and {n} more",
+    "confirm": "Confirm ({n})",
+    "cancel": "Cancel",
+    "naturalPerson": "Natural person",
+    "actions": {
+      "assign_owner": "Assign owner",
+      "assign_team": "Assign team",
+      "change_policy": "Change collection policy",
+      "send_reminder": "Send reminder",
+      "open_case": "Open case",
+      "export": "Export (CSV)"
+    },
+    "params": {
+      "assign_owner": "Owner",
+      "assign_team": "Team",
+      "change_policy": "Policy",
+      "send_reminder": "Template (without legal effect)"
+    },
+    "reportTitle": "Bulk action: {action}",
+    "reportDescription": "Started {date}. Each item ran with your permissions and scope.",
+    "runStatus": {
+      "queued": "Waiting for the worker…",
+      "running": "Running…",
+      "completed": "Completed",
+      "failed": "Failed"
+    },
+    "totals": "{total} items · {ok} done · {failed} failed · {skipped} skipped",
+    "download": "Download file",
+    "itemStatus": {
+      "ok": "done",
+      "failed": "failed",
+      "skipped": "skipped",
+      "pending": "waiting"
+    },
+    "itemError": {
+      "not_found": "not in your scope any more",
+      "forbidden": "no permission",
+      "unchanged": "already set",
+      "disputed_or_not_overdue": "nothing undisputed is overdue",
+      "case_exists": "an open case exists",
+      "not_overdue": "nothing overdue",
+      "requester_inactive": "the requester is no longer active",
+      "conflict": "no e-mail contact or a conflict",
+      "internal": "internal error"
+    }
+  },
+  "exports": {
+    "columns": {
+      "customer": "Customer",
+      "taxId": "Tax ID",
+      "externalId": "External ID",
+      "status": "Status",
+      "owner": "Owner",
+      "currency": "Currency",
+      "exposure": "Open",
+      "overdue": "Overdue",
+      "disputed": "Disputed",
+      "oldestDays": "Oldest overdue (days)",
+      "risk": "Risk",
+      "behaviour": "Payment behaviour",
+      "invoice": "Invoice",
+      "issueDate": "Issue date",
+      "dueDate": "Due date",
+      "total": "Total",
+      "open": "Open",
+      "daysOverdue": "Days overdue",
+      "bucket": "Aging bucket",
+      "naturalPerson": "Natural person",
+      "yes": "yes",
+      "no": "no"
+    },
+    "button": "Export",
+    "queued": "The export is large and is being prepared — find it under Reports → My exports.",
+    "done": "Downloaded ({n} rows).",
+    "mine": "My exports",
+    "mineEmpty": "No prepared exports in the last 7 days.",
+    "download": "Download",
+    "fileLine": "{type} · {format} · {rows} rows · until {date}",
+    "status": {
+      "queued": "waiting",
+      "running": "preparing",
+      "ready": "ready",
+      "failed": "failed"
+    }
+  },
+  "reports": {
+    "title": "Reports",
+    "description": "Six base reports in {currency}, limited to the customers you can see. Definitions: in each report's note.",
+    "choose": "Report",
+    "names": {
+      "aging_by_customer": "Aging by customer",
+      "aging_by_collector": "Aging by collector / team",
+      "collected_by_period": "Collected by period",
+      "promises": "Promises (kept / broken)",
+      "cases_by_stage": "Cases by stage",
+      "disputes": "Disputes"
+    },
+    "definitions": {
+      "aging_by_customer": "Open amounts per customer by aging bucket (reporting currency); overdue and disputed shown separately. Customers without open invoices are left out.",
+      "aging_by_collector": "Open amounts by aging bucket per customer owner (or owner team); number of customers with open invoices.",
+      "collected_by_period": "Money received (payments only — adjustments are never collection) per day / week / month in the period, converted on the payment date.",
+      "promises": "Promises whose promise date falls in the period, by status: count, promised and paid amount (cancelled left out).",
+      "cases_by_stage": "Open cases per stage: count, open amount of their invoices, average age in days.",
+      "disputes": "Disputes opened in the period by reason and status: count, open amount of the disputed invoices, average days open."
+    },
+    "from": "From",
+    "to": "To",
+    "onlyMine": "Only my customers",
+    "groupBy": "Group by",
+    "groupByOwner": "collector",
+    "groupByTeam": "team",
+    "period": "Period",
+    "periods": {
+      "day": "day",
+      "week": "week",
+      "month": "month"
+    },
+    "apply": "Show",
+    "empty": "No data for these filters.",
+    "saved": "Saved reports",
+    "saveAs": "Save as",
+    "share": "share with the organization",
+    "save": "Save",
+    "savedOk": "Report saved.",
+    "deleted": "Saved report deleted.",
+    "delete": "Delete",
+    "sharedMark": "shared",
+    "sortBy": "Sort by",
+    "sortDefault": "default",
+    "columns": {
+      "customer": "Customer",
+      "owner": "Collector",
+      "team": "Team",
+      "open_total": "Open",
+      "overdue_total": "Overdue",
+      "disputed": "Disputed",
+      "customers": "Customers",
+      "period": "Period",
+      "collected": "Collected",
+      "payments": "Payments",
+      "status": "Status",
+      "promises": "Promises",
+      "amount": "Amount",
+      "paid": "Paid",
+      "stage": "Stage",
+      "cases": "Cases",
+      "open_amount": "Open amount",
+      "avg_age_days": "Average age (days)",
+      "reason": "Reason",
+      "disputes": "Disputes",
+      "avg_days_open": "Average days open"
+    },
+    "noOwner": "no owner",
+    "naturalPerson": "Natural person"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "description": "Which e-mail digests you receive and what the app shows you. Digests go to your sign-in address at 07:00 in your time zone.",
+    "dailyDigest": "Daily “My day” e-mail",
+    "weeklyDigest": "Weekly manager summary (Monday; only with report access)",
+    "inAppAttention": "Show “Needs attention” on the dashboard",
+    "inAppMail": "Show undelivered and new mail items in the app",
+    "save": "Save",
+    "saved": "Preferences saved.",
+    "digestNow": "Send me today's “My day” now",
+    "digestSent": "Sent to your address (a demo organization: to the test inbox only)."
+  },
+  "mailbox": {
+    "title": "Mail",
+    "description": "Connect the mailbox Collect reads replies from and sends reminders through (via n8n). The password is encrypted at once and never shown again.",
+    "status": {
+      "none": "Not connected yet.",
+      "saved": "Saved — check the connection to activate it.",
+      "test_requested": "Checking the connection…",
+      "testing": "Checking the connection…",
+      "connected": "Connected — n8n reads and sends for this organization.",
+      "failed": "The check failed"
+    },
+    "errors": {
+      "imap_auth_failed": "IMAP: wrong user or password (for Gmail use an app password).",
+      "smtp_auth_failed": "SMTP: wrong user or password.",
+      "imap_blocked_host": "IMAP: this address is not allowed (internal network).",
+      "smtp_blocked_host": "SMTP: this address is not allowed (internal network).",
+      "imap_connect_failed": "IMAP: the server does not answer on this port.",
+      "smtp_connect_failed": "SMTP: the server does not answer on this port.",
+      "imap_no_starttls": "IMAP: port 143 without STARTTLS — the password would travel unencrypted.",
+      "smtp_no_starttls": "SMTP: the server offers no STARTTLS.",
+      "smtp_insecure_auth": "SMTP: login without encryption is not allowed — choose STARTTLS or TLS.",
+      "n8n_not_configured": "n8n is not configured on the server (N8N_BASE_URL / N8N_API_KEY).",
+      "n8n_failed": "The mailbox works, but n8n refused the setup — see the server log.",
+      "ms_token_failed": "Microsoft 365: the sign-in expired or was revoked — connect again.",
+      "imap_dns_failed": "IMAP: the server name does not resolve.",
+      "smtp_dns_failed": "SMTP: the server name does not resolve.",
+      "imap_tls_failed": "IMAP: the TLS connection failed (certificate?).",
+      "smtp_tls_failed": "SMTP: the TLS connection failed (certificate?).",
+      "imap_insecure_auth": "IMAP: login without encryption is not allowed.",
+      "imap_protocol_error": "IMAP: the server answered unexpectedly — is this the IMAP port?",
+      "smtp_protocol_error": "SMTP: the server answered unexpectedly — is this the SMTP port?",
+      "imap_timeout": "IMAP: no answer in time.",
+      "smtp_timeout": "SMTP: no answer in time."
+    },
+    "imapHost": "IMAP server",
+    "imapPort": "IMAP port",
+    "imapPorts": {
+      "993": "993 (SSL/TLS)",
+      "143": "143 (STARTTLS)"
+    },
+    "smtpHost": "SMTP server",
+    "smtpPort": "SMTP port",
+    "smtpSecurity": "Encryption",
+    "security": {
+      "starttls": "STARTTLS",
+      "tls": "SSL/TLS",
+      "none": "none (only without login)"
+    },
+    "username": "User (usually the e-mail address)",
+    "password": "Password",
+    "setKeep": "set — leave empty to keep",
+    "folder": "Folder / label to read",
+    "fromAddress": "Sender address (optional)",
+    "gmailHint": "Gmail: turn on 2-step verification, create an app password (Google account → Security → App passwords) and use it here; imap.gmail.com 993, smtp.gmail.com 587 STARTTLS. To read only collection mail, create a label (e.g. Collect), filter messages into it and enter the label name as the folder.",
+    "save": "Save",
+    "saved": "Saved. Now check the connection.",
+    "check": "Check connection",
+    "checking": "The check is running — this page refreshes by itself.",
+    "microsoft": {
+      "connect": "Connect Microsoft 365",
+      "connected": "Microsoft 365 consent received — connecting n8n…",
+      "denied": "Microsoft 365: consent was not given.",
+      "failed": "Microsoft 365: the connection could not be completed — try again."
+    },
+    "google": "Google Workspace (OAuth) — coming soon. Until then use the IMAP/SMTP form with an app password."
+  },
+  "onboarding": {
+    "title": "Getting started",
+    "description": "Twelve steps to a working collection. Each one is checked automatically from your data; this page stays in the menu until all are done.",
+    "progress": "{done} of {total} steps done",
+    "complete": "All steps are done — the item disappears from the menu.",
+    "done": "done",
+    "todo": "to do",
+    "steps": {
+      "organization": {
+        "title": "Organization settings",
+        "hint": "Language, time zone, reporting currency and country."
+      },
+      "companies": {
+        "title": "Your companies",
+        "hint": "At least one active invoicing company."
+      },
+      "calendar": {
+        "title": "Working days and holidays",
+        "hint": "Per company — reminders and promises respect them."
+      },
+      "users": {
+        "title": "Invite your team",
+        "hint": "Collectors, managers, finance — each with their role."
+      },
+      "teams": {
+        "title": "Teams",
+        "hint": "Group collectors; managers see their team."
+      },
+      "customers": {
+        "title": "Import customers",
+        "hint": "CSV or XLSX from your accounting system."
+      },
+      "invoices": {
+        "title": "Import open invoices",
+        "hint": "Aging, the dashboard and reminders start from them."
+      },
+      "owners": {
+        "title": "Assign customer owners",
+        "hint": "Customers → select → bulk action \"Assign owner\"."
+      },
+      "collection_settings": {
+        "title": "Collection settings",
+        "hint": "Aging buckets, policies, dispute reasons, attention thresholds."
+      },
+      "templates": {
+        "title": "Review the templates",
+        "hint": "Your tone in reminders and letters."
+      },
+      "rules": {
+        "title": "Publish your rules",
+        "hint": "Adjust the standard policy and publish a version."
+      },
+      "mailbox": {
+        "title": "Connect the mailbox",
+        "hint": "Replies arrive in Collect and reminders leave from your address."
+      }
+    }
   }
 }

@@ -29,7 +29,7 @@ export type AuthMailKind = 'invitation' | 'password_reset';
 /** Collection mail (3.3, migration 017): rendered from a tenant template, about one customer. */
 export type CollectionMailKind = 'reminder' | 'dunning' | 'statement' | 'document' | 'reply';
 /** Session 5.1, migration 023: a test message to the signed-in member (Admin → Integrations). */
-export type SystemMailKind = 'test';
+export type SystemMailKind = 'test' | 'digest';
 export type MailKind = AuthMailKind | CollectionMailKind | SystemMailKind;
 export type Transport = 'sink' | 'smtp' | 'integration';
 
@@ -248,6 +248,80 @@ export async function sendTestMail(
       subject: t('subject', { tenant: mail.tenantName }),
       text: t('text', { tenant: mail.tenantName }),
     },
+    integrationId,
+  });
+  return { id, transport };
+}
+
+export type DigestContent =
+  | {
+      kind: 'daily';
+      attention: number;
+      promisesDue: number;
+      tasks: number;
+      newMail: number;
+      top: string[];
+    }
+  | {
+      kind: 'weekly';
+      currency: string;
+      overdue: string;
+      collected30: string;
+      promisesBroken: number;
+      top: string[];
+    };
+
+const escapeHtml = (s: string) =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+/**
+ * Digest (5.2): the member's daily "My day" or weekly manager summary, to their own address,
+ * fixed texts from messages (mail.digest.*), through the tenant's way out — a demo tenant only
+ * the sink (rule 24). Amounts arrive as decimal strings and are printed as such (rule 18).
+ */
+export async function sendDigestMail(
+  db: Queryable,
+  keyring: MasterKeyring,
+  mail: { to: string; locale: string; content: DigestContent },
+  options: MailOptions = {},
+): Promise<{ id: string; transport: Transport }> {
+  const tenantId = await currentTenantId(db);
+  const { transport, integrationId } = await collectionTransport(db, tenantId, options);
+  const locale: Locale = isLocale(mail.locale) ? mail.locale : 'en';
+  const t = createTranslator({ locale, messages: MESSAGES[locale], namespace: 'mail.digest' });
+  const c = mail.content;
+  const lines =
+    c.kind === 'daily'
+      ? [
+          t('daily.attention', { n: c.attention }),
+          t('daily.promises', { n: c.promisesDue }),
+          t('daily.tasks', { n: c.tasks }),
+          t('daily.mail', { n: c.newMail }),
+        ]
+      : [
+          t('weekly.overdue', { amount: `${c.overdue} ${c.currency}` }),
+          t('weekly.collected', { amount: `${c.collected30} ${c.currency}` }),
+          t('weekly.broken', { n: c.promisesBroken }),
+        ];
+  const subject = c.kind === 'daily' ? t('daily.subject') : t('weekly.subject');
+  const topTitle = t(c.kind === 'daily' ? 'daily.top' : 'weekly.top');
+  const text = [
+    ...lines,
+    ...(c.top.length ? ['', topTitle, ...c.top.map((n) => `- ${n}`)] : []),
+    '',
+    t('footer'),
+  ].join('\n');
+  const html = [
+    `<p>${lines.map(escapeHtml).join('<br>')}</p>`,
+    c.top.length
+      ? `<p>${escapeHtml(topTitle)}</p><ul>${c.top.map((n) => `<li>${escapeHtml(n)}</li>`).join('')}</ul>`
+      : '',
+    `<p>${escapeHtml(t('footer'))}</p>`,
+  ].join('');
+  const id = await insertOutbox(db, keyring, tenantId, transport, {
+    kind: 'digest',
+    to: mail.to,
+    body: { subject, text, html },
     integrationId,
   });
   return { id, transport };

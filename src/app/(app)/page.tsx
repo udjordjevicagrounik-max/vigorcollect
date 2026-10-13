@@ -10,6 +10,7 @@ import { formatAmount } from '@/lib/format-amount';
 import { listAttention } from '@/server/attention/service';
 import { PermissionDeniedError, permissionKeys } from '@/server/auth/permissions';
 import { withTenantPage } from '@/server/auth/with-tenant';
+import { getPreferences } from '@/server/notifications/digest';
 import { codeLabels, getDashboard, myWorkToday } from '@/server/receivables/service';
 
 export const dynamic = 'force-dynamic';
@@ -39,9 +40,14 @@ export default async function HomePage({
         dashboard,
         hasInvoices,
         work: hasInvoices ? await myWorkToday(ctx, work) : [],
-        attention: (await permissionKeys(ctx.db, ctx.userId)).has('customer.read')
-          ? await listAttention(ctx)
-          : [],
+        // 5.2: the member's in-app preferences decide what the attention list shows.
+        attention: await (async () => {
+          const prefs = await getPreferences(ctx);
+          if (!prefs.inAppAttention) return [];
+          if (!(await permissionKeys(ctx.db, ctx.userId)).has('customer.read')) return [];
+          const items = await listAttention(ctx);
+          return prefs.inAppMail ? items : items.filter((i) => i.kind !== 'mail_undelivered');
+        })(),
         buckets: await codeLabels(ctx, 'aging_bucket', locale),
         stages: await codeLabels(ctx, 'case_stage', locale),
         actions: await codeLabels(ctx, 'next_action', locale),
@@ -118,6 +124,14 @@ export default async function HomePage({
           value={d.promisesBroken}
           definition={t('kpi.promises_broken.definition')}
           definitionLabel={t('definition')}
+        />
+        <KpiCard
+          id="disputed"
+          label={t('kpi.disputed.label')}
+          value={t('kpi.disputed.count', { amount: money(d.disputedTotal), n: d.openDisputes })}
+          definition={t('kpi.disputed.definition')}
+          definitionLabel={t('definition')}
+          note={fxNote}
         />
         <KpiCard
           id="open_cases"

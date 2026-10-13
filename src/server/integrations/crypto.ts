@@ -11,7 +11,13 @@ type Target =
   | 'webhook_events.body'
   | 'mail_inbox.from'
   | 'mail_inbox.subject'
-  | 'mail_inbox.body';
+  | 'mail_inbox.body'
+  // 5.3: mailbox onboarding — every secret of the form and the Microsoft 365 consent.
+  | 'mailbox_connections.username'
+  | 'mailbox_connections.password'
+  | 'mailbox_connections.from_address'
+  | 'mailbox_connections.ms_refresh_token'
+  | 'oauth_states.verifier';
 
 function key(keyring: MasterKeyring, tenantId: string, target: Target, version: number): Buffer {
   const table = target.split('.')[0] ?? target;

@@ -5,6 +5,7 @@ import { NotFoundError, type TenantContext } from '@/server/auth/with-tenant';
 import { getMasterKeyring, type MasterKeyring } from '@/server/crypto/keyring';
 import { decryptField } from '@/server/crypto/subject-keys';
 import { readCustomerName } from '@/server/customers/repository';
+import { likeContains } from '@/server/db-like';
 
 /**
  * Receivables reads (task 2.3): customer list, Customer 360, dashboard. Every query joins the
@@ -43,18 +44,28 @@ export type CustomerRow = {
   currency: string;
   /** Latest risk band (4.3), null = not scored yet. */
   riskBand: 'green' | 'yellow' | 'red' | null;
+  /** 5.1: collector's assessment (code list payment_behaviour), null = not set. */
+  paymentBehaviour: string | null;
+  /** 5.1: open amount of invoices in an open dispute (still in aging, shown separately). */
+  disputed: string;
 };
 
 export async function listReceivableCustomers(
   ctx: TenantContext,
   query: CustomerListQuery,
   limit = 200,
+  /** 5.2: only these customers (bulk export of a selection). */
+  ids?: string[],
 ): Promise<CustomerRow[]> {
   const { scope } = await ctx.requirePermission('customer.read');
   const params: unknown[] = [limit];
   const where: string[] = [];
+  if (ids) {
+    params.push(ids);
+    where.push(`c.id = ANY($${params.length}::uuid[])`);
+  }
   if (query.q) {
-    params.push(`%${query.q.replace(/[\\%_]/g, (m) => `\\${m}`)}%`);
+    params.push(likeContains(query.q));
     const p = `$${params.length}`;
     where.push(`(c.display_name ILIKE ${p} OR le.tax_id ILIKE ${p} OR c.external_id ILIKE ${p})`);
   }
@@ -84,9 +95,12 @@ export async function listReceivableCustomers(
     missing_fx: number | null;
     currency: string;
     risk_band: CustomerRow['riskBand'];
+    payment_behaviour: string | null;
+    disputed: string | null;
   }>(
     `SELECT c.id, c.display_name, c.is_natural_person, le.tax_id, c.external_id, c.status,
             u.display_name AS owner_name, agg.exposure, agg.overdue, agg.oldest, agg.missing_fx,
+            c.payment_behaviour_code AS payment_behaviour, agg.disputed,
             coalesce(ts.default_currency, 'EUR') AS currency,
             (SELECT s.band FROM risk_scores s WHERE s.customer_id = c.id ORDER BY s.computed_at DESC LIMIT 1) AS risk_band
      FROM customers c
@@ -97,7 +111,8 @@ export async function listReceivableCustomers(
        SELECT sum(p.open_reporting) FILTER (WHERE p.is_open) AS exposure,
               sum(p.open_reporting) FILTER (WHERE p.is_overdue) AS overdue,
               max(p.days_overdue) FILTER (WHERE p.is_overdue) AS oldest,
-              count(*) FILTER (WHERE p.is_open AND p.open_reporting IS NULL)::int AS missing_fx
+              count(*) FILTER (WHERE p.is_open AND p.open_reporting IS NULL)::int AS missing_fx,
+              sum(p.open_reporting) FILTER (WHERE p.is_open AND p.is_disputed) AS disputed
        FROM invoice_positions p WHERE p.customer_id = c.id
      ) agg ON true
      WHERE ${filter.sql} ${where.length ? `AND ${where.join(' AND ')}` : ''}
@@ -119,6 +134,8 @@ export async function listReceivableCustomers(
     missingFx: r.missing_fx ?? 0,
     currency: r.currency,
     riskBand: r.risk_band,
+    paymentBehaviour: r.payment_behaviour,
+    disputed: r.disputed ?? '0.00',
   }));
 }
 
@@ -192,6 +209,10 @@ export type Customer360 = {
   missingFx: number;
   openPromises: number;
   openCases: number;
+  /** 5.1 */
+  openDisputes: number;
+  disputed: string;
+  paymentBehaviour: string | null;
   aging: AgingRow[];
   companyId: string | null;
 };
@@ -222,8 +243,10 @@ export async function getCustomer360(
     owner_name: string | null;
     currency: string;
     company_id: string | null;
+    payment_behaviour: string | null;
   }>(
     `SELECT c.id, c.display_name, c.is_natural_person, le.tax_id, c.status, u.display_name AS owner_name,
+            c.payment_behaviour_code AS payment_behaviour,
             coalesce(ts.default_currency, 'EUR') AS currency,
             (SELECT tc.id FROM tenant_companies tc ORDER BY tc.is_default DESC, tc.created_at LIMIT 1) AS company_id
      FROM customers c LEFT JOIN tenant_settings ts ON true
@@ -239,11 +262,13 @@ export async function getCustomer360(
     overdue: string | null;
     oldest: number | null;
     missing_fx: number;
+    disputed: string | null;
   }>(
     `SELECT sum(open_reporting) FILTER (WHERE is_open) AS exposure,
             sum(open_reporting) FILTER (WHERE is_overdue) AS overdue,
             max(days_overdue) FILTER (WHERE is_overdue) AS oldest,
-            count(*) FILTER (WHERE is_open AND open_reporting IS NULL)::int AS missing_fx
+            count(*) FILTER (WHERE is_open AND open_reporting IS NULL)::int AS missing_fx,
+            sum(open_reporting) FILTER (WHERE is_open AND is_disputed) AS disputed
      FROM invoice_positions WHERE customer_id = $1`,
     [customerId],
   );
@@ -254,9 +279,10 @@ export async function getCustomer360(
      GROUP BY b.code, b.min_days_overdue ORDER BY b.min_days_overdue`,
     [customerId],
   );
-  const counts = await ctx.db.query<{ promises: number; cases: number }>(
+  const counts = await ctx.db.query<{ promises: number; cases: number; disputes: number }>(
     `SELECT (SELECT count(*) FROM promises WHERE customer_id = $1 AND status = 'pending')::int AS promises,
-            (SELECT count(*) FROM collection_cases WHERE customer_id = $1 AND status = 'open')::int AS cases`,
+            (SELECT count(*) FROM collection_cases WHERE customer_id = $1 AND status = 'open')::int AS cases,
+            (SELECT count(*) FROM disputes WHERE customer_id = $1 AND status IN ('open', 'in_review'))::int AS disputes`,
     [customerId],
   );
   const name = c.is_natural_person
@@ -277,6 +303,9 @@ export async function getCustomer360(
     missingFx: t?.missing_fx ?? 0,
     openPromises: counts.rows[0]?.promises ?? 0,
     openCases: counts.rows[0]?.cases ?? 0,
+    openDisputes: counts.rows[0]?.disputes ?? 0,
+    disputed: t?.disputed ?? '0.00',
+    paymentBehaviour: c.payment_behaviour,
     aging: aging.rows.map((a) => ({ bucket: a.bucket, amount: a.amount ?? '0.00', count: a.n })),
     companyId: c.company_id,
   };
@@ -294,6 +323,8 @@ export type InvoiceRow = {
   daysOverdue: number;
   isOverdue: boolean;
   bucket: string | null;
+  /** 5.1: in an open dispute — still in aging, marked. */
+  isDisputed: boolean;
 };
 
 export async function customerInvoices(
@@ -313,9 +344,10 @@ export async function customerInvoices(
     days_overdue: number;
     is_overdue: boolean;
     aging_bucket: string | null;
+    is_disputed: boolean;
   }>(
     `SELECT invoice_id, number, issue_date::text, due_date::text, currency, amount_total, amount_open,
-            accounting_status, days_overdue, is_overdue, aging_bucket
+            accounting_status, days_overdue, is_overdue, aging_bucket, is_disputed
      FROM invoice_positions WHERE customer_id = $1
      ORDER BY is_open DESC, due_date, number`,
     [customerId],
@@ -332,6 +364,7 @@ export async function customerInvoices(
     daysOverdue: r.days_overdue,
     isOverdue: r.is_overdue,
     bucket: r.aging_bucket,
+    isDisputed: r.is_disputed,
   }));
 }
 
@@ -549,6 +582,9 @@ export type Dashboard = {
   promisesBroken: number;
   openCases: number;
   missingFx: number;
+  /** 5.1: open amount in open disputes (part of openTotal / aging, shown separately). */
+  disputedTotal: string;
+  openDisputes: number;
   aging: AgingRow[];
   topOverdue: {
     id: string;
@@ -570,8 +606,10 @@ export async function getDashboard(ctx: TenantContext): Promise<Dashboard> {
     dso_open: string | null;
     window_days: number;
     missing_fx: number;
+    disputed_total: string | null;
   }>(
     `SELECT ts.default_currency AS currency, ts.dso_window_days AS window_days,
+            sum(p.open_reporting) FILTER (WHERE p.is_open AND p.is_disputed) AS disputed_total,
             sum(p.open_reporting) FILTER (WHERE p.is_open) AS open_total,
             sum(p.dso_open_reporting) AS dso_open,
             sum(p.open_reporting) FILTER (WHERE p.is_overdue) AS overdue_total,
@@ -632,6 +670,11 @@ export async function getDashboard(ctx: TenantContext): Promise<Dashboard> {
      WHERE k.status = 'open'`,
     filter.params,
   );
+  const disputes = await ctx.db.query<{ n: number }>(
+    `SELECT count(*)::int AS n FROM disputes d JOIN customers c ON c.id = d.customer_id AND ${filter.sql}
+     WHERE d.status IN ('open', 'in_review')`,
+    filter.params,
+  );
   const top = await ctx.db.query<{
     id: string;
     display_name: string | null;
@@ -658,6 +701,8 @@ export async function getDashboard(ctx: TenantContext): Promise<Dashboard> {
     promisesBroken: pr?.broken ?? 0,
     openCases: cases.rows[0]?.n ?? 0,
     missingFx: t?.missing_fx ?? 0,
+    disputedTotal: t?.disputed_total ?? '0.00',
+    openDisputes: disputes.rows[0]?.n ?? 0,
     aging: aging.rows.map((a) => ({ bucket: a.bucket, amount: a.amount ?? '0.00', count: a.n })),
     topOverdue: top.rows.map((r) => ({
       id: r.id,
@@ -749,4 +794,98 @@ export async function codeLabels(
     [listKey, locale],
   );
   return Object.fromEntries(rows.map((r) => [r.code, r.text ?? r.code]));
+}
+
+// ---------------------------------------------------------------------------------------------
+// Invoice list (5.1): open invoices across customers in scope, for bulk actions
+// ---------------------------------------------------------------------------------------------
+
+export const invoiceListQuery = z.object({
+  q: z.string().trim().max(100).optional(),
+  overdue: z.enum(['1']).optional(),
+  disputed: z.enum(['only', 'exclude']).optional(),
+  bucket: z
+    .string()
+    .regex(/^[a-z][a-z0-9_]{0,40}$/)
+    .optional(),
+});
+export type InvoiceListQuery = z.infer<typeof invoiceListQuery>;
+
+export type InvoiceListRow = InvoiceRow & {
+  customerId: string;
+  customerName: string | null;
+  openReporting: string | null;
+};
+
+export async function listOpenInvoices(
+  ctx: TenantContext,
+  query: InvoiceListQuery,
+  limit = 500,
+  /** 5.2: only these invoices (bulk export of a selection). */
+  ids?: string[],
+): Promise<InvoiceListRow[]> {
+  const { scope } = await ctx.requirePermission('invoice.read');
+  const params: unknown[] = [limit];
+  const where: string[] = ['p.is_open'];
+  if (ids) {
+    params.push(ids);
+    where.push(`p.invoice_id = ANY($${params.length}::uuid[])`);
+  }
+  if (query.q) {
+    params.push(likeContains(query.q));
+    const p = `$${params.length}`;
+    where.push(`(p.number ILIKE ${p} OR c.display_name ILIKE ${p})`);
+  }
+  if (query.overdue) where.push('p.is_overdue');
+  if (query.disputed === 'only') where.push('p.is_disputed');
+  if (query.disputed === 'exclude') where.push('NOT p.is_disputed');
+  if (query.bucket) {
+    params.push(query.bucket);
+    where.push(`p.aging_bucket = $${params.length}`);
+  }
+  const filter = scopeFilter('customers', viewer(ctx, scope), 'c', params.length + 1);
+  const { rows } = await ctx.db.query<{
+    id: string;
+    customer_id: string;
+    customer_name: string | null;
+    number: string;
+    issue_date: string;
+    due_date: string;
+    currency: string;
+    amount_total: string;
+    amount_open: string;
+    accounting_status: string;
+    days_overdue: number;
+    is_overdue: boolean;
+    aging_bucket: string | null;
+    is_disputed: boolean;
+    open_reporting: string | null;
+  }>(
+    `SELECT p.invoice_id AS id, c.id AS customer_id, c.display_name AS customer_name, p.number,
+            p.issue_date::text, p.due_date::text, p.currency, p.amount_total, p.amount_open,
+            p.accounting_status, p.days_overdue, p.is_overdue, p.aging_bucket, p.is_disputed,
+            p.open_reporting
+     FROM invoice_positions p JOIN customers c ON c.id = p.customer_id
+     WHERE ${where.join(' AND ')} AND ${filter.sql}
+     ORDER BY p.days_overdue DESC, p.due_date, p.number, p.invoice_id
+     LIMIT $1`,
+    [...params, ...filter.params],
+  );
+  return rows.map((r) => ({
+    id: r.id,
+    customerId: r.customer_id,
+    customerName: r.customer_name,
+    number: r.number,
+    issueDate: r.issue_date,
+    dueDate: r.due_date,
+    currency: r.currency,
+    amountTotal: r.amount_total,
+    amountOpen: r.amount_open,
+    status: r.accounting_status,
+    daysOverdue: r.days_overdue,
+    isOverdue: r.is_overdue,
+    bucket: r.aging_bucket,
+    isDisputed: r.is_disputed,
+    openReporting: r.open_reporting,
+  }));
 }

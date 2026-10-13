@@ -23,11 +23,16 @@
       "rules": "Pravila",
       "templates": "Šabloni",
       "approvals": "Odobrenja",
-      "integrations": "Integracije"
+      "integrations": "Integracije",
+      "invoices": "Fakture",
+      "reports": "Izveštaji",
+      "notifications": "Obaveštenja",
+      "gettingStarted": "Početak rada"
     },
     "tenant": "Organizacija",
     "switchTenant": "Promeni organizaciju",
-    "account": "Nalog"
+    "account": "Nalog",
+    "onboardingProgress": "{done}/{total}"
   },
   "error": {
     "title": "Nešto nije u redu",
@@ -53,6 +58,24 @@
     "test": {
       "subject": "Test poruka — {tenant}",
       "text": "Ovo je test poruka iz organizacije {tenant}.\n\nAko ste je primili, slanje pošte kroz integraciju Pošta radi. Odgovor nije potreban."
+    },
+    "digest": {
+      "daily": {
+        "subject": "Moj dan — naplata",
+        "attention": "Stavki koje traže pažnju: {n}",
+        "promises": "Obećanja za danas (ili ranije, još na čekanju): {n}",
+        "tasks": "Zadataka za danas: {n}",
+        "mail": "Nove pošte od kupaca: {n}",
+        "top": "Prvi na redu:"
+      },
+      "weekly": {
+        "subject": "Nedeljni pregled naplate",
+        "overdue": "Dospelo sada: {amount}",
+        "collected": "Naplaćeno poslednjih 30 dana: {amount}",
+        "broken": "Prekršenih obećanja (30 dana): {n}",
+        "top": "Top 5 kupaca po dospelom iznosu:"
+      },
+      "footer": "Uključeni su samo kupci koje vidite. Isključite pregled u Nalog → Obaveštenja."
     }
   },
   "auth": {
@@ -183,7 +206,9 @@
     "self_action": "Ovu radnju ne možete izvršiti nad sopstvenim nalogom — zamolite drugog administratora.",
     "last_owner": "Ovo je jedini vlasnik organizacije; prvo dodelite vlasnika nekom drugom.",
     "not_ready": "PDF se još pravi. Sačekajte nekoliko sekundi i pokušajte ponovo.",
-    "unsupported": "Ova vrsta zahteva se još ne odlučuje na ovom mestu."
+    "unsupported": "Ova vrsta zahteva se još ne odlučuje na ovom mestu.",
+    "limit_exceeded": "Previše stavki za jednu grupnu akciju — suzite izbor (limit je u Admin → Podešavanja).",
+    "not_bulk": "Ova akcija traži odluku po stavci (pravno dejstvo ili četiri oka) i ne može grupno."
   },
   "dashboard": {
     "title": "Pregled naplate",
@@ -225,6 +250,11 @@
       "collection_rate": {
         "label": "Stopa naplate",
         "definition": "Naplaćeno (30 dana) ÷ (naplaćeno + dospelo ukupno), u procentima. Korekcije ne ulaze."
+      },
+      "disputed": {
+        "label": "Sporno",
+        "definition": "Otvoren iznos faktura u otvorenom sporu ili sporu u obradi (izveštajna valuta). I dalje su u dospelom i aging-u; prikazano zasebno, podsetnici se za njih ne šalju.",
+        "count": "{amount} · sporova: {n}"
       }
     },
     "aging": {
@@ -530,6 +560,56 @@
       "invite": "Pozivnica za {user} kao {role}",
       "teamLead": "Vođa tima {team}: {user}",
       "apiKeyScope": "API ključ „{name}“ sa obimom: {scope}"
+    },
+    "configuration": {
+      "saved": "Sačuvano. Promena je upisana u audit log.",
+      "save": "Sačuvaj",
+      "add": "Dodaj",
+      "inUse": "u upotrebi",
+      "labelSr": "Naziv (srpski)",
+      "labelEn": "Naziv (engleski)",
+      "order": "Redosled",
+      "active": "aktivan",
+      "newCode": "Nova šifra (a-z, 0-9, _)",
+      "neverDeleted": "Šifre se nikad ne brišu — neaktivna šifra nestaje iz izbora, a ostaje važeća na postojećim zapisima.",
+      "lists": {
+        "collection_policy": "Politike naplate",
+        "case_stage": "Faze case-a",
+        "dispute_reason": "Razlozi spora",
+        "payment_behaviour": "Ponašanje pri plaćanju"
+      },
+      "aging": "Aging razredi",
+      "minDays": "Od dana",
+      "maxDays": "Do dana (prazno = bez granice)",
+      "agingHint": "Razredi počinju od 0, nastavljaju se bez praznina i preklapanja, a poslednji nema gornju granicu.",
+      "thresholds": "Pažnja, rizik i limiti",
+      "noActivityDays": "Bez aktivnosti posle (dana)",
+      "largeOverdue": "Velika dospela faktura od (prazno = top 5)",
+      "defaultPolicy": "Podrazumevana politika naplate",
+      "bulkMax": "Limit grupne akcije (stavki)",
+      "riskWeights": "Ponderi rizika (0–100)",
+      "bandYellow": "Žuto od skora",
+      "bandRed": "Crveno od skora",
+      "riskFactors": {
+        "days_overdue": "Dana kašnjenja",
+        "exposure_vs_limit": "Izloženost prema limitu",
+        "broken_promises_90d": "Prekršena obećanja (90 d)",
+        "disputes_90d": "Sporovi (90 d)",
+        "inactivity_days": "Neaktivnost",
+        "external_blocked": "Blokiran račun (spoljni izvor)"
+      },
+      "calendar": "Radni dani i praznici po kompaniji",
+      "workingDays": "Radni dani",
+      "holidays": "Praznici — jedan po redu: GGGG-MM-DD naziv",
+      "days": {
+        "1": "pon",
+        "2": "uto",
+        "3": "sre",
+        "4": "čet",
+        "5": "pet",
+        "6": "sub",
+        "7": "ned"
+      }
     }
   },
   "pwa": {
@@ -562,7 +642,9 @@
       "oldest": "Najstarije",
       "status": "Status",
       "owner": "Vlasnik",
-      "risk": "Rizik"
+      "risk": "Rizik",
+      "disputed": "Sporno",
+      "behaviour": "Ponašanje"
     },
     "emptyTitle": "Nema kupaca za ovaj prikaz",
     "emptyDescription": "Promenite pretragu ili filtere. Ako još niste uvezli fakture, kupci nastaju automatski pri uvozu.",
@@ -576,7 +658,9 @@
       "delete": "Obriši filter {name}",
       "deleteShort": "×",
       "confirmDelete": "Obriši?"
-    }
+    },
+    "disputedLine": "sporno {amount}",
+    "select": "Izaberi za grupnu akciju"
   },
   "customer360": {
     "back": "← Kupci",
@@ -618,7 +702,8 @@
       "cases": "Case-ovi",
       "documents": "Dokumenti",
       "communication": "Komunikacija",
-      "risk": "Rizik"
+      "risk": "Rizik",
+      "disputes": "Sporovi"
     },
     "aging": "Aging",
     "openCases": "Otvoreni case-ovi ({n})",
@@ -673,7 +758,9 @@
       "dunning_letter": "Opomena",
       "statement": "IOS"
     },
-    "pdfPending": "PDF u izradi"
+    "pdfPending": "PDF u izradi",
+    "disputedBadge": "Sporno: {n} otvoreno · {amount}",
+    "disputedMark": "sporno"
   },
   "collections": {
     "actionsLabel": "Akcije nad kupcem",
@@ -864,7 +951,8 @@
       "team": "tim",
       "owner": "vlasnik",
       "case_stage": "faza case-a",
-      "is_natural_person": "fizičko lice"
+      "is_natural_person": "fizičko lice",
+      "has_open_dispute": "Otvoren spor"
     },
     "ops": {
       "eq": "=",
@@ -1242,5 +1330,374 @@
       "unsupported": "nije podržan (vidi dokumentaciju integracije)"
     },
     "outOf": "od 100"
+  },
+  "disputes": {
+    "behaviour": "Ponašanje pri plaćanju",
+    "behaviourNone": "nije procenjeno",
+    "behaviourSaved": "Ponašanje pri plaćanju je sačuvano.",
+    "emptyTitle": "Nema sporova",
+    "emptyDescription": "Kad kupac ospori fakturu, otvorite spor ispod: faktura ostaje u aging-u, označena, a pravila za nju ne šalju podsetnike.",
+    "invoices": "Fakture: {list}",
+    "openedOn": "otvoren {date}",
+    "expectedBy": "odgovor do {date}",
+    "resolutionNote": "Rešenje (opciono)",
+    "cancel": "Otkaži",
+    "openTitle": "Otvori spor",
+    "chooseInvoices": "Sporne fakture",
+    "reason": "Razlog",
+    "expectedByLabel": "Očekivan odgovor do (opciono)",
+    "open": "Otvori spor",
+    "opened": "Spor je otvoren; fakture su označene kao sporne.",
+    "updated": "Spor je ažuriran.",
+    "status": {
+      "open": "otvoren",
+      "in_review": "u obradi",
+      "resolved_accepted": "rešen — prihvaćen",
+      "resolved_rejected": "rešen — odbijen",
+      "withdrawn": "povučen"
+    },
+    "to": {
+      "in_review": "U obradu",
+      "resolved_accepted": "Prihvati",
+      "resolved_rejected": "Odbij",
+      "withdrawn": "Povučen"
+    }
+  },
+  "search": {
+    "label": "Pretraga",
+    "placeholder": "Traži kupce, fakture, e-mail… (Ctrl+K)",
+    "none": "Ništa nije pronađeno u vašem opsegu.",
+    "naturalPerson": "Fizičko lice",
+    "kind": {
+      "customer": "Kupac",
+      "invoice": "Faktura",
+      "case": "Otvoren case",
+      "contact": "Kontakt"
+    }
+  },
+  "invoices": {
+    "title": "Otvorene fakture",
+    "description": "Otvorene fakture kupaca koje vidite. Sporne fakture ostaju ovde i u aging-u, označene.",
+    "search": "Pretraga",
+    "searchPlaceholder": "Broj fakture ili kupac",
+    "bucket": "Aging razred",
+    "disputed": "Sporovi",
+    "disputedFilter": {
+      "only": "samo sporne",
+      "exclude": "bez spornih"
+    },
+    "any": "sve",
+    "onlyOverdue": "Samo dospele",
+    "apply": "Primeni",
+    "emptyTitle": "Nema otvorenih faktura",
+    "emptyDescription": "Ništa ne odgovara filterima ili fakture još nisu uvezene.",
+    "emptyAction": "Uvezi fakture",
+    "select": "Izaberi za grupnu akciju",
+    "naturalPerson": "Fizičko lice",
+    "due": "dospeva {date}",
+    "days": "{n} d kašnjenja",
+    "disputedMark": "sporno",
+    "truncated": "Prikazano prvih {n} — suzite filtere za ostale."
+  },
+  "bulk": {
+    "label": "Grupna akcija",
+    "selectAll": "Izaberi sve",
+    "selectNone": "Poništi izbor",
+    "action": "Akcija",
+    "choose": "— izaberite —",
+    "noneSelected": "Prvo izaberite bar jedan red.",
+    "preview": "Pregled",
+    "previewCount": "Biće obrađeno stavki: {n} (limit {limit}).",
+    "previewSkipped": "Izabranih stavki van vašeg opsega: {n} — neće biti obrađene.",
+    "previewMore": "… i još {n}",
+    "confirm": "Potvrdi ({n})",
+    "cancel": "Otkaži",
+    "naturalPerson": "Fizičko lice",
+    "actions": {
+      "assign_owner": "Dodeli vlasnika",
+      "assign_team": "Dodeli tim",
+      "change_policy": "Promeni politiku naplate",
+      "send_reminder": "Pošalji podsetnik",
+      "open_case": "Otvori case",
+      "export": "Izvoz (CSV)"
+    },
+    "params": {
+      "assign_owner": "Vlasnik",
+      "assign_team": "Tim",
+      "change_policy": "Politika",
+      "send_reminder": "Šablon (bez pravnog dejstva)"
+    },
+    "reportTitle": "Grupna akcija: {action}",
+    "reportDescription": "Pokrenuto {date}. Svaka stavka je izvršena sa vašim permisijama i opsegom.",
+    "runStatus": {
+      "queued": "Čeka na obradu…",
+      "running": "U toku…",
+      "completed": "Završeno",
+      "failed": "Neuspelo"
+    },
+    "totals": "Stavki {total} · uspelo {ok} · palo {failed} · preskočeno {skipped}",
+    "download": "Preuzmi fajl",
+    "itemStatus": {
+      "ok": "uspelo",
+      "failed": "palo",
+      "skipped": "preskočeno",
+      "pending": "čeka"
+    },
+    "itemError": {
+      "not_found": "više nije u vašem opsegu",
+      "forbidden": "nema permisije",
+      "unchanged": "već postavljeno",
+      "disputed_or_not_overdue": "nema dospelog bez spora",
+      "case_exists": "već postoji otvoren case",
+      "not_overdue": "ništa nije dospelo",
+      "requester_inactive": "pokretač više nije aktivan",
+      "conflict": "nema e-mail kontakta ili konflikt",
+      "internal": "interna greška"
+    }
+  },
+  "exports": {
+    "columns": {
+      "customer": "Kupac",
+      "taxId": "PIB",
+      "externalId": "Spoljni ID",
+      "status": "Status",
+      "owner": "Vlasnik",
+      "currency": "Valuta",
+      "exposure": "Otvoreno",
+      "overdue": "Dospelo",
+      "disputed": "Sporno",
+      "oldestDays": "Najstarije kašnjenje (dana)",
+      "risk": "Rizik",
+      "behaviour": "Ponašanje pri plaćanju",
+      "invoice": "Faktura",
+      "issueDate": "Datum izdavanja",
+      "dueDate": "Datum dospeća",
+      "total": "Ukupno",
+      "open": "Otvoreno",
+      "daysOverdue": "Dana kašnjenja",
+      "bucket": "Aging razred",
+      "naturalPerson": "Fizičko lice",
+      "yes": "da",
+      "no": "ne"
+    },
+    "button": "Izvoz",
+    "queued": "Izvoz je veliki i priprema se — naći ćete ga u Izveštaji → Moji izvozi.",
+    "done": "Preuzeto (redova: {n}).",
+    "mine": "Moji izvozi",
+    "mineEmpty": "Nema pripremljenih izvoza u poslednjih 7 dana.",
+    "download": "Preuzmi",
+    "fileLine": "{type} · {format} · redova {rows} · do {date}",
+    "status": {
+      "queued": "čeka",
+      "running": "priprema se",
+      "ready": "spremno",
+      "failed": "neuspelo"
+    }
+  },
+  "reports": {
+    "title": "Izveštaji",
+    "description": "Šest osnovnih izveštaja u {currency}, ograničeni na kupce koje vidite. Definicije: u napomeni svakog izveštaja.",
+    "choose": "Izveštaj",
+    "names": {
+      "aging_by_customer": "Aging po kupcu",
+      "aging_by_collector": "Aging po naplataru / timu",
+      "collected_by_period": "Naplaćeno po periodu",
+      "promises": "Obećanja (ispunjena / prekršena)",
+      "cases_by_stage": "Case-ovi po fazi",
+      "disputes": "Sporovi"
+    },
+    "definitions": {
+      "aging_by_customer": "Otvoreni iznosi po kupcu i aging razredu (izveštajna valuta); dospelo i sporno zasebno. Kupci bez otvorenih faktura nisu prikazani.",
+      "aging_by_collector": "Otvoreni iznosi po aging razredu po vlasniku kupca (ili timu); broj kupaca sa otvorenim fakturama.",
+      "collected_by_period": "Primljen novac (samo uplate — korekcije nikad nisu naplata) po danu / nedelji / mesecu u periodu, preračunat na dan uplate.",
+      "promises": "Obećanja čiji je datum u periodu, po statusu: broj, obećani i plaćeni iznos (otkazana nisu uključena).",
+      "cases_by_stage": "Otvoreni case-ovi po fazi: broj, otvoren iznos njihovih faktura, prosečna starost u danima.",
+      "disputes": "Sporovi otvoreni u periodu po razlogu i statusu: broj, otvoren iznos spornih faktura, prosečno dana otvoreno."
+    },
+    "from": "Od",
+    "to": "Do",
+    "onlyMine": "Samo moji kupci",
+    "groupBy": "Grupiši po",
+    "groupByOwner": "naplataru",
+    "groupByTeam": "timu",
+    "period": "Period",
+    "periods": {
+      "day": "dan",
+      "week": "nedelja",
+      "month": "mesec"
+    },
+    "apply": "Prikaži",
+    "empty": "Nema podataka za ove filtere.",
+    "saved": "Sačuvani izveštaji",
+    "saveAs": "Sačuvaj kao",
+    "share": "podeli sa organizacijom",
+    "save": "Sačuvaj",
+    "savedOk": "Izveštaj je sačuvan.",
+    "deleted": "Sačuvani izveštaj je obrisan.",
+    "delete": "Obriši",
+    "sharedMark": "deljen",
+    "sortBy": "Sortiraj po",
+    "sortDefault": "podrazumevano",
+    "columns": {
+      "customer": "Kupac",
+      "owner": "Naplatar",
+      "team": "Tim",
+      "open_total": "Otvoreno",
+      "overdue_total": "Dospelo",
+      "disputed": "Sporno",
+      "customers": "Kupaca",
+      "period": "Period",
+      "collected": "Naplaćeno",
+      "payments": "Uplata",
+      "status": "Status",
+      "promises": "Obećanja",
+      "amount": "Iznos",
+      "paid": "Plaćeno",
+      "stage": "Faza",
+      "cases": "Case-ova",
+      "open_amount": "Otvoren iznos",
+      "avg_age_days": "Prosečna starost (dana)",
+      "reason": "Razlog",
+      "disputes": "Sporova",
+      "avg_days_open": "Prosečno dana otvoreno"
+    },
+    "noOwner": "bez vlasnika",
+    "naturalPerson": "Fizičko lice"
+  },
+  "notifications": {
+    "title": "Obaveštenja",
+    "description": "Koje e-mail preglede primate i šta vam aplikacija prikazuje. Pregledi stižu na vašu adresu za prijavu u 07:00 po vašoj vremenskoj zoni.",
+    "dailyDigest": "Dnevni e-mail „Moj dan“",
+    "weeklyDigest": "Nedeljni menadžerski pregled (ponedeljak; samo uz pristup izveštajima)",
+    "inAppAttention": "Prikaži „Zahteva pažnju“ na dashboard-u",
+    "inAppMail": "Prikaži stavke o neisporučenoj i novoj pošti u aplikaciji",
+    "save": "Sačuvaj",
+    "saved": "Podešavanja su sačuvana.",
+    "digestNow": "Pošalji mi današnji „Moj dan“ sada",
+    "digestSent": "Poslato na vašu adresu (demo organizacija: samo u test sanduče)."
+  },
+  "mailbox": {
+    "title": "Pošta",
+    "description": "Povežite sanduče iz kog Collect čita odgovore i preko kog šalje podsetnike (kroz n8n). Lozinka se odmah šifruje i više se ne prikazuje.",
+    "status": {
+      "none": "Još nije povezano.",
+      "saved": "Sačuvano — proverite vezu da biste je aktivirali.",
+      "test_requested": "Provera veze…",
+      "testing": "Provera veze…",
+      "connected": "Povezano — n8n čita i šalje za ovu organizaciju.",
+      "failed": "Provera nije uspela"
+    },
+    "errors": {
+      "imap_auth_failed": "IMAP: pogrešan korisnik ili lozinka (za Gmail koristite lozinku za aplikaciju).",
+      "smtp_auth_failed": "SMTP: pogrešan korisnik ili lozinka.",
+      "imap_blocked_host": "IMAP: ova adresa nije dozvoljena (interna mreža).",
+      "smtp_blocked_host": "SMTP: ova adresa nije dozvoljena (interna mreža).",
+      "imap_connect_failed": "IMAP: server ne odgovara na ovom portu.",
+      "smtp_connect_failed": "SMTP: server ne odgovara na ovom portu.",
+      "imap_no_starttls": "IMAP: port 143 bez STARTTLS — lozinka bi išla nešifrovano.",
+      "smtp_no_starttls": "SMTP: server ne nudi STARTTLS.",
+      "smtp_insecure_auth": "SMTP: prijava bez šifrovanja nije dozvoljena — izaberite STARTTLS ili TLS.",
+      "n8n_not_configured": "n8n nije podešen na serveru (N8N_BASE_URL / N8N_API_KEY).",
+      "n8n_failed": "Sanduče radi, ali n8n je odbio podešavanje — pogledajte log servera.",
+      "ms_token_failed": "Microsoft 365: prijava je istekla ili je opozvana — povežite ponovo.",
+      "imap_dns_failed": "IMAP: ime servera se ne razrešava.",
+      "smtp_dns_failed": "SMTP: ime servera se ne razrešava.",
+      "imap_tls_failed": "IMAP: TLS veza nije uspela (sertifikat?).",
+      "smtp_tls_failed": "SMTP: TLS veza nije uspela (sertifikat?).",
+      "imap_insecure_auth": "IMAP: prijava bez šifrovanja nije dozvoljena.",
+      "imap_protocol_error": "IMAP: server je odgovorio neočekivano — da li je ovo IMAP port?",
+      "smtp_protocol_error": "SMTP: server je odgovorio neočekivano — da li je ovo SMTP port?",
+      "imap_timeout": "IMAP: nema odgovora na vreme.",
+      "smtp_timeout": "SMTP: nema odgovora na vreme."
+    },
+    "imapHost": "IMAP server",
+    "imapPort": "IMAP port",
+    "imapPorts": {
+      "993": "993 (SSL/TLS)",
+      "143": "143 (STARTTLS)"
+    },
+    "smtpHost": "SMTP server",
+    "smtpPort": "SMTP port",
+    "smtpSecurity": "Šifrovanje",
+    "security": {
+      "starttls": "STARTTLS",
+      "tls": "SSL/TLS",
+      "none": "bez (samo bez prijave)"
+    },
+    "username": "Korisnik (obično e-mail adresa)",
+    "password": "Lozinka",
+    "setKeep": "postavljeno — ostavite prazno da ostane",
+    "folder": "Folder / labela koja se čita",
+    "fromAddress": "Adresa pošiljaoca (opciono)",
+    "gmailHint": "Gmail: uključite verifikaciju u 2 koraka, napravite lozinku za aplikaciju (Google nalog → Bezbednost → Lozinke za aplikacije) i unesite nju; imap.gmail.com 993, smtp.gmail.com 587 STARTTLS. Da se čita samo pošta naplate, napravite labelu (npr. Collect), filterom usmerite poruke u nju i unesite naziv labele kao folder.",
+    "save": "Sačuvaj",
+    "saved": "Sačuvano. Sada proverite vezu.",
+    "check": "Proveri vezu",
+    "checking": "Provera je u toku — stranica se sama osvežava.",
+    "microsoft": {
+      "connect": "Poveži Microsoft 365",
+      "connected": "Microsoft 365 saglasnost primljena — povezuje se n8n…",
+      "denied": "Microsoft 365: saglasnost nije data.",
+      "failed": "Microsoft 365: povezivanje nije završeno — pokušajte ponovo."
+    },
+    "google": "Google Workspace (OAuth) — uskoro. Do tada koristite IMAP/SMTP formu sa lozinkom za aplikaciju."
+  },
+  "onboarding": {
+    "title": "Početak rada",
+    "description": "Dvanaest koraka do naplate koja radi. Svaki se proverava automatski iz vaših podataka; stranica ostaje u meniju dok svi ne budu završeni.",
+    "progress": "Završeno {done} od {total} koraka",
+    "complete": "Svi koraci su završeni — stavka nestaje iz menija.",
+    "done": "završeno",
+    "todo": "za uraditi",
+    "steps": {
+      "organization": {
+        "title": "Podešavanja organizacije",
+        "hint": "Jezik, vremenska zona, izveštajna valuta i zemlja."
+      },
+      "companies": {
+        "title": "Vaše kompanije",
+        "hint": "Bar jedna aktivna kompanija koja fakturiše."
+      },
+      "calendar": {
+        "title": "Radni dani i praznici",
+        "hint": "Po kompaniji — podsetnici i obećanja ih poštuju."
+      },
+      "users": {
+        "title": "Pozovite tim",
+        "hint": "Naplatari, menadžeri, finansije — svako sa svojom ulogom."
+      },
+      "teams": {
+        "title": "Timovi",
+        "hint": "Grupišite naplatare; menadžeri vide svoj tim."
+      },
+      "customers": {
+        "title": "Uvezite kupce",
+        "hint": "CSV ili XLSX iz vašeg knjigovodstva."
+      },
+      "invoices": {
+        "title": "Uvezite otvorene fakture",
+        "hint": "Od njih kreću aging, dashboard i podsetnici."
+      },
+      "owners": {
+        "title": "Dodelite vlasnike kupcima",
+        "hint": "Kupci → izaberite → grupna akcija „Dodeli vlasnika\"."
+      },
+      "collection_settings": {
+        "title": "Podešavanja naplate",
+        "hint": "Aging razredi, politike, razlozi spora, pragovi pažnje."
+      },
+      "templates": {
+        "title": "Pregledajte šablone",
+        "hint": "Vaš ton u podsetnicima i opomenama."
+      },
+      "rules": {
+        "title": "Objavite svoja pravila",
+        "hint": "Prilagodite standardnu politiku i objavite verziju."
+      },
+      "mailbox": {
+        "title": "Povežite sanduče",
+        "hint": "Odgovori stižu u Collect, a podsetnici idu sa vaše adrese."
+      }
+    }
   }
 }

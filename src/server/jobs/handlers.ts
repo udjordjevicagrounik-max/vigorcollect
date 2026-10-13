@@ -5,6 +5,8 @@ import { getAppPool } from '@/db/client';
 import { queuedRender } from '@/server/documents/render-queue';
 import { renderDocumentPdf } from '@/server/documents/service';
 import { applyImport } from '@/server/imports/process';
+import { runBulk } from '@/server/bulk/service';
+import { exportSelection, runExportFile } from '@/server/exports/tables';
 import { runDailyRisk } from '@/server/risk/service';
 import { fanOut, OUTBOUND_EVENT_TYPES } from '@/server/integrations/outbound';
 import { processWebhookEvent, registerWebhookHandler } from '@/server/integrations/process';
@@ -68,6 +70,18 @@ const BASE_HANDLERS: EventHandlers = {
   // 1.5: settings changed → nothing to recompute yet; the event is the audit trail for jobs.
   'tenant_settings.updated': async (ctx, event) => {
     logEvent('tenant_settings.updated.handled', { tenantId: ctx.tenantId, eventId: event.id });
+  },
+  // 5.1: a confirmed bulk action — every item as the requester, one SAVEPOINT per item.
+  'bulk.requested': async (ctx, event) => {
+    if (!event.aggregateId) return;
+    const result = await runBulk(ctx, event.aggregateId, { exportHook: exportSelection });
+    logEvent('bulk.handled', { tenantId: ctx.tenantId, eventId: event.id, ...(result ?? {}) });
+  },
+  // 5.2: an export above the synchronous limit — built as the requester, sealed in storage.
+  'export.requested': async (ctx, event) => {
+    if (!event.aggregateId) return;
+    const outcome = await runExportFile(ctx, event.aggregateId);
+    logEvent('export.handled', { tenantId: ctx.tenantId, eventId: event.id, outcome });
   },
   // 2.2: a confirmed import run is applied in one transaction; redelivery is a no-op.
   'import.confirmed': async (ctx, event) => {

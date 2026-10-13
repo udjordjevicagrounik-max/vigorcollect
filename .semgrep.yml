@@ -56,3 +56,12 @@ rules:
     paths:
       include: [src/, scripts/]
     pattern-regex: '(?i)\b(?:Number|parseFloat|parseInt|Math\.(?:round|floor|ceil))\s*\(\s*[\w.?!\[\]''"]*(?:amount|total|balance|exposure|overdue|paid|fx_?rate)|(?:amount|total|balance|exposure|overdue|paid|fx_?rate)\w*\)?\.toFixed\('
+
+  - id: no-unescaped-like
+    languages: [generic]
+    severity: ERROR
+    message: A LIKE / ILIKE pattern from input is built only by likeContains / likePrefix (src/server/db-like.ts), which escape \ % _ (5.1).
+    paths:
+      include: [src/, scripts/]
+      exclude: [src/server/db-like.ts]
+    pattern-regex: '`%\$\{|''%''\s*\+|\+\s*''%'''

@@ -44,6 +44,8 @@ export const CONDITION_FIELDS = [
   'case_stage',
   'is_natural_person',
   'policy',
+  // 5.1: the invoice of the run (or, for a customer run, the customer) has an open dispute.
+  'has_open_dispute',
 ] as const;
 export type ConditionField = (typeof CONDITION_FIELDS)[number];
 
@@ -70,7 +72,7 @@ export const conditionSchema = z
       ctx.addIssue({ code: 'custom', message: 'days_must_be_integer' });
     }
     if (
-      c.field === 'is_natural_person' &&
+      (c.field === 'is_natural_person' || c.field === 'has_open_dispute') &&
       (typeof c.value !== 'boolean' || !['eq', 'ne'].includes(c.op))
     ) {
       ctx.addIssue({ code: 'custom', message: 'boolean_eq_only' });
@@ -137,6 +139,7 @@ export type Facts = {
   case_stage: string | null;
   is_natural_person: boolean;
   policy: string | null;
+  has_open_dispute: boolean;
 };
 
 export type ConditionResult = {
