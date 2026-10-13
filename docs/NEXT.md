@@ -13,6 +13,17 @@ istorijom) i sve lokalne backup kopije. Redom:
    „Backup → kopija na hostu").
 3. Preostaje: **off-site** kopija (`BACKUP_S3_*`) — host kopija je na istom serveru; blokada za
    staging.
+   - **Kandidat (provereno 2026-10-13, samo čitanje):** Elestio `/opt/borg/backup.sh` na hostu
+     arhivira ceo **`/opt/app`** — dakle i `/opt/app/backups` (host kopija šifrovanih backup-a) —
+     u BorgBase repo (`repokey-blake2`, zstd), prune `--keep-within=7d`. `preBackup.sh` ne radi
+     ništa (nema DB dump-a). Raspored borg-a nije proveren (Elestio). Otvoreno pre nego što se
+     prihvati kao off-site: retencija 7 dana < naših 30 dnevnih / 12 mesečnih; restore probe iz
+     borg-a; da li host cron 03:30 stigne pre borg snapshot-a.
+   - **Lozinka borg repoa je u čistom tekstu u `/opt/borg/backup.sh`** (i u ostalim borg
+     skriptama) i pojavila se u izlazu Claude sesije 5.0 — razmotriti promenu
+     (`borg key change-passphrase` + ažuriranje skripti, ili kroz Elestio podršku).
+   - Na hostu `/opt/app/backups` još ima nešifrovanih fajlova od 2026-10-12 (`daily/2026-10-12/`,
+     `monthly/2026-10/`) — borg ih nosi off-site dok se ne obrišu.
 
 ## Aktivan zadatak
 

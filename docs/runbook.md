@@ -25,6 +25,27 @@ cat docs/NEXT.md                # 4. aktivan zadatak
 Alati žive u ovom kontejneru, ne u repou, i mogu da nestanu posle restarta/rebuild-a kontejnera.
 Bez njih pre-commit hook pada — ne zaobilaziti (`--no-verify` je zabranjen).
 
+## Provera ponedeljkom (posle Elestio watchtower-a)
+
+Elestio nedeljom u **01:00 UTC** pokreće `watchtower-upgrade.sh`, koji može da rekreira
+`app-vibecoder-1`. U tom kontejneru žive repo (`/srv/vigor-collect`), dev `.env`, alati za hook-ove,
+lokalni `/srv/backups` i privatni age ključ za restore test — rekreiranje ih briše. Ponedeljkom
+(i posle svakog rekreiranja):
+
+```bash
+cd /srv/vigor-collect && git status -sb     # 1. repo postoji, grana i stanje prema origin-u
+ssh -T git@github.com                       # 2. deploy key radi ("successfully authenticated")
+test -s /root/.vigor-backup-age.key && echo "age key ok"   # 3. ključ za restore test postoji
+./scripts/setup-tools.sh                    # 4. psql, age, gitleaks, semgrep + collect_test
+```
+
+- Nema repoa / deploy key-a → runbook „GitHub" (novi ključ, `git clone`, `.env` iz vault-a).
+- Nema age ključa → vratiti `/root/.vigor-backup-age.key` iz vault-a (`umask 077`); bez njega
+  nedeljni restore test (03:00 UTC, posle watchtower-a) pada i alarm „restore test failed" to
+  prijavljuje. Backup-i u volume-u i na hostu (`/opt/app/backups`) ostaju — rekreira se samo ovaj
+  kontejner.
+- Proveriti i Admin → Status sistema: poslednji backup i poslednji restore test zeleni.
+
 ## Test baza (`collect_test`)
 
 Golden DB testovi (`npm run test:db`, deo pre-commit hook-a) rade **samo** na `collect_test`,
