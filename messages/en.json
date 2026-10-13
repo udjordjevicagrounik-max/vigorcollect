@@ -541,7 +541,8 @@
       "overdue": "Overdue",
       "oldest": "Oldest",
       "status": "Status",
-      "owner": "Owner"
+      "owner": "Owner",
+      "risk": "Risk"
     },
     "emptyTitle": "No customers for this view",
     "emptyDescription": "Change the search or filters. If you have not imported invoices yet, customers are created by the import.",
@@ -596,7 +597,8 @@
       "activities": "Activities",
       "cases": "Cases",
       "documents": "Documents",
-      "communication": "Communication"
+      "communication": "Communication",
+      "risk": "Risk"
     },
     "aging": "Aging",
     "openCases": "Open cases ({n})",
@@ -975,7 +977,8 @@
       "unassigned_case": "Case without owner",
       "notification": "Notification",
       "rule_proposal": "Rule proposal waits for a person",
-      "mail_undelivered": "Mail not delivered"
+      "mail_undelivered": "Mail not delivered",
+      "risk_red": "Customer turned red risk"
     },
     "actions": {
       "approval_pending": "Decide",
@@ -988,7 +991,8 @@
       "unassigned_case": "Assign",
       "notification": "Open",
       "rule_proposal": "Open",
-      "mail_undelivered": "Open correspondence"
+      "mail_undelivered": "Open correspondence",
+      "risk_red": "See why"
     },
     "messages": {
       "rule_attention": "customer needs attention",
@@ -1004,7 +1008,9 @@
       "legal_handover": "handover to the legal department",
       "pre_litigation_notice": "notice before legal action",
       "credit_status_red": "red credit status",
-      "block_customer": "customer block"
+      "block_customer": "customer block",
+      "credit_status_green": "green credit status",
+      "credit_status_yellow": "yellow credit status"
     }
   },
   "templatesAdmin": {
@@ -1141,5 +1147,64 @@
     "linked": "The message is linked to the customer.",
     "ignore": "Ignore",
     "ignored": "The message is ignored."
+  },
+  "risk": {
+    "notScored": "not scored",
+    "band": {
+      "green": "green",
+      "yellow": "yellow",
+      "red": "red"
+    },
+    "empty": "Risk has not been computed yet. It runs in the daily job (06:00 in the company's zone) or with “Refresh now”.",
+    "computed": "Computed {at} · model {model}",
+    "thresholds": "yellow from {yellow}, red from {red}",
+    "creditStatus": "Customer credit status: {status}",
+    "proposal": "waiting for a person: {type}",
+    "proposalHint": "The risk color is only a proposal: another person changes the credit status after approval (natural person — a decision with human approval; company — a risk change request).",
+    "status": {
+      "unrated": "unrated",
+      "green": "green",
+      "yellow": "yellow",
+      "red": "red"
+    },
+    "proposalType": {
+      "credit_status_green": "green status",
+      "credit_status_yellow": "yellow status",
+      "credit_status_red": "red status"
+    },
+    "refresh": "Refresh now",
+    "refreshed": "Risk recomputed.",
+    "why": "Why this number",
+    "signal": "Signal",
+    "value": "Value",
+    "points": "Points (0–100)",
+    "weight": "Weight",
+    "share": "Share of the score",
+    "signals": {
+      "days_overdue": "Days overdue (oldest overdue invoice)",
+      "exposure_vs_limit": "Exposure vs. limit (%)",
+      "broken_promises_90d": "Broken promises (90 days)",
+      "disputes_90d": "Disputes (90 days)",
+      "inactivity_days": "Days without activity while overdue",
+      "external_blocked": "Blocked account / enforced collection (external source)"
+    },
+    "source": "source: {source}",
+    "reasons": {
+      "not_available": "no data",
+      "no_credit_limit": "customer has no credit limit",
+      "limit_other_currency": "limit is in another currency",
+      "no_provider_data": "no external data",
+      "weight_zero": "weight 0"
+    },
+    "providers": "External sources",
+    "providersEmpty": "No external sources for this customer's country, or none asked yet.",
+    "providerStatus": {
+      "running": "running",
+      "succeeded": "succeeded",
+      "partial": "partial",
+      "failed": "unavailable",
+      "unsupported": "not supported (see the integration document)"
+    },
+    "outOf": "of 100"
   }
 }

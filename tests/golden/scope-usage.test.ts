@@ -25,6 +25,9 @@ const ALLOWED = new Set([
   'server/imports/service.ts',
   'server/imports/process.ts',
   'server/workflows/engine.ts',
+  // 4.3: risk signals for one customer, computed by the daily job (no member, so no scope); the
+  // member-facing reads (getRisk / refreshRisk) check scope first in server/risk/service.ts.
+  'server/risk/internal.ts',
 ]);
 
 function files(dir: string): string[] {

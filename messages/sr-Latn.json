@@ -541,7 +541,8 @@
       "overdue": "Dospelo",
       "oldest": "Najstarije",
       "status": "Status",
-      "owner": "Vlasnik"
+      "owner": "Vlasnik",
+      "risk": "Rizik"
     },
     "emptyTitle": "Nema kupaca za ovaj prikaz",
     "emptyDescription": "Promenite pretragu ili filtere. Ako još niste uvezli fakture, kupci nastaju automatski pri uvozu.",
@@ -596,7 +597,8 @@
       "activities": "Aktivnosti",
       "cases": "Case-ovi",
       "documents": "Dokumenti",
-      "communication": "Komunikacija"
+      "communication": "Komunikacija",
+      "risk": "Rizik"
     },
     "aging": "Aging",
     "openCases": "Otvoreni case-ovi ({n})",
@@ -975,7 +977,8 @@
       "unassigned_case": "Case bez vlasnika",
       "notification": "Obaveštenje",
       "rule_proposal": "Predlog pravila čeka čoveka",
-      "mail_undelivered": "Pošta nije isporučena"
+      "mail_undelivered": "Pošta nije isporučena",
+      "risk_red": "Kupac je prešao u crveni rizik"
     },
     "actions": {
       "approval_pending": "Odluči",
@@ -988,7 +991,8 @@
       "unassigned_case": "Dodeli",
       "notification": "Otvori",
       "rule_proposal": "Otvori",
-      "mail_undelivered": "Otvori prepisku"
+      "mail_undelivered": "Otvori prepisku",
+      "risk_red": "Pogledaj zašto"
     },
     "messages": {
       "rule_attention": "kupac traži pažnju",
@@ -1004,7 +1008,9 @@
       "legal_handover": "predaja pravnoj službi",
       "pre_litigation_notice": "opomena pred utuženje",
       "credit_status_red": "crven kreditni status",
-      "block_customer": "blokada kupca"
+      "block_customer": "blokada kupca",
+      "credit_status_green": "zeleni kreditni status",
+      "credit_status_yellow": "žuti kreditni status"
     }
   },
   "templatesAdmin": {
@@ -1141,5 +1147,64 @@
     "linked": "Poruka je povezana sa kupcem.",
     "ignore": "Zanemari",
     "ignored": "Poruka je zanemarena."
+  },
+  "risk": {
+    "notScored": "nije ocenjen",
+    "band": {
+      "green": "zeleno",
+      "yellow": "žuto",
+      "red": "crveno"
+    },
+    "empty": "Rizik još nije izračunat. Računa se u dnevnom poslu (06:00 po zoni kompanije) ili dugmetom „Osveži sada”.",
+    "computed": "Izračunato {at} · model {model}",
+    "thresholds": "žuto od {yellow}, crveno od {red}",
+    "creditStatus": "Kreditni status kupca: {status}",
+    "proposal": "čeka čoveka: {type}",
+    "proposalHint": "Boja rizika je samo predlog: kreditni status menja druga osoba posle odobrenja (fizičko lice — odluka sa ljudskim odobrenjem; pravno lice — zahtev za promenu rizika).",
+    "status": {
+      "unrated": "bez ocene",
+      "green": "zeleni",
+      "yellow": "žuti",
+      "red": "crveni"
+    },
+    "proposalType": {
+      "credit_status_green": "zeleni status",
+      "credit_status_yellow": "žuti status",
+      "credit_status_red": "crveni status"
+    },
+    "refresh": "Osveži sada",
+    "refreshed": "Rizik je ponovo izračunat.",
+    "why": "Zašto ovaj broj",
+    "signal": "Signal",
+    "value": "Vrednost",
+    "points": "Poeni (0–100)",
+    "weight": "Ponder",
+    "share": "Udeo u oceni",
+    "signals": {
+      "days_overdue": "Dani kašnjenja (najstarija dospela faktura)",
+      "exposure_vs_limit": "Izloženost u odnosu na limit (%)",
+      "broken_promises_90d": "Prekršena obećanja (90 dana)",
+      "disputes_90d": "Sporovi (90 dana)",
+      "inactivity_days": "Dani bez aktivnosti dok je dug dospeo",
+      "external_blocked": "Blokada / prinudna naplata (spoljni izvor)"
+    },
+    "source": "izvor: {source}",
+    "reasons": {
+      "not_available": "nema podatka",
+      "no_credit_limit": "kupac nema kreditni limit",
+      "limit_other_currency": "limit je u drugoj valuti",
+      "no_provider_data": "nema podatka spoljnog izvora",
+      "weight_zero": "ponder 0"
+    },
+    "providers": "Spoljni izvori",
+    "providersEmpty": "Za zemlju ovog kupca nema spoljnih izvora, ili još nisu pitani.",
+    "providerStatus": {
+      "running": "u toku",
+      "succeeded": "uspešno",
+      "partial": "delimično",
+      "failed": "nedostupan",
+      "unsupported": "nije podržan (vidi dokumentaciju integracije)"
+    },
+    "outOf": "od 100"
   }
 }

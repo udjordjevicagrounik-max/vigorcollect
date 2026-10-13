@@ -4,6 +4,7 @@ import { getMasterKeyring } from '@/server/crypto/keyring';
 import { chromiumPath } from '@/server/documents/pdf';
 import { renderDocumentPdf } from '@/server/documents/service';
 import { applyImport } from '@/server/imports/process';
+import { runDailyRisk } from '@/server/risk/service';
 import { fanOut, OUTBOUND_EVENT_TYPES } from '@/server/integrations/outbound';
 import { processWebhookEvent, registerWebhookHandler } from '@/server/integrations/process';
 import { handleMailReceived, handleMailStatus } from '@/server/mail/inbox';
@@ -54,10 +55,12 @@ const BASE_HANDLERS: EventHandlers = {
   'tenant.daily_requested': async (ctx, event) => {
     const result = await runDailyCollections(ctx.db, ctx.audit);
     const runs = await runDailyWorkflows(ctx.db, ctx.audit);
+    const risk = await runDailyRisk(ctx.db, ctx.audit);
     logEvent('tenant.daily', {
       tenantId: ctx.tenantId,
       eventId: event.id,
       manual: true,
+      riskScored: risk,
       ...result,
       workflowRuns: runs.succeeded + runs.skipped + runs.failed,
       workflowFailed: runs.failed,

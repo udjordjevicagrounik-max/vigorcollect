@@ -41,6 +41,8 @@ export type CustomerRow = {
   oldestDaysOverdue: number;
   missingFx: number;
   currency: string;
+  /** Latest risk band (4.3), null = not scored yet. */
+  riskBand: 'green' | 'yellow' | 'red' | null;
 };
 
 export async function listReceivableCustomers(
@@ -81,10 +83,12 @@ export async function listReceivableCustomers(
     oldest: number | null;
     missing_fx: number | null;
     currency: string;
+    risk_band: CustomerRow['riskBand'];
   }>(
     `SELECT c.id, c.display_name, c.is_natural_person, le.tax_id, c.external_id, c.status,
             u.display_name AS owner_name, agg.exposure, agg.overdue, agg.oldest, agg.missing_fx,
-            coalesce(ts.default_currency, 'EUR') AS currency
+            coalesce(ts.default_currency, 'EUR') AS currency,
+            (SELECT s.band FROM risk_scores s WHERE s.customer_id = c.id ORDER BY s.computed_at DESC LIMIT 1) AS risk_band
      FROM customers c
      LEFT JOIN tenant_settings ts ON true
      LEFT JOIN legal_entities le ON le.id = c.legal_entity_id
@@ -114,6 +118,7 @@ export async function listReceivableCustomers(
     oldestDaysOverdue: r.oldest ?? 0,
     missingFx: r.missing_fx ?? 0,
     currency: r.currency,
+    riskBand: r.risk_band,
   }));
 }
 

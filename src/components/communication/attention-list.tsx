@@ -15,6 +15,8 @@ function href(i: AttentionItem): string {
       return `/admin/rules/${i.refId}`;
     case 'import_exception':
       return '/import';
+    case 'risk_red':
+      return i.customerId ? `/customers/${i.customerId}?tab=risk` : '/';
     case 'mail_undelivered':
       return i.customerId ? `/customers/${i.customerId}?tab=communication` : '/';
     default:

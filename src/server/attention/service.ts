@@ -20,6 +20,7 @@ export const ATTENTION_KINDS = [
   'approval_pending',
   'rule_proposal',
   'mail_undelivered',
+  'risk_red',
   'promise_broken',
   'workflow_failed',
   'large_overdue',
@@ -104,6 +105,40 @@ export async function listAttention(ctx: TenantContext, limit = 50): Promise<Att
         amount: null,
         currency: null,
         code: r.action_type,
+        severity: 3,
+      });
+    }
+  }
+
+  // 4.3: a customer whose risk band turned red in the last 7 days (latest score red, previous not).
+  {
+    const rf = scopeFilter('customers', { userId: ctx.userId, scope }, 'c', 1);
+    const red = await ctx.db.query<{
+      id: string;
+      customer_id: string;
+      customer_name: string | null;
+      computed_at: Date;
+      score: number;
+    }>(
+      `SELECT s.id, s.customer_id, c.display_name AS customer_name, s.computed_at, s.score
+       FROM customers c
+       JOIN LATERAL (SELECT * FROM risk_scores x WHERE x.customer_id = c.id ORDER BY x.computed_at DESC LIMIT 1) s ON true
+       WHERE ${rf.sql} AND s.band = 'red' AND coalesce(s.previous_band, 'green') <> 'red'
+         AND s.computed_at > now() - interval '7 days'
+       ORDER BY s.score DESC LIMIT 20`,
+      rf.params,
+    );
+    for (const r of red.rows) {
+      items.push({
+        kind: 'risk_red',
+        refId: r.id,
+        customerId: r.customer_id,
+        customerName: r.customer_name,
+        caseId: null,
+        since: r.computed_at.toISOString(),
+        amount: null,
+        currency: null,
+        code: String(r.score),
         severity: 3,
       });
     }

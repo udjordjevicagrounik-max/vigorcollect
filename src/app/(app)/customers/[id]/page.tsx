@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { ForbiddenState } from '@/components/admin/forbidden-state';
 import { GenerateDocument } from '@/components/communication/generate-document';
 import { Thread } from '@/components/communication/thread';
+import { RiskPanel } from '@/components/risk/risk-panel';
 import { AgingBars } from '@/components/receivables/aging-bars';
 import { CustomerActions, PromiseActions } from '@/components/receivables/customer-actions';
 import { Screen } from '@/components/shell/screen';
@@ -14,6 +15,7 @@ import { NotFoundError, withTenantPage } from '@/server/auth/with-tenant';
 import { localToday } from '@/server/collections/service';
 import { listDocuments } from '@/server/documents/service';
 import { emailTemplateOptions, listThread } from '@/server/mail/communication';
+import { getRisk } from '@/server/risk/service';
 import {
   codeLabels,
   customerActivities,
@@ -34,6 +36,7 @@ const TABS = [
   'activities',
   'cases',
   'communication',
+  'risk',
   'documents',
 ] as const;
 type Tab = (typeof TABS)[number];
@@ -45,6 +48,7 @@ const TAB_PERMISSION: Record<Tab, string> = {
   activities: 'activity.read',
   cases: 'case.read',
   communication: 'activity.read',
+  risk: 'customer.read',
   documents: 'document.read',
 };
 const KPIS = ['exposure', 'overdue', 'oldest', 'promises'] as const;
@@ -111,6 +115,7 @@ export default async function Customer360Page({
         reasons: await codeLabels(ctx, 'adjustment_reason', locale),
         documents: active === 'documents' ? await listDocuments(ctx, id) : [],
         thread: active === 'communication' ? await listThread(ctx, id) : [],
+        risk: active === 'risk' ? await getRisk(ctx, id) : null,
         templates:
           active === 'communication' && keys.has('activity.create')
             ? await emailTemplateOptions(ctx)
@@ -319,6 +324,13 @@ export default async function Customer360Page({
             items={data.thread}
             templates={data.templates}
             canWrite={data.keys.includes('activity.create')}
+          />
+        ) : null}
+        {data.active === 'risk' && data.risk ? (
+          <RiskPanel
+            customerId={c.id}
+            risk={data.risk}
+            canRefresh={data.keys.includes('customer.update')}
           />
         ) : null}
         {data.active === 'documents' ? (
