@@ -1,0 +1,347 @@
+{
+  "name": "Collect — mail outbound (Microsoft 365)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "collect-mail-outbound",
+        "responseMode": "responseNode",
+        "options": {
+          "rawBody": true
+        }
+      },
+      "id": "b1",
+      "name": "Collect webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "webhookId": "collect-mail-outbound"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Collect -> n8n (mail.send / integration.ping). Only unpacks the request: the RAW body as\n// signed, the timestamp and the v1 MAC from X-Signature. No secret here — the HMAC is computed\n// by the next node (Crypto, credential \"collect-signing\").\nconst item = $input.first();\nconst raw = (await this.helpers.getBinaryDataBuffer(0, 'data')).toString('utf8');\nconst header = (item.json.headers['x-signature'] || '').toString();\nconst parts = Object.fromEntries(header.split(',').map((p) => { const i = p.indexOf('='); return [p.slice(0, i).trim(), p.slice(i + 1).trim()]; }));\nconst t = Number(parts.t);\nconst v1 = /^[0-9a-f]{64}$/.test(parts.v1 || '') ? parts.v1 : '';\nconst fresh = Number.isInteger(t) && Math.abs(Date.now() / 1000 - t) <= 300;\nlet body = null;\ntry { body = JSON.parse(raw); } catch { body = null; }\nreturn [{ json: { t, v1, fresh, raw, type: body && body.type, mail: body && body.type === 'mail.send' ? body.data : null } }];"
+      },
+      "id": "b2",
+      "name": "Unpack request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [240, 0]
+    },
+    {
+      "parameters": {
+        "action": "hmac",
+        "type": "SHA256",
+        "value": "={{ $json.t }}.{{ $json.raw }}",
+        "dataPropertyName": "expected",
+        "encoding": "hex"
+      },
+      "id": "b10",
+      "name": "HMAC (collect-signing)",
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 2,
+      "position": [480, 0],
+      "credentials": {
+        "crypto": {
+          "id": "",
+          "name": "collect-signing"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.fresh && $json.v1 !== '' && $json.v1 === $json.expected }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "b11",
+      "name": "Signature valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [720, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.type === 'integration.ping' }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "b12",
+      "name": "Ping?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [960, -120]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { status: 'pong' } }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "b13",
+      "name": "Answer pong",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1200, -240]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.mail !== null }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "b3",
+      "name": "Valid mail.send?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1200, -60]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Idempotency (review S-09): Collect retries a mail it may already have handed over (crash\n// after the POST) with the SAME Idempotency-Key (= its outbox id). A key seen in the last 7 days\n// is answered with the stored result and NOT sent again. Static data of the active workflow.\nconst store = $getWorkflowStaticData('global');\nstore.sent = store.sent || {};\nconst now = Date.now();\nfor (const [k, v] of Object.entries(store.sent)) {\n  if (now - v.at > 7 * 24 * 3600 * 1000) delete store.sent[k];\n}\nconst headers = $('Collect webhook').first().json.headers || {};\nconst key = (headers['idempotency-key'] || '').toString();\nconst seen = key ? store.sent[key] : undefined;\nreturn [{ json: { ...$input.first().json, key, duplicate: Boolean(seen), messageId: seen ? seen.messageId : null } }];"
+      },
+      "id": "b7",
+      "name": "Already sent?",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1440, -120]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.duplicate }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "b8",
+      "name": "Duplicate?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1680, -120]
+    },
+    {
+      "id": "b4",
+      "name": "Graph sendMail",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1920, -200],
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.microsoft.com/v1.0/me/sendMail",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ message: { subject: $json.mail.subject, body: { contentType: $json.mail.html ? 'HTML' : 'Text', content: $json.mail.html || $json.mail.text }, toRecipients: [{ emailAddress: { address: $json.mail.to } }] }, saveToSentItems: true }) }}",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "BIND_BY_SERVICE",
+          "name": "collect-ms-TENANT"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Remember the key only AFTER the mail went out, with the provider's Message-ID.\nconst store = $getWorkflowStaticData('global');\nstore.sent = store.sent || {};\nconst key = $('Already sent?').first().json.key;\nconst messageId = $input.first().json.messageId || null;\nif (key) store.sent[key] = { at: Date.now(), messageId };\nreturn [{ json: { messageId } }];"
+      },
+      "id": "b9",
+      "name": "Remember key",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2160, -200]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { status: 'sent', messageId: $json.messageId } }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "b5",
+      "name": "Answer sent",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [2400, -120]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { status: 'rejected' } }}",
+        "options": {
+          "responseCode": 401
+        }
+      },
+      "id": "b6",
+      "name": "Answer 401",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [960, 160]
+    }
+  ],
+  "connections": {
+    "Collect webhook": {
+      "main": [
+        [
+          {
+            "node": "Unpack request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Unpack request": {
+      "main": [
+        [
+          {
+            "node": "HMAC (collect-signing)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HMAC (collect-signing)": {
+      "main": [
+        [
+          {
+            "node": "Signature valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Signature valid?": {
+      "main": [
+        [
+          {
+            "node": "Ping?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Answer 401",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ping?": {
+      "main": [
+        [
+          {
+            "node": "Answer pong",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Valid mail.send?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Valid mail.send?": {
+      "main": [
+        [
+          {
+            "node": "Already sent?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Answer 401",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Already sent?": {
+      "main": [
+        [
+          {
+            "node": "Duplicate?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Duplicate?": {
+      "main": [
+        [
+          {
+            "node": "Answer sent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Graph sendMail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Graph sendMail": {
+      "main": [
+        [
+          {
+            "node": "Remember key",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remember key": {
+      "main": [
+        [
+          {
+            "node": "Answer sent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

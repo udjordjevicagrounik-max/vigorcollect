@@ -303,6 +303,11 @@ i P4 bez roka, plus preostali rizici P2 ispravki.
   neaktivnim kodom prikazuje šifru umesto naziva. Dodati `includeInactive` za prikaz.
 - **Bulk — izbor „sve po filteru":** sada se bira sa stranice (do 500 redova liste); izbor svih
   rezultata filtera (preko limita liste) kao posebna opcija sa preview-om.
+- **Google Workspace OAuth (5.3):** dugme „Poveži Google Workspace" je placeholder („uskoro");
+  do tada IMAP/SMTP sa lozinkom za aplikaciju. Isti obrazac kao Microsoft 365 (PKCE, token kod
+  nas, Gmail API scope-ovi `gmail.readonly` + `gmail.send` — restricted scope, Google verifikacija).
+- **Pošta — prekid veze:** dugme „Prekini vezu" (deaktivira workflow-e, briše `*-<slug>`
+  credential-e u n8n-u, opoziva Microsoft token); sada ručno u n8n-u.
 - **Digest — šabloni:** tekst digest-a je iz `messages` (mail.digest.*), ne iz tenant šablona;
   tenant-izmenljiv digest šablon kad bude traženo.
 

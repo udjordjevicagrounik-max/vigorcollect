@@ -1,0 +1,216 @@
+{
+  "name": "Collect — mail inbound (Microsoft 365)",
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "// Builds the envelope for Collect (mail.received). No secret here — the next node (Crypto,\n// credential \"collect-signing\") signs \"<t>.<raw>\". Field names differ between trigger nodes\n// (IMAP / Gmail / Outlook) — adjust the right-hand sides if your node uses others.\nreturn $input.all().map((item) => {\n  const m = item.json;\n  const headers = m.headers || {};\n  const messageId = m.messageId || headers['message-id'] || m.id;\n  const refs = (m.references || headers['references'] || '').toString().split(/\\s+/).filter(Boolean);\n  const envelope = {\n    id: messageId,\n    type: 'mail.received',\n    occurredAt: new Date(m.date || Date.now()).toISOString(),\n    data: {\n      messageId,\n      from: (m.from && (m.from.value ? m.from.value[0].address : m.from)) || '',\n      subject: m.subject || '',\n      text: m.text || m.textPlain || '',\n      html: m.html || m.textHtml || undefined,\n      inReplyTo: m.inReplyTo || headers['in-reply-to'] || undefined,\n      references: refs,\n      attachments: (m.attachments || []).map((a) => ({\n        filename: a.filename || a.fileName || 'attachment',\n        contentType: a.contentType || a.mimeType || 'application/octet-stream',\n        size: a.size || 0,\n      })),\n    },\n  };\n  return { json: { raw: JSON.stringify(envelope), t: Math.floor(Date.now() / 1000) } };\n});"
+      },
+      "id": "a2",
+      "name": "Build envelope",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [260, 0]
+    },
+    {
+      "parameters": {
+        "action": "hmac",
+        "type": "SHA256",
+        "value": "={{ $json.t }}.{{ $json.raw }}",
+        "dataPropertyName": "v1",
+        "encoding": "hex"
+      },
+      "id": "a4",
+      "name": "Sign (collect-signing)",
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 2,
+      "position": [480, 0],
+      "credentials": {
+        "crypto": {
+          "id": "",
+          "name": "collect-signing"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://COLLECT_HOST/api/integrations/INTEGRATION_ID/inbound",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-signature",
+              "value": "=t={{ $json.t }},v1={{ $json.v1 }}"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.raw }}",
+        "options": {}
+      },
+      "id": "a3",
+      "name": "Send to Collect",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [720, 0],
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 5000
+    },
+    {
+      "id": "b5603b87-9dc5-48d1-b20a-079e7cadbeba",
+      "name": "Every 2 minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-400, 0],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 2
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "72a701b6-43a3-4536-8e0a-e01b07d336a9",
+      "name": "Folder",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-200, 0],
+      "parameters": {
+        "jsCode": "// Replaced per tenant by the service (folder from the mailbox form).\nreturn [{ json: { folder: 'inbox' } }];"
+      }
+    },
+    {
+      "id": "18be32be-196c-4d24-ac47-7c43f0148d60",
+      "name": "Graph list messages",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [0, 0],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'https://graph.microsoft.com/v1.0/me/mailFolders/' + encodeURIComponent($json.folder) + '/messages' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "$filter",
+              "value": "={{ 'receivedDateTime gt ' + ($getWorkflowStaticData('global').since || new Date(Date.now() - 3600000).toISOString()) }}"
+            },
+            {
+              "name": "$orderby",
+              "value": "receivedDateTime asc"
+            },
+            {
+              "name": "$top",
+              "value": "25"
+            },
+            {
+              "name": "$select",
+              "value": "id,internetMessageId,subject,from,receivedDateTime,body,internetMessageHeaders"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "BIND_BY_SERVICE",
+          "name": "collect-ms-TENANT"
+        }
+      }
+    },
+    {
+      "id": "0cce0abd-57f8-4b9b-bd23-d8061245313b",
+      "name": "Split new messages",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [200, 0],
+      "parameters": {
+        "jsCode": "// Graph → the fields 'Build envelope' expects; remembers the newest receivedDateTime\n// (Mail.Read only — messages are never marked read). No secret here.\nconst data = $getWorkflowStaticData('global');\nconst items = [];\nfor (const page of $input.all()) {\n  for (const m of page.json.value || []) {\n    const h = Object.fromEntries((m.internetMessageHeaders || []).map((x) => [x.name.toLowerCase(), x.value]));\n    items.push({ json: {\n      messageId: m.internetMessageId || m.id,\n      from: (m.from && m.from.emailAddress && m.from.emailAddress.address) || '',\n      subject: m.subject || '',\n      text: m.body && m.body.contentType === 'text' ? m.body.content : '',\n      html: m.body && m.body.contentType === 'html' ? m.body.content : undefined,\n      date: m.receivedDateTime,\n      inReplyTo: h['in-reply-to'],\n      references: h['references'] || '',\n      attachments: [],\n    } });\n    if (!data.since || m.receivedDateTime > data.since) data.since = m.receivedDateTime;\n  }\n}\nreturn items;"
+      }
+    }
+  ],
+  "connections": {
+    "Build envelope": {
+      "main": [
+        [
+          {
+            "node": "Sign (collect-signing)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sign (collect-signing)": {
+      "main": [
+        [
+          {
+            "node": "Send to Collect",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Every 2 minutes": {
+      "main": [
+        [
+          {
+            "node": "Folder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Folder": {
+      "main": [
+        [
+          {
+            "node": "Graph list messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Graph list messages": {
+      "main": [
+        [
+          {
+            "node": "Split new messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split new messages": {
+      "main": [
+        [
+          {
+            "node": "Build envelope",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

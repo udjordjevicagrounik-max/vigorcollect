@@ -1,13 +1,16 @@
 import { getTranslations } from 'next-intl/server';
 import { ForbiddenState } from '@/components/admin/forbidden-state';
 import { IntegrationsAdmin } from '@/components/admin/integrations-admin';
+import { MailboxSetup } from '@/components/admin/mailbox-setup';
 import { PageHeader } from '@/components/admin/page-header';
 import { UnlinkedMessages } from '@/components/admin/unlinked-messages';
+import { AutoRefresh } from '@/components/shell/auto-refresh';
 import { Screen } from '@/components/shell/screen';
 import { getAuthBaseURL } from '@/server/auth/better-auth';
 import { PermissionDeniedError, permissionKeys } from '@/server/auth/permissions';
 import { withTenantPage } from '@/server/auth/with-tenant';
 import { listApiKeys, NEVER_FOR_KEYS } from '@/server/integrations/api-keys';
+import { getMailbox } from '@/server/integrations/mailbox';
 import { OUTBOUND_EVENT_TYPES } from '@/server/integrations/outbound';
 import { listDeadLetters, listIntegrations, listSyncRuns } from '@/server/integrations/service';
 import { linkTargets, listUnlinked } from '@/server/mail/communication';
@@ -16,7 +19,15 @@ export const dynamic = 'force-dynamic';
 
 // Admin → Integrations (task 4.1), mobile-compact: integrations (n8n) with their inbound URL,
 // test ping and on/off; API keys (token shown once); dead letters with retry (rule 95); sync log.
-export default async function IntegrationsPage() {
+const MS_OUTCOMES = ['connected', 'denied', 'failed'] as const;
+
+export default async function IntegrationsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const ms = (await searchParams).microsoft;
+  const microsoftOutcome = MS_OUTCOMES.find((o) => o === ms) ?? null;
   let data;
   try {
     data = await withTenantPage(async (ctx) => {
@@ -24,6 +35,7 @@ export default async function IntegrationsPage() {
       const keys = await permissionKeys(ctx.db, ctx.userId);
       return {
         integrations,
+        mailbox: await getMailbox(ctx),
         apiKeys: await listApiKeys(ctx),
         syncRuns: await listSyncRuns(ctx),
         deadLetters: await listDeadLetters(ctx),
@@ -47,6 +59,14 @@ export default async function IntegrationsPage() {
   return (
     <Screen mobileClass="mobile-compact">
       <PageHeader title={t('title')} description={t('description')} />
+      {data.mailbox.status === 'test_requested' || data.mailbox.status === 'testing' ? (
+        <AutoRefresh seconds={3} />
+      ) : null}
+      <MailboxSetup
+        view={data.mailbox}
+        canManage={data.canManage}
+        microsoftOutcome={microsoftOutcome}
+      />
       <IntegrationsAdmin
         integrations={data.integrations.map((i) => ({
           ...i,

@@ -1571,5 +1571,62 @@
     "inAppMail": "Prikaži stavke o neisporučenoj i novoj pošti u aplikaciji",
     "save": "Sačuvaj",
     "saved": "Podešavanja su sačuvana."
+  },
+  "mailbox": {
+    "title": "Pošta",
+    "description": "Povežite sanduče iz kog Collect čita odgovore i preko kog šalje podsetnike (kroz n8n). Lozinka se odmah šifruje i više se ne prikazuje.",
+    "status": {
+      "none": "Još nije povezano.",
+      "saved": "Sačuvano — proverite vezu da biste je aktivirali.",
+      "test_requested": "Provera veze…",
+      "testing": "Provera veze…",
+      "connected": "Povezano — n8n čita i šalje za ovu organizaciju.",
+      "failed": "Provera nije uspela"
+    },
+    "errors": {
+      "imap_auth_failed": "IMAP: pogrešan korisnik ili lozinka (za Gmail koristite lozinku za aplikaciju).",
+      "smtp_auth_failed": "SMTP: pogrešan korisnik ili lozinka.",
+      "imap_blocked_host": "IMAP: ova adresa nije dozvoljena (interna mreža).",
+      "smtp_blocked_host": "SMTP: ova adresa nije dozvoljena (interna mreža).",
+      "imap_connect_failed": "IMAP: server ne odgovara na ovom portu.",
+      "smtp_connect_failed": "SMTP: server ne odgovara na ovom portu.",
+      "imap_no_starttls": "IMAP: port 143 bez STARTTLS — lozinka bi išla nešifrovano.",
+      "smtp_no_starttls": "SMTP: server ne nudi STARTTLS.",
+      "smtp_insecure_auth": "SMTP: prijava bez šifrovanja nije dozvoljena — izaberite STARTTLS ili TLS.",
+      "n8n_not_configured": "n8n nije podešen na serveru (N8N_BASE_URL / N8N_API_KEY).",
+      "n8n_failed": "Sanduče radi, ali n8n je odbio podešavanje — pogledajte log servera.",
+      "ms_token_failed": "Microsoft 365: prijava je istekla ili je opozvana — povežite ponovo."
+    },
+    "imapHost": "IMAP server",
+    "imapPort": "IMAP port",
+    "imapPorts": {
+      "993": "993 (SSL/TLS)",
+      "143": "143 (STARTTLS)"
+    },
+    "smtpHost": "SMTP server",
+    "smtpPort": "SMTP port",
+    "smtpSecurity": "Šifrovanje",
+    "security": {
+      "starttls": "STARTTLS",
+      "tls": "SSL/TLS",
+      "none": "bez (samo bez prijave)"
+    },
+    "username": "Korisnik (obično e-mail adresa)",
+    "password": "Lozinka",
+    "setKeep": "postavljeno — ostavite prazno da ostane",
+    "folder": "Folder / labela koja se čita",
+    "fromAddress": "Adresa pošiljaoca (opciono)",
+    "gmailHint": "Gmail: uključite verifikaciju u 2 koraka, napravite lozinku za aplikaciju (Google nalog → Bezbednost → Lozinke za aplikacije) i unesite nju; imap.gmail.com 993, smtp.gmail.com 587 STARTTLS. Da se čita samo pošta naplate, napravite labelu (npr. Collect), filterom usmerite poruke u nju i unesite naziv labele kao folder.",
+    "save": "Sačuvaj",
+    "saved": "Sačuvano. Sada proverite vezu.",
+    "check": "Proveri vezu",
+    "checking": "Provera je u toku — stranica se sama osvežava.",
+    "microsoft": {
+      "connect": "Poveži Microsoft 365",
+      "connected": "Microsoft 365 saglasnost primljena — povezuje se n8n…",
+      "denied": "Microsoft 365: saglasnost nije data.",
+      "failed": "Microsoft 365: povezivanje nije završeno — pokušajte ponovo."
+    },
+    "google": "Google Workspace (OAuth) — uskoro. Do tada koristite IMAP/SMTP formu sa lozinkom za aplikaciju."
   }
 }

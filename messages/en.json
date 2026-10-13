@@ -1571,5 +1571,62 @@
     "inAppMail": "Show undelivered and new mail items in the app",
     "save": "Save",
     "saved": "Preferences saved."
+  },
+  "mailbox": {
+    "title": "Mail",
+    "description": "Connect the mailbox Collect reads replies from and sends reminders through (via n8n). The password is encrypted at once and never shown again.",
+    "status": {
+      "none": "Not connected yet.",
+      "saved": "Saved — check the connection to activate it.",
+      "test_requested": "Checking the connection…",
+      "testing": "Checking the connection…",
+      "connected": "Connected — n8n reads and sends for this organization.",
+      "failed": "The check failed"
+    },
+    "errors": {
+      "imap_auth_failed": "IMAP: wrong user or password (for Gmail use an app password).",
+      "smtp_auth_failed": "SMTP: wrong user or password.",
+      "imap_blocked_host": "IMAP: this address is not allowed (internal network).",
+      "smtp_blocked_host": "SMTP: this address is not allowed (internal network).",
+      "imap_connect_failed": "IMAP: the server does not answer on this port.",
+      "smtp_connect_failed": "SMTP: the server does not answer on this port.",
+      "imap_no_starttls": "IMAP: port 143 without STARTTLS — the password would travel unencrypted.",
+      "smtp_no_starttls": "SMTP: the server offers no STARTTLS.",
+      "smtp_insecure_auth": "SMTP: login without encryption is not allowed — choose STARTTLS or TLS.",
+      "n8n_not_configured": "n8n is not configured on the server (N8N_BASE_URL / N8N_API_KEY).",
+      "n8n_failed": "The mailbox works, but n8n refused the setup — see the server log.",
+      "ms_token_failed": "Microsoft 365: the sign-in expired or was revoked — connect again."
+    },
+    "imapHost": "IMAP server",
+    "imapPort": "IMAP port",
+    "imapPorts": {
+      "993": "993 (SSL/TLS)",
+      "143": "143 (STARTTLS)"
+    },
+    "smtpHost": "SMTP server",
+    "smtpPort": "SMTP port",
+    "smtpSecurity": "Encryption",
+    "security": {
+      "starttls": "STARTTLS",
+      "tls": "SSL/TLS",
+      "none": "none (only without login)"
+    },
+    "username": "User (usually the e-mail address)",
+    "password": "Password",
+    "setKeep": "set — leave empty to keep",
+    "folder": "Folder / label to read",
+    "fromAddress": "Sender address (optional)",
+    "gmailHint": "Gmail: turn on 2-step verification, create an app password (Google account → Security → App passwords) and use it here; imap.gmail.com 993, smtp.gmail.com 587 STARTTLS. To read only collection mail, create a label (e.g. Collect), filter messages into it and enter the label name as the folder.",
+    "save": "Save",
+    "saved": "Saved. Now check the connection.",
+    "check": "Check connection",
+    "checking": "The check is running — this page refreshes by itself.",
+    "microsoft": {
+      "connect": "Connect Microsoft 365",
+      "connected": "Microsoft 365 consent received — connecting n8n…",
+      "denied": "Microsoft 365: consent was not given.",
+      "failed": "Microsoft 365: the connection could not be completed — try again."
+    },
+    "google": "Google Workspace (OAuth) — coming soon. Until then use the IMAP/SMTP form with an app password."
   }
 }

@@ -3,6 +3,7 @@ import { Pool, type PoolClient } from 'pg';
 import { logEvent } from '@/lib/log';
 import { getMasterKeyring } from '@/server/crypto/keyring';
 import { fxRatesJob } from '@/server/fx/rates-job';
+import { processMailbox } from '@/server/integrations/mailbox';
 import { dispatchDue } from '@/server/integrations/outbound';
 import { dispatchIntegrationMail } from '@/server/mail/dispatch-integration';
 import { digestTick } from '@/server/notifications/digest';
@@ -208,6 +209,9 @@ export async function dispatchIntegrations(
       const run = tenantTx(appPool, r.tenant_id, jobId);
       await dispatchDue(run, getMasterKeyring());
       await dispatchIntegrationMail(run, getMasterKeyring());
+      // 5.3: mailbox "check connection" (probe → n8n) and Microsoft 365 token refresh.
+      const mailbox = await processMailbox(run, getMasterKeyring());
+      if (mailbox) logEvent('mailbox.processed', { tenantId: r.tenant_id, outcome: mailbox });
     } catch (error) {
       logEvent('integrations.dispatch_error', {
         level: 'error',
