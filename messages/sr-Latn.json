@@ -273,7 +273,8 @@
       "empty": "Za danas nema ničeg zakazanog.",
       "promise": "Obećanje {amount} za {date}",
       "nextAction": "{action} — zakazano za {date}",
-      "case": "Otvoren case · {stage}"
+      "case": "Otvoren case · {stage}",
+      "teamTitle": "Rad mog tima danas"
     },
     "empty": {
       "title": "Još nema faktura",
@@ -1963,5 +1964,54 @@
       "empty": "Još nema polja za ovaj entitet.",
       "limit": "Najviše {n} aktivnih polja po entitetu."
     }
+  },
+  "dashboards": {
+    "choose": "Dashboard",
+    "refresh": "Osveži",
+    "edit": "Uredi",
+    "done": "Gotovo",
+    "copy": "Kopiraj u moj",
+    "copied": "Vaša kopija je spremna — sada je vaša početna.",
+    "makeHome": "Postavi kao početnu",
+    "homeSet": "Ovo je sada vaš početni dashboard.",
+    "cachedAt": "brojke od {time} (osvežite za sada)",
+    "addWidget": "+ Dodaj widget",
+    "fromReport": "Iz sačuvanog izveštaja",
+    "noReports": "Još nema sačuvanih izveštaja.",
+    "newReport": "ili napravite novi izveštaj →",
+    "systemWidgets": "Gotovi",
+    "kinds": {
+      "attention": "Zahteva pažnju",
+      "my_tasks": "Moj rad danas",
+      "team_attention": "Rad mog tima",
+      "aging": "Aging"
+    },
+    "kpis": {
+      "overdue_total": "KPI: dospelo",
+      "open_total": "KPI: otvoreno",
+      "dso": "KPI: DSO",
+      "promises_today": "KPI: obećanja danas",
+      "promises_broken": "KPI: prekršena obećanja",
+      "disputed": "KPI: sporno",
+      "open_cases": "KPI: otvoreni case-ovi",
+      "collected_30": "KPI: naplaćeno 30 d",
+      "collection_rate": "KPI: stopa naplate"
+    },
+    "added": "Widget je dodat.",
+    "saved": "Sačuvano.",
+    "removed": "Widget je uklonjen.",
+    "remove": "Ukloni",
+    "up": "Pomeri gore",
+    "down": "Pomeri dole",
+    "size": "Širina",
+    "sizes": {
+      "3": "četvrtina",
+      "4": "trećina",
+      "6": "polovina",
+      "8": "dve trećine",
+      "12": "cela širina"
+    },
+    "emptyTitle": "Ovaj dashboard je prazan",
+    "emptyDescription": "Kliknite „Uredi“ → „Dodaj widget“ i izaberite izveštaj ili gotov widget."
   }
 }

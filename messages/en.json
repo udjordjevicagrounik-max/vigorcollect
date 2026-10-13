@@ -273,7 +273,8 @@
       "empty": "Nothing scheduled for today.",
       "promise": "Promise {amount} for {date}",
       "nextAction": "{action} — scheduled for {date}",
-      "case": "Open case · {stage}"
+      "case": "Open case · {stage}",
+      "teamTitle": "My team's work today"
     },
     "empty": {
       "title": "No invoices yet",
@@ -1963,5 +1964,54 @@
       "empty": "No fields for this entity yet.",
       "limit": "At most {n} active fields per entity."
     }
+  },
+  "dashboards": {
+    "choose": "Dashboard",
+    "refresh": "Refresh",
+    "edit": "Edit",
+    "done": "Done",
+    "copy": "Copy to mine",
+    "copied": "Your own copy is ready — it is now your home.",
+    "makeHome": "Make my home",
+    "homeSet": "This is now your home dashboard.",
+    "cachedAt": "figures as of {time} (refresh for now)",
+    "addWidget": "+ Add widget",
+    "fromReport": "From a saved report",
+    "noReports": "No saved reports yet.",
+    "newReport": "or build a new report →",
+    "systemWidgets": "Ready-made",
+    "kinds": {
+      "attention": "Needs attention",
+      "my_tasks": "My work today",
+      "team_attention": "My team's work",
+      "aging": "Aging"
+    },
+    "kpis": {
+      "overdue_total": "KPI: overdue",
+      "open_total": "KPI: open",
+      "dso": "KPI: DSO",
+      "promises_today": "KPI: promises today",
+      "promises_broken": "KPI: broken promises",
+      "disputed": "KPI: disputed",
+      "open_cases": "KPI: open cases",
+      "collected_30": "KPI: collected 30 d",
+      "collection_rate": "KPI: collection rate"
+    },
+    "added": "Widget added.",
+    "saved": "Saved.",
+    "removed": "Widget removed.",
+    "remove": "Remove",
+    "up": "Move up",
+    "down": "Move down",
+    "size": "Width",
+    "sizes": {
+      "3": "quarter",
+      "4": "third",
+      "6": "half",
+      "8": "two thirds",
+      "12": "full width"
+    },
+    "emptyTitle": "This dashboard is empty",
+    "emptyDescription": "Click “Edit” → “Add widget” and pick a report or a ready-made widget."
   }
 }

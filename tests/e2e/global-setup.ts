@@ -162,6 +162,9 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
       await client.query(`DELETE FROM user_roles WHERE user_id IN (${invited})`);
       await client.query(`DELETE FROM users WHERE id IN (${invited})`);
       await client.query('DELETE FROM mail_outbox');
+      // e2e starts no renderer service: render jobs of this run never finish — remove them, or
+      // tests/golden/db/renderer.test.ts would pick them up from the shared test database.
+      await client.query('DELETE FROM render_jobs');
     });
     await client.query(`DELETE FROM auth."user" WHERE email LIKE 'e2e-invite-%'`);
     await client.query(`DELETE FROM auth."user" WHERE id = ANY($1::uuid[])`, [
