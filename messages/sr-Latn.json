@@ -49,6 +49,10 @@
     "passwordReset": {
       "subject": "Promena lozinke",
       "text": "Zatražena je promena lozinke za vaš nalog.\n\nOtvorite link da postavite novu lozinku. Link važi 1 sat i može se iskoristiti samo jednom:\n{url}\n\nAko niste vi tražili promenu, zanemarite poruku — lozinka ostaje ista."
+    },
+    "test": {
+      "subject": "Test poruka — {tenant}",
+      "text": "Ovo je test poruka iz organizacije {tenant}.\n\nAko ste je primili, slanje pošte kroz integraciju Pošta radi. Odgovor nije potreban."
     }
   },
   "auth": {
@@ -1126,7 +1130,16 @@
     "keyScopeHint": "Obim organizacije samo za dozvole koje i sami imate za celu organizaciju.",
     "keyPending": "čeka odobrenje",
     "keyApprovalNote": "Ključ radi tek kad ga drugi administrator odobri (Administracija → Odobrenja).",
-    "scopeLabel": "obim: {scope}"
+    "scopeLabel": "obim: {scope}",
+    "testMail": {
+      "title": "Test poruka",
+      "button": "Pošalji test poruku",
+      "hint": "Šalje fiksnu poruku na vašu email adresu kroz integraciju Pošta ove organizacije.",
+      "demoHint": "Demo organizacija: poruka se samo beleži (sink) i nikad ne isporučuje — pravilo 24.",
+      "queued": "Test poruka je u redu za slanje; n8n je šalje u roku od minut.",
+      "sink": "Test poruka je zabeležena u sink-u — ne isporučuje se (demo organizacija ili nema aktivne integracije Pošta).",
+      "none": "Test poruku može da pošalje samo osoba (ide na vašu adresu)."
+    }
   },
   "communication": {
     "empty": "Još nema prepiske sa ovim kupcem. Pošaljite poruku iz šablona ili slobodnim tekstom — odgovori kupca stižu ovde kad je povezana pošta (Administracija → Integracije).",

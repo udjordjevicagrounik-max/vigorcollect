@@ -78,6 +78,7 @@ export function IntegrationsAdmin({
   events,
   grantableScopes,
   origin,
+  isDemo,
 }: {
   integrations: Integration[];
   apiKeys: ApiKey[];
@@ -87,6 +88,7 @@ export function IntegrationsAdmin({
   events: readonly string[];
   grantableScopes: string[];
   origin: string;
+  isDemo: boolean;
 }) {
   const t = useTranslations('integrationsAdmin');
   const tErrors = useTranslations('errors');
@@ -94,6 +96,7 @@ export function IntegrationsAdmin({
   const [created, setCreated] = useState<{ secret: string; inboundUrl: string } | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [keyAwaitsApproval, setKeyAwaitsApproval] = useState(false);
+  const [testMailNotice, setTestMailNotice] = useState<string | null>(null);
   const [formProblem, setFormProblem] = useState<FormProblem | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -271,6 +274,49 @@ export function IntegrationsAdmin({
           )
         ) : null}
       </section>
+
+      {canManage ? (
+        <section
+          aria-labelledby="test-mail-title"
+          className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-4"
+          data-test-mail
+        >
+          <h2 id="test-mail-title" className="font-semibold text-text">
+            {t('testMail.title')}
+          </h2>
+          <p className="text-sm text-text-muted">
+            {isDemo ? t('testMail.demoHint') : t('testMail.hint')}
+          </p>
+          <button
+            type="button"
+            className={button}
+            disabled={busy}
+            data-test-mail-send
+            onClick={() =>
+              void (async () => {
+                const res = await sendJSON('POST', '/api/integrations/test-mail', {});
+                const body = res.json as { transport?: string } | null;
+                if (res.status === 202) {
+                  setTestMailNotice(
+                    body?.transport === 'integration' ? t('testMail.queued') : t('testMail.sink'),
+                  );
+                  setFormProblem(null);
+                } else {
+                  setTestMailNotice(null);
+                  setFormProblem(apiProblem(res, tErrors));
+                }
+              })()
+            }
+          >
+            {t('testMail.button')}
+          </button>
+          {testMailNotice ? (
+            <p className="text-sm text-text" role="status" data-test-mail-result>
+              {testMailNotice}
+            </p>
+          ) : null}
+        </section>
+      ) : null}
 
       <section aria-labelledby="keys-title" className="flex flex-col gap-3" data-api-keys>
         <h2 id="keys-title" className="font-semibold text-text">

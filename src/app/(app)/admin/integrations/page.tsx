@@ -32,6 +32,10 @@ export default async function IntegrationsPage() {
         unlinked: await listUnlinked(ctx),
         targets:
           keys.has('integration.manage') && keys.has('customer.read') ? await linkTargets(ctx) : [],
+        // Session 5.1: the test message of a demo tenant only reaches the sink (rule 24).
+        isDemo:
+          (await ctx.db.query<{ is_demo: boolean }>('SELECT is_demo FROM tenants')).rows[0]
+            ?.is_demo ?? true,
       };
     });
   } catch (error) {
@@ -55,6 +59,7 @@ export default async function IntegrationsPage() {
         events={OUTBOUND_EVENT_TYPES}
         grantableScopes={data.grantableScopes}
         origin={origin}
+        isDemo={data.isDemo}
       />
       <UnlinkedMessages
         messages={data.unlinked}

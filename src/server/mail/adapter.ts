@@ -28,7 +28,9 @@ import { openMail, sealMail } from './crypto';
 export type AuthMailKind = 'invitation' | 'password_reset';
 /** Collection mail (3.3, migration 017): rendered from a tenant template, about one customer. */
 export type CollectionMailKind = 'reminder' | 'dunning' | 'statement' | 'document' | 'reply';
-export type MailKind = AuthMailKind | CollectionMailKind;
+/** Session 5.1, migration 023: a test message to the signed-in member (Admin → Integrations). */
+export type SystemMailKind = 'test';
+export type MailKind = AuthMailKind | CollectionMailKind | SystemMailKind;
 export type Transport = 'sink' | 'smtp' | 'integration';
 
 export type OutgoingMail =
@@ -222,6 +224,33 @@ export function htmlToText(html: string): string {
     .replace(/[ \t]+\n/g, '\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
+}
+
+/**
+ * Test message (session 5.1, Admin → Integrations → "Send a test message"): the fixed text from
+ * messages (mail.test.*) to the signed-in member's own address, through the SAME way out as
+ * collection mail — the tenant's mailbox integration, or the sink (a demo tenant always, rule 24).
+ */
+export async function sendTestMail(
+  db: Queryable,
+  keyring: MasterKeyring,
+  mail: { to: string; locale: string; tenantName: string },
+  options: MailOptions = {},
+): Promise<{ id: string; transport: Transport }> {
+  const tenantId = await currentTenantId(db);
+  const { transport, integrationId } = await collectionTransport(db, tenantId, options);
+  const locale: Locale = isLocale(mail.locale) ? mail.locale : 'en';
+  const t = createTranslator({ locale, messages: MESSAGES[locale], namespace: 'mail.test' });
+  const id = await insertOutbox(db, keyring, tenantId, transport, {
+    kind: 'test',
+    to: mail.to,
+    body: {
+      subject: t('subject', { tenant: mail.tenantName }),
+      text: t('text', { tenant: mail.tenantName }),
+    },
+    integrationId,
+  });
+  return { id, transport };
 }
 
 /**

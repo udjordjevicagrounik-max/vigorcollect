@@ -49,6 +49,10 @@
     "passwordReset": {
       "subject": "Password reset",
       "text": "A password reset was requested for your account.\n\nOpen the link to set a new password. The link is valid for 1 hour and can be used once:\n{url}\n\nIf you did not request this, ignore this message — your password stays the same."
+    },
+    "test": {
+      "subject": "Test message — {tenant}",
+      "text": "This is a test message from {tenant}.\n\nIf you received it, outgoing mail through your mailbox integration works. No reply is needed."
     }
   },
   "auth": {
@@ -1126,7 +1130,16 @@
     "keyScopeHint": "Organization scope only for permissions you hold for the whole organization.",
     "keyPending": "waiting for approval",
     "keyApprovalNote": "The key works only after another administrator approves it (Administration → Approvals).",
-    "scopeLabel": "scope: {scope}"
+    "scopeLabel": "scope: {scope}",
+    "testMail": {
+      "title": "Test message",
+      "button": "Send a test message",
+      "hint": "Sends a fixed message to your own e-mail address through this organization's mailbox integration.",
+      "demoHint": "Demo organization: the message is only recorded (sink) and never delivered — rule 24.",
+      "queued": "The test message is queued; n8n sends it within a minute.",
+      "sink": "The test message was recorded in the sink — it is not delivered (demo organization or no active mailbox integration).",
+      "none": "Only a person can send a test message (it goes to your own address)."
+    }
   },
   "communication": {
     "empty": "No correspondence with this customer yet. Send a message from a template or as free text — the customer's replies arrive here once mail is connected (Administration → Integrations).",

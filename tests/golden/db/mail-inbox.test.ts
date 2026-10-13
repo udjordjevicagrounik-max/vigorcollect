@@ -10,10 +10,12 @@ import { open, seal } from '@/server/integrations/crypto';
 import { receiveInbound } from '@/server/integrations/inbound';
 import { processWebhookEvent, registerWebhookHandler } from '@/server/integrations/process';
 import { createIntegration } from '@/server/integrations/service';
+import { sendIntegrationTestMail } from '@/server/integrations/test-mail';
 import { signatureHeader, verifySignature } from '@/server/integrations/signing';
 import { sendCollectionMail } from '@/server/mail/adapter';
 import { sameTx } from '@/server/jobs/tenant-job';
 import { dispatchIntegrationMail } from '@/server/mail/dispatch-integration';
+import { openMail } from '@/server/mail/crypto';
 import { handleMailReceived, handleMailStatus } from '@/server/mail/inbox';
 import { safeHref, segments } from '@/lib/untrusted-text';
 import { ensureFixtures, FX } from './fixtures';
@@ -430,5 +432,59 @@ describe('golden/db: outgoing mail through the mailbox integration (4.2)', () =>
       data: { to: 'kupac@example.test', subject: 'Stanje duga' },
     });
     expect(out.demo.transport).toBe('sink');
+  });
+});
+
+// Session 5.1: Admin → Integrations → "Send a test message" — to the signed-in member's own
+// address, through the tenant's mailbox integration; a demo tenant only the sink (rule 24);
+// mail_outbox (encrypted) + audit, never the address in the audit.
+describe('golden/db: test message to the signed-in member (5.1)', () => {
+  it('non-demo with a mailbox integration → integration transport; demo → sink; audited', async () => {
+    const out = await inTenant(migratePool, FX.tenantA, async (db) => {
+      await mailbox(db);
+      const me = await db.query<{ email: string }>('SELECT email FROM users WHERE id = $1', [
+        FX.userA,
+      ]);
+      await db.query('UPDATE tenants SET is_demo = false WHERE id = $1', [FX.tenantA]);
+      const live = await sendIntegrationTestMail(ctxFor(db), keyring);
+      await db.query('UPDATE tenants SET is_demo = true WHERE id = $1', [FX.tenantA]);
+      const demo = await sendIntegrationTestMail(ctxFor(db), keyring);
+      const rows = await db.query<{
+        id: string;
+        kind: string;
+        transport: string;
+        customer_id: string | null;
+        recipient_enc: Buffer;
+        recipient_key_version: number;
+      }>(
+        `SELECT id, kind, transport, customer_id, recipient_enc, recipient_key_version
+         FROM mail_outbox WHERE id = ANY($1) ORDER BY transport`,
+        [[live.outboxId, demo.outboxId]],
+      );
+      const audit = await db.query<{ action: string; after: Record<string, unknown> }>(
+        `SELECT action, after FROM audit_log WHERE entity_id = ANY($1) ORDER BY action, after->>'transport'`,
+        [[live.outboxId, demo.outboxId]],
+      );
+      return { me: me.rows[0]?.email, live, demo, rows: rows.rows, audit: audit.rows };
+    });
+    expect(out.live.transport).toBe('integration');
+    expect(out.demo.transport).toBe('sink');
+    expect(out.rows.map((r) => [r.kind, r.transport, r.customer_id])).toEqual([
+      ['test', 'integration', null],
+      ['test', 'sink', null],
+    ]);
+    for (const r of out.rows) {
+      expect(
+        openMail(keyring, FX.tenantA, 'recipient', r.id, {
+          ciphertext: r.recipient_enc,
+          keyVersion: r.recipient_key_version,
+        }),
+      ).toBe(out.me);
+    }
+    expect(out.audit).toEqual([
+      { action: 'mail.test_queued', after: { kind: 'test', transport: 'integration' } },
+      { action: 'mail.test_queued', after: { kind: 'test', transport: 'sink' } },
+    ]);
+    expect(JSON.stringify(out.audit)).not.toContain(String(out.me));
   });
 });

@@ -31,12 +31,13 @@ Collect ↔ n8n (`N8N_BASE_URL`, `N8N_API_KEY` u `.env` — upisuju se editorom 
 nikad kroz `!` komandu sa vrednošću). Tajne nikad ne prolaze kroz chat: skript ih čita iz baze i
 `.env` i šalje direktno n8n API-ju, a ispisuje samo statuse i id-jeve.
 
-1. U n8n-u (UI) napraviti credential-e za sanduče: **IMAP** (prijem) i **SMTP** (slanje) —
-   lozinke se kucaju samo u n8n UI.
+1. Credential-i za sanduče u n8n-u. **SMTP** (stanje 2026-10-13): `collect-smtp` — Elestio postfix
+   relay na n8n VM-u, `172.17.0.1:25`, bez SSL/STARTTLS, bez autentifikacije (napravljen kroz n8n
+   API; nema lozinke). **IMAP** (prijem) još ne postoji — pravi se u n8n UI, lozinka samo tamo.
 2. Pokrenuti (idempotentno — ponavljanje ne pravi novu integraciju ni nove workflow-e):
 
    ```bash
-   cd /srv/vigor-collect && npx tsx scripts/n8n-connect.ts --imap="<naziv IMAP credential-a>" --smtp="<naziv SMTP credential-a>"
+   cd /srv/vigor-collect && npx tsx scripts/n8n-connect.ts --smtp="collect-smtp" --from="automation-u57586.vm.elestio.app@vm.elestio.app" [--imap="<naziv IMAP credential-a>"]
    ```
 
    - integracija vrste Pošta za Sinergistu kroz naš servis (audit, šifrovana tajna), outbound
@@ -44,11 +45,16 @@ nikad kroz `!` komandu sa vrednošću). Tajne nikad ne prolaze kroz chat: skript
      ponovo (tajna se ne rotira);
    - credential `collect-signing` (tip Crypto) — pravi se ponovo, sa istom tajnom;
    - workflow-i „Collect — mail inbound” / „Collect — mail outbound” se prave ili ažuriraju po
-     imenu, credential-i se vezuju po imenu, aktiviraju se samo ako IMAP / SMTP postoje;
-   - „Test ping” — očekivano `ping: sent (HTTP 200)`.
+     imenu, credential-i se vezuju po imenu; svaki se aktivira samo ako njegov credential postoji
+     (outbound: SMTP, inbound: IMAP); `--from` je pošiljalac u SMTP čvoru (Elestio obrazac
+     `<host n8n-a>@vm.elestio.app`; ako ga relay odbije — promeniti `--from` i pokrenuti ponovo);
+   - „Test ping” — očekivano `ping: sent (HTTP 200)` (posle aktivacije skript kratko ponavlja
+     ping dok n8n ne registruje webhook).
+   - Isporuka pošte: Administracija → Integracije → **„Pošalji test poruku”** (fiksna poruka na
+     email ulogovanog korisnika kroz integraciju; demo organizacija samo sink — pravilo 24).
 
-3. Bez `--imap` / `--smtp` workflow-i ostaju **neaktivni**, a ping je `failed (HTTP 404)` (webhook
-   nije registrovan) — nedovršeno povezivanje, ne greška.
+3. Bez `--smtp` outbound ostaje **neaktivan** i ping je `failed (HTTP 404)`; bez `--imap` inbound
+   ostaje neaktivan (prijem pošte ne radi) — nedovršeno povezivanje, ne greška.
 4. Rotacija tajne: u Administracija → Integracije isključiti staru integraciju, pa ponovo
    pokrenuti skript (napraviće novu integraciju i upisati novu tajnu u `collect-signing`).
 

@@ -2,7 +2,8 @@
  * Connects the n8n of this server to Collect for the tenant Sinergista (#0) — idempotent, prints
  * NO secret (session 5.1, docs/runbook.md "n8n povezivanje").
  *
- *   npx tsx scripts/n8n-connect.ts --imap="<n8n IMAP credential>" --smtp="<n8n SMTP credential>"
+ *   npx tsx scripts/n8n-connect.ts --smtp="<n8n SMTP credential>" --from="<sender address>" \
+ *     [--imap="<n8n IMAP credential>"]
  *
  *   a) a mailbox integration through OUR integration service (audit, encrypted secret), outbound
  *      URL {N8N_BASE_URL}webhook/collect-mail-outbound; an existing active one with that URL is
@@ -11,7 +12,8 @@
  *      crypto, used by the Crypto nodes of both workflows); recreated on every run, same value;
  *   c) both workflows from docs/integrations/n8n/ are created or updated by name, the inbound URL
  *      is set, credentials are bound BY NAME (collect-signing, --imap, --smtp), then activated;
- *      without --imap/--smtp (or when n8n has no credential of that name) they stay inactive;
+ *      without --imap/--smtp (or when n8n has no credential of that name) that workflow stays
+ *      inactive (each workflow independently); --from sets the sender of the SMTP node;
  *   d) "Test ping" through our outbound path — only its status is printed.
  *
  * Env (.env): DATABASE_URL (vigor_app), PII_MASTER_KEYS, BETTER_AUTH_URL (public origin of
@@ -113,6 +115,8 @@ async function main(): Promise<void> {
   const api = n8n(base, required('N8N_API_KEY'));
   const outboundUrl = `${base}/webhook/collect-mail-outbound`;
   const mailCredentials = { imap: arg('imap'), smtp: arg('smtp') };
+  const from = arg('from');
+  if (from && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(from)) throw new Error('--from is not an address');
 
   // a) the integration (our service) — reuse an active one with the same outbound URL.
   const client = new Client({ connectionString: dbUrl });
@@ -191,6 +195,9 @@ async function main(): Promise<void> {
       if (node.type === 'n8n-nodes-base.crypto') {
         node.credentials = { crypto: { id: signing.id, name: signing.name } };
       }
+      if (node.type === 'n8n-nodes-base.emailSend' && from) {
+        node.parameters.fromEmail = from;
+      }
       if (node.type === 'n8n-nodes-base.httpRequest' && node.name === 'Send to Collect') {
         node.parameters.url = inboundUrl;
       }
@@ -223,7 +230,12 @@ async function main(): Promise<void> {
   }
 
   // d) Test ping through our outbound path (signed POST to the outbound workflow).
-  const pinged = await inTenant(client, (ctx) => ping(ctx.db, keyring, integrationId));
+  // n8n registers the webhook a moment after activation: a 404 right then is retried briefly.
+  let pinged = await inTenant(client, (ctx) => ping(ctx.db, keyring, integrationId));
+  for (let i = 0; i < 5 && pinged.httpStatus === 404 && result.some((w) => w.active); i += 1) {
+    await new Promise((r) => setTimeout(r, 2000));
+    pinged = await inTenant(client, (ctx) => ping(ctx.db, keyring, integrationId));
+  }
   await client.end();
 
   const say = (line: string) => process.stdout.write(`${line}\n`);
