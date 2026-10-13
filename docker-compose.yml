@@ -1,5 +1,8 @@
 # Local development stack. Protected file (CLAUDE.md rule 13).
 # Deploy: `docker compose up -d app` (never `restart` — it keeps the old image).
+# Secrets per container (review S-04/S-10/S-11): app = vigor_app + auth/PII keys; worker = jobs +
+# backup (public age key only); renderer = ONE credential (render_jobs); migrate and restore-test
+# are one-shot services (profile ops) — the only places with vigor_migrate / the age identity.
 name: collect
 
 services:
@@ -46,7 +49,10 @@ services:
       DOCUMENTS_DIR: /srv/documents
       # Inside the compose network the DB host is `db`, not localhost.
       DATABASE_URL: postgres://vigor_app:${APP_DB_PASSWORD}@db:5432/${POSTGRES_DB}
-      MIGRATE_DATABASE_URL: postgres://vigor_migrate:${MIGRATE_DB_PASSWORD}@db:5432/${POSTGRES_DB}
+      # Review S-04: no MIGRATE_DATABASE_URL here — the owner of every table is not in a
+      # long-running process (service `migrate`, profile ops).
+      # Review S-07: reverse proxies that append to X-Forwarded-For (nginx = 1).
+      TRUSTED_PROXY_HOPS: ${TRUSTED_PROXY_HOPS:-1}
       # Secrets come from .env / the Elestio env panel (vault) — never from this file.
       PII_MASTER_KEYS: ${PII_MASTER_KEYS:?set in .env (docs/runbook.md)}
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?set in .env (docs/runbook.md)}
@@ -76,10 +82,11 @@ services:
 
   # Job runner (ADR 0005): same image, other command. Not published; /health on 3001 inside.
   # Needs the role vigor_worker (scripts/create-service-roles.sh) before migration 007.
+  # Review S-10: no Chromium here any more — the renderer service renders, the worker encrypts.
   worker:
     build:
       context: .
-      # Worker stage = app image + pg_dump/pg_restore 16 + rclone (backup, restore test).
+      # Worker stage = app image + pg_dump/pg_restore 16 + rclone + age + Chromium (renderer).
       target: worker
       args:
         APP_VERSION: ${APP_VERSION:-dev}
@@ -88,13 +95,8 @@ services:
     volumes:
       - backups:/srv/backups
       - documents:/srv/documents
-    # Task 3.3: the worker runs Chromium (HTML → PDF). Nothing here needs root: user node, no
-    # capabilities, no setuid escalation; Docker's default seccomp/AppArmor stay as they are
-    # (src/server/documents/pdf.ts explains why Chromium's own sandbox is off inside this box).
     cap_drop: [ALL]
     security_opt: ['no-new-privileges:true']
-    # Chromium uses /dev/shm; --disable-dev-shm-usage falls back to /tmp, this keeps it roomy.
-    shm_size: 256m
     depends_on:
       db:
         condition: service_healthy
@@ -104,7 +106,6 @@ services:
       PRODUCT_NAME: ${PRODUCT_NAME:?set in .env}
       WORKER_PORT: '3001'
       DOCUMENTS_DIR: /srv/documents
-      CHROMIUM_PATH: /usr/bin/chromium
       # Risk provider (task 4.3): the daily risk job runs here.
       CHECKPOINT_API_KEY: ${CHECKPOINT_API_KEY:-}
       DATABASE_URL: postgres://vigor_app:${APP_DB_PASSWORD}@db:5432/${POSTGRES_DB}
@@ -118,11 +119,12 @@ services:
       ALERT_TELEGRAM_BOT_TOKEN: ${ALERT_TELEGRAM_BOT_TOKEN:-}
       ALERT_TELEGRAM_CHAT_ID: ${ALERT_TELEGRAM_CHAT_ID:-}
       ALERT_SLACK_WEBHOOK_URL: ${ALERT_SLACK_WEBHOOK_URL:-}
-      # Backup 02:00 UTC / restore test Sunday 03:00 UTC run in this container (worker stage has
-      # pg_dump + rclone). Service roles, never the superuser (scripts/create-service-roles.sh):
-      # vigor_backup reads only, vigor_restore owns its scratch database. Empty = jobs log why.
+      # Backup 02:00 UTC runs in this container (worker stage has pg_dump + rclone + age) as
+      # vigor_backup (reads only, never the superuser). Review S-11: every file is encrypted to
+      # the PUBLIC key BACKUP_AGE_RECIPIENT; the identity that decrypts never comes here (service
+      # restore-test). Empty = the job logs why and the "backup missing" alarm fires.
       BACKUP_DATABASE_URL: ${BACKUP_DATABASE_URL:-}
-      RESTORE_DATABASE_URL: ${RESTORE_DATABASE_URL:-}
+      BACKUP_AGE_RECIPIENT: ${BACKUP_AGE_RECIPIENT:-}
       BACKUP_DIR: ${BACKUP_DIR:-/srv/backups}
       BACKUP_S3_BUCKET: ${BACKUP_S3_BUCKET:-}
       BACKUP_S3_PREFIX: ${BACKUP_S3_PREFIX:-}
@@ -141,6 +143,95 @@ services:
       interval: 30s
       timeout: 5s
       retries: 5
+
+  # HTML → PDF (review S-10): the only container that starts Chromium (--no-sandbox, see
+  # src/server/documents/pdf.ts). Same image as the worker. Its environment holds ONE credential:
+  # RENDER_DATABASE_URL (vigor_renderer — SELECT/UPDATE on render_jobs, no other table; migration
+  # 021). No PII key, no backup role, no volume, read-only filesystem, no capabilities.
+  renderer:
+    build:
+      context: .
+      target: worker
+      args:
+        APP_VERSION: ${APP_VERSION:-dev}
+    restart: unless-stopped
+    command: ['node', 'renderer.mjs']
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    read_only: true
+    tmpfs:
+      - /tmp
+    # Chromium uses /dev/shm; --disable-dev-shm-usage falls back to /tmp, this keeps it roomy.
+    shm_size: 256m
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      TZ: UTC
+      NODE_ENV: production
+      HOME: /tmp
+      CHROMIUM_PATH: /usr/bin/chromium
+      RENDER_DATABASE_URL: postgres://vigor_renderer:${RENDERER_DB_PASSWORD:?set in .env}@db:5432/${POSTGRES_DB}
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3002/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
+  # One-shot: migrations (rule 4) as vigor_migrate — the ONLY service with that role (review
+  # S-04). `./scripts/migrate.sh [up|status|down NNN]` runs it:
+  #   docker compose --profile ops run --rm --build migrate up
+  migrate:
+    profiles: ['ops']
+    build:
+      context: .
+      target: worker
+      args:
+        APP_VERSION: ${APP_VERSION:-dev}
+    restart: 'no'
+    entrypoint: ['bash', 'ops/migrate.sh']
+    command: ['up']
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      TZ: UTC
+      MIGRATE_DATABASE_URL: postgres://vigor_migrate:${MIGRATE_DB_PASSWORD:?set in .env}@db:5432/${POSTGRES_DB}
+
+  # One-shot: weekly restore test (rule 28) — host cron Sunday 03:00 UTC (docs/runbook.md):
+  #   docker compose --profile ops run --rm restore-test
+  # The ONLY place that holds BACKUP_AGE_IDENTITY (review S-11): never the worker.
+  restore-test:
+    profiles: ['ops']
+    build:
+      context: .
+      target: worker
+      args:
+        APP_VERSION: ${APP_VERSION:-dev}
+    restart: 'no'
+    entrypoint: ['bash', 'ops/restore-test.sh']
+    command: []
+    volumes:
+      - backups:/srv/backups:ro
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      TZ: UTC
+      POSTGRES_DB: ${POSTGRES_DB}
+      BACKUP_DIR: /srv/backups
+      RESTORE_DATABASE_URL: ${RESTORE_DATABASE_URL:-}
+      BACKUP_AGE_IDENTITY: ${BACKUP_AGE_IDENTITY:-}
 
 volumes:
   pgdata:

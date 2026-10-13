@@ -42,7 +42,8 @@ import { getAuthContext } from './session';
  *      BETTER_AUTH_URL origin, or Sec-Fetch-Site: same-origin); SameSite=Lax is the second layer.
  *   6. API keys (4.1): `Authorization: Bearer ak_…` instead of a session. The tenant comes from
  *      the key row (never from the request); requirePermission() passes only for keys in the
- *      key's scopes (catalog keys, ORGANIZATION scope); audit actor 'api_key'; a per-key rate
+ *      key's scopes (catalog keys, with the key's own data scope — OWN unless an ORGANIZATION
+ *      key was approved, review S-06); audit actor 'api_key'; a per-key rate
  *      limit (429). No cookie is involved, so the CSRF origin check does not apply. ctx.userId
  *      is the key id — a key is not a member (rows that need a person reject it).
  */
@@ -88,19 +89,22 @@ export type TenantContext = {
 type Identity = Pick<TenantContext, 'tenantId' | 'userId' | 'authUserId' | 'requestId'> & {
   /** Present when the caller authenticated with an API key (4.1). */
   apiKeyScopes?: readonly string[];
+  /** The key's data scope (review S-06 / S-16): OWN or ORGANIZATION, never more than approved. */
+  apiKeyScope?: 'OWN' | 'ORGANIZATION';
 };
 
-/** An API key holds exactly its scopes (catalog keys), always with ORGANIZATION scope. */
+/** An API key holds exactly its scopes (catalog keys), with ITS data scope (OWN by default). */
 async function checkApiKeyPermission(
   db: PoolClient,
   scopes: readonly string[],
+  scope: 'OWN' | 'ORGANIZATION',
   key: string,
 ): Promise<PermissionGrant> {
   if (!/^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$/.test(key)) throw new UnknownPermissionError(key);
   const known = await db.query('SELECT 1 FROM permissions WHERE key = $1', [key]);
   if (!known.rowCount) throw new UnknownPermissionError(key);
   if (!scopes.includes(key)) throw new PermissionDeniedError();
-  return { key, scope: 'ORGANIZATION' };
+  return { key, scope };
 }
 type Tracking = { permissionChecked: boolean; audits: number };
 
@@ -110,10 +114,10 @@ export function createTenantContext(
   identity: Identity,
   tracking: Tracking = { permissionChecked: false, audits: 0 },
 ): TenantContext {
-  const { apiKeyScopes, ...rest } = identity;
+  const { apiKeyScopes, apiKeyScope, ...rest } = identity;
   const check = (key: string) =>
     apiKeyScopes
-      ? checkApiKeyPermission(db, apiKeyScopes, key)
+      ? checkApiKeyPermission(db, apiKeyScopes, apiKeyScope ?? 'OWN', key)
       : checkPermission(db, identity.userId, key);
   return {
     db,
@@ -219,6 +223,7 @@ export function withTenant<P = Record<string, never>>(
         userId: key.apiKeyId,
         authUserId: `api_key:${key.apiKeyId}`,
         apiKeyScopes: key.scopes,
+        apiKeyScope: key.scope,
       });
     }
     if (MUTATING.has(request.method) && !sameOrigin(request.headers, deps.allowedOrigin())) {
