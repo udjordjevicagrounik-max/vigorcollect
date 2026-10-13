@@ -27,6 +27,10 @@ ENV NODE_ENV=production \
 COPY --from=build --chown=node:node /app/.next/standalone ./
 COPY --from=build --chown=node:node /app/.next/static ./.next/static
 COPY --from=build --chown=node:node /app/public ./public
+# Generated documents (task 3.3): encrypted files, a volume shared by app and worker
+# (docker-compose.yml "documents"); owned by node so the volume inherits the owner.
+RUN install -d -o node -g node -m 0700 /srv/documents
+ENV DOCUMENTS_DIR=/srv/documents
 USER node
 EXPOSE 3000
 CMD ["node", "server.js"]
@@ -35,9 +39,15 @@ CMD ["node", "server.js"]
 # backup and the weekly restore test — pg_dump/pg_restore 16 (PGDG, = server major) and rclone
 # for the off-site copy. Pinned; when PGDG publishes a newer 16.x the old one leaves its main
 # repo — bump PG_CLIENT_VERSION then (docs/runbook.md "Worker image").
+# Task 3.3: Debian Chromium for HTML → PDF (puppeteer-core), ONLY in this stage. Pinned to the
+# bookworm-security build; a newer security update replaces it there — bump CHROMIUM_VERSION
+# (runbook "Worker image"). No chromium-sandbox (setuid helper): the worker runs as node with
+# no capabilities and no-new-privileges (docker-compose.yml); see src/server/documents/pdf.ts.
 FROM runner AS worker
 ARG PG_CLIENT_VERSION=16.15-1.pgdg12+2
 ARG RCLONE_VERSION=1.60.1+dfsg-2+b5
+ARG CHROMIUM_VERSION=155.0.8059.39-1~deb12u1
+ARG FONTS_DEJAVU_VERSION=2.37-6
 USER root
 RUN apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates curl gnupg \
@@ -49,11 +59,13 @@ RUN apt-get update \
  && apt-get update \
  && apt-get install -y --no-install-recommends \
       "postgresql-client-16=${PG_CLIENT_VERSION}" "rclone=${RCLONE_VERSION}" \
+      "chromium=${CHROMIUM_VERSION}" "chromium-common=${CHROMIUM_VERSION}" \
+      "fonts-dejavu-core=${FONTS_DEJAVU_VERSION}" \
  && apt-get purge -y curl gnupg && apt-get autoremove -y \
  && rm -rf /var/lib/apt/lists/* \
  && install -d -o node -g node -m 0700 /srv/backups
 USER node
-ENV PROCESS_ROLE=worker BACKUP_DIR=/srv/backups
+ENV PROCESS_ROLE=worker BACKUP_DIR=/srv/backups CHROMIUM_PATH=/usr/bin/chromium
 CMD ["node", "worker.mjs"]
 
 # Default target (no --target): the web app — the worker stage above must never be the default.

@@ -1,7 +1,11 @@
 import { logEvent } from '@/lib/log';
 import type { AuditEntry } from '@/server/auth/audit';
 import type { Queryable } from '@/server/crypto/subject-keys';
+import { getMasterKeyring, type MasterKeyring } from '@/server/crypto/keyring';
+import { mailContact } from '@/server/customers/repository';
 import { emitEvent } from '@/server/events';
+import { sendCollectionMail } from '@/server/mail/adapter';
+import { renderForJob } from '@/server/templates/service';
 import {
   definitionSchema,
   evaluateConditions,
@@ -25,6 +29,8 @@ import {
  */
 
 type Db = Queryable;
+/** Tests pass their keyring; the worker uses PII_MASTER_KEYS (getMasterKeyring). */
+export type EngineOptions = { keyring?: MasterKeyring };
 type Audit = (entry: AuditEntry) => Promise<void>;
 
 export type Entity = {
@@ -52,6 +58,7 @@ type RunContext = {
   entity: Entity;
   caseId: string | null;
   facts: Facts & { owner_user: string | null };
+  keyring: () => MasterKeyring;
 };
 
 const WORKFLOW = 'workflow';
@@ -291,13 +298,57 @@ async function runAction(rc: RunContext, action: Action): Promise<Outcome> {
         [action.template],
       );
       const t = tpl.rows[0];
-      if (!t) return { status: 'skipped', result: { reason: 'template_missing', template: action.template } };
+      if (!t)
+        return {
+          status: 'skipped',
+          result: { reason: 'template_missing', template: action.template },
+        };
       // Rule 19: a message with legal effect never goes to a natural person automatically.
       if (t.legal && rc.facts.is_natural_person) {
         return { status: 'skipped', result: { reason: 'rule_19', template: action.template } };
       }
-      // mail_outbox accepts only auth mail kinds (CHECK); widening it needs a decision (NEXT.md).
-      return { status: 'skipped', result: { reason: 'mail_kind_pending_decision', template: action.template } };
+      // 3.3: rendered for the customer's mail contact and written to mail_outbox (sink until SMTP
+      // exists; a demo tenant always). The run stores ids only — never the address or the text.
+      const keyring = rc.keyring();
+      const contact = await mailContact(rc.db, keyring, rc.entity.customerId);
+      if (!contact)
+        return { status: 'skipped', result: { reason: 'no_recipient', template: action.template } };
+      const rendered = await renderForJob(
+        rc.db,
+        {
+          key: action.template,
+          channel: 'email',
+          customerId: rc.entity.customerId,
+          invoiceId: rc.entity.invoiceId ?? null,
+          locale: contact.language,
+        },
+        keyring,
+      );
+      const mail = await sendCollectionMail(rc.db, keyring, {
+        kind: rendered.hasLegalEffect ? 'dunning' : 'reminder',
+        to: contact.email,
+        subject: rendered.subject,
+        html: rendered.html,
+        customerId: rc.entity.customerId,
+        templateId: rendered.templateId,
+        sourceRunId: rc.runId,
+      });
+      await workflowEvent(rc, 'mail.queued', 'mail_outbox', mail.id, {
+        customer_id: rc.entity.customerId,
+        template: action.template,
+        transport: mail.transport,
+      });
+      return {
+        status: 'succeeded',
+        result: {
+          mail_id: mail.id,
+          template: action.template,
+          template_id: rendered.templateId,
+          locale: rendered.locale,
+          transport: mail.transport,
+          contact_id: contact.contactId,
+        },
+      };
     }
     case 'change_stage': {
       if (!rc.caseId) return { status: 'skipped', result: { reason: 'no_case' } };
@@ -396,6 +447,7 @@ export async function runVersion(
   version: Version,
   trigger: { type: string; key: string; eventId?: string | null },
   entity: Entity,
+  opts: EngineOptions = {},
 ): Promise<RunOutcome> {
   const started = Date.now();
   await db.query('SAVEPOINT workflow_run');
@@ -443,6 +495,7 @@ export async function runVersion(
       entity,
       caseId: loaded.caseId,
       facts: loaded.facts,
+      keyring: () => opts.keyring ?? getMasterKeyring(),
     };
     const actions: { type: string; status: string }[] = [];
     if (ok) {
@@ -553,6 +606,7 @@ export async function runWorkflowsForEvent(
     aggregateId: string | null;
     payload: Record<string, unknown>;
   },
+  opts: EngineOptions = {},
 ): Promise<Record<RunOutcome, number>> {
   const counts: Record<RunOutcome, number> = {
     duplicate: 0,
@@ -572,6 +626,7 @@ export async function runWorkflowsForEvent(
         version,
         { type: event.eventType, key: `event:${event.id}`, eventId: event.id },
         entity,
+        opts,
       )
     ] += 1;
   }
@@ -611,7 +666,11 @@ async function eventEntity(db: Db, type: string, id: string): Promise<Entity | n
  * the start of an inactivity streak), so a second run on the same local day — a DST double
  * tick, a retry — finds the run already there.
  */
-export async function runDailyWorkflows(db: Db, audit: Audit): Promise<Record<RunOutcome, number>> {
+export async function runDailyWorkflows(
+  db: Db,
+  audit: Audit,
+  opts: EngineOptions = {},
+): Promise<Record<RunOutcome, number>> {
   const counts: Record<RunOutcome, number> = {
     duplicate: 0,
     skipped: 0,
@@ -643,6 +702,7 @@ export async function runDailyWorkflows(db: Db, audit: Audit): Promise<Record<Ru
           version,
           { type: 'days_from_due', key: `day:${r.today}` },
           { type: 'invoice', id: r.invoice_id, customerId: r.customer_id, invoiceId: r.invoice_id },
+          opts,
         ),
       );
     }
@@ -668,6 +728,7 @@ export async function runDailyWorkflows(db: Db, audit: Audit): Promise<Record<Ru
           version,
           { type: 'no_activity', key: `noact:${r.since}` },
           { type: 'customer', id: r.customer_id, customerId: r.customer_id },
+          opts,
         ),
       );
     }
@@ -688,6 +749,7 @@ export async function runDailyWorkflows(db: Db, audit: Audit): Promise<Record<Ru
           version,
           { type: 'specific_date', key: `date:${t.date}` },
           { type: 'customer', id: r.customer_id, customerId: r.customer_id },
+          opts,
         ),
       );
     }

@@ -144,7 +144,7 @@ describe('golden/db: templates', () => {
 });
 
 describe('golden/db: documents and exportService', () => {
-  it('a document is stored encrypted, readable only in scope; HTML is not exportable yet', async () => {
+  it('a document is stored encrypted, readable only in scope; without its PDF it is not exportable', async () => {
     const out = await inTenant(appPool, FX.tenantA, async (db) => {
       const c = await company(db, 'Beta Plaintext Check d.o.o.', FX.userA);
       await overdue(db, c, 20);
@@ -173,6 +173,7 @@ describe('golden/db: documents and exportService', () => {
     expect(out.html).not.toContain('<script');
     expect(out.other).toBeInstanceOf(NotFoundError);
     expect(out.link).toBeInstanceOf(ConflictError);
+    expect((out.link as ConflictError).code).toBe('not_ready');
   });
 
   it('a signed link downloads once per request with export_log; tampered, foreign or expired links are 404', async () => {
@@ -181,18 +182,36 @@ describe('golden/db: documents and exportService', () => {
       const tpl = await db.query<{ id: string }>(
         `SELECT id FROM templates WHERE key = 'statement' AND status = 'active'`,
       );
+      // An HTML document and its PDF rendition (3.3): only the PDF leaves through exportService.
       const id = randomUUID();
-      const content = Buffer.from('%PDF-1.4 golden');
-      const stored = putDocument(keyring, FX.tenantA, id, content);
+      const html = Buffer.from('<!doctype html><p>Gama</p>');
+      const storedHtml = putDocument(keyring, FX.tenantA, id, html);
       await db.query(
         `INSERT INTO documents (id, tenant_id, customer_id, kind, template_id, format, locale, version, checksum, size_bytes,
                                 storage_ref, key_version)
-         VALUES ($1, $2, $3, 'statement', $4, 'pdf', 'sr-Latn', 1, sha256($5::bytea), $6, $7, $8)`,
+         VALUES ($1, $2, $3, 'statement', $4, 'html', 'sr-Latn', 1, sha256($5::bytea), $6, $7, $8)`,
         [
           id,
           FX.tenantA,
           c,
           tpl.rows[0]?.id,
+          html,
+          html.length,
+          storedHtml.storageRef,
+          storedHtml.keyVersion,
+        ],
+      );
+      const renditionId = randomUUID();
+      const content = Buffer.from('%PDF-1.4 golden');
+      const stored = putDocument(keyring, FX.tenantA, renditionId, content);
+      await db.query(
+        `INSERT INTO document_renditions (id, tenant_id, document_id, format, checksum, size_bytes, storage_ref,
+                                          key_version, renderer)
+         VALUES ($1, $2, $3, 'pdf', sha256($4::bytea), $5, $6, $7, 'chromium/golden')`,
+        [
+          renditionId,
+          FX.tenantA,
+          id,
           content,
           content.length,
           stored.storageRef,

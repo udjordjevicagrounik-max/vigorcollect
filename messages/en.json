@@ -177,6 +177,7 @@
     "internal": "Something went wrong on our side. Please try again; if it persists, send the request ID to support.",
     "self_action": "You cannot do this to your own account — ask another administrator.",
     "last_owner": "This is the organization’s only owner; make someone else owner first.",
+    "not_ready": "The PDF is still being prepared. Wait a few seconds and try again.",
     "unsupported": "This kind of request cannot be decided here yet."
   },
   "dashboard": {
@@ -450,7 +451,11 @@
       "connected": "connected",
       "notConnected": "not connected",
       "channels": "connected: {channels}",
-      "logOnly": "log only"
+      "logOnly": "log only",
+      "dailyRunTitle": "Daily job",
+      "dailyRun": "Run the daily job now",
+      "dailyRunQueued": "The daily job has started; rule results show up within a minute.",
+      "dailyRunHint": "The same job that runs every day at 06:00 in the company time zone: promises, overdue invoices and rules. Running it again creates no duplicates."
     },
     "teams": {
       "title": "Teams",
@@ -501,7 +506,9 @@
       "proposed": "The request was sent; the change applies only after approval.",
       "legalHandover": "Hand a case over to legal",
       "openCase": "Open case",
-      "workflowPublish": "Publish a rule — version {version} · open"
+      "workflowPublish": "Publish a rule — version {version} · open",
+      "ruleDecision": "Decision from a rule: {type}",
+      "naturalPerson": "natural person"
     }
   },
   "pwa": {
@@ -641,7 +648,8 @@
     "documentKind": {
       "dunning_letter": "Payment reminder",
       "statement": "Statement"
-    }
+    },
+    "pdfPending": "PDF in progress"
   },
   "collections": {
     "actionsLabel": "Customer actions",
@@ -925,12 +933,22 @@
     "back": "← Customer documents",
     "previewTitle": "Document preview",
     "unsafe": "The document contains content that is not allowed and is not shown.",
-    "downloadLater": "Downloading the document (PDF) becomes available once the PDF generator is enabled; every download is recorded in the export log.",
     "generated": "The document was created.",
     "generate": {
       "dunning_letter": "Create payment reminder",
       "statement": "Create statement"
-    }
+    },
+    "pdfPending": "The PDF is being prepared — refresh the page in a few seconds.",
+    "pdfRequest": "Create PDF",
+    "pdfRequested": "The PDF has been requested; it appears here once the worker has made it.",
+    "purpose": "Purpose of the download",
+    "purposes": {
+      "customer_correspondence": "Correspondence with the customer",
+      "internal_review": "Internal review",
+      "legal": "Legal department"
+    },
+    "downloadPdf": "Download PDF",
+    "downloadLogged": "The link is valid for 5 minutes and only for you; every download is recorded in the export log."
   },
   "attention": {
     "title": "Needs attention",
@@ -949,7 +967,8 @@
       "task_due": "Task for today",
       "no_activity": "No activity",
       "unassigned_case": "Case without owner",
-      "notification": "Notification"
+      "notification": "Notification",
+      "rule_proposal": "Rule proposal waits for a person"
     },
     "actions": {
       "approval_pending": "Decide",
@@ -960,7 +979,8 @@
       "task_due": "Open",
       "no_activity": "Contact",
       "unassigned_case": "Assign",
-      "notification": "Open"
+      "notification": "Open",
+      "rule_proposal": "Open"
     },
     "messages": {
       "rule_attention": "customer needs attention",
@@ -969,6 +989,14 @@
       "rule_escalation": "escalation",
       "rule_decision_proposed": "a proposed decision awaits a person",
       "rule_legal_proposed": "legal handover proposed"
+    },
+    "submitForApproval": "Submit for approval",
+    "submitted": "The proposal has been sent to another person for approval.",
+    "decisionTypes": {
+      "legal_handover": "handover to the legal department",
+      "pre_litigation_notice": "notice before legal action",
+      "credit_status_red": "red credit status",
+      "block_customer": "customer block"
     }
   },
   "templatesAdmin": {

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { mayInvite } from '@/server/auth/invitations';
 import { decideLegalHandover, LEGAL_HANDOVER_ACTION } from '@/server/collections/service';
+import { DECISION_APPROVAL_ACTION, decideDecisionApproval } from '@/server/decisions/service';
 import { decidePublish, PUBLISH_ACTION } from '@/server/workflows/service';
 import { PermissionDeniedError, permissionKeys } from '@/server/auth/permissions';
 import { ConflictError, NotFoundError, type TenantContext } from '@/server/auth/with-tenant';
@@ -24,6 +25,8 @@ export const CHECKER: Record<string, string> = {
   [LEGAL_HANDOVER_ACTION]: 'approval.legal_handover',
   // 3.1: publishing a workflow version (settings.manage held by another person).
   [PUBLISH_ACTION]: 'settings.manage',
+  // 3.3, rule 19: a rule's proposed decision, submitted by a person (decision.create).
+  [DECISION_APPROVAL_ACTION]: 'decision.approve',
 };
 export const APPROVAL_VIEW_KEYS = [
   'approval.read',
@@ -32,6 +35,7 @@ export const APPROVAL_VIEW_KEYS = [
   'approval.create',
   'approval.legal_handover',
   'settings.manage',
+  'decision.approve',
 ] as const;
 
 export type PendingApproval = {
@@ -47,6 +51,8 @@ export type PendingApproval = {
   caseRef: { caseId: string; customerId: string } | null;
   /** Workflow publication: the workflow and the version to publish. */
   workflowRef: { workflowId: string; version: number } | null;
+  /** Rule proposal (decision.approve): the customer and the proposed decision type. */
+  decisionRef: { customerId: string; decisionType: string; naturalPerson: boolean } | null;
   canDecide: boolean;
   requestedByMe: boolean;
 };
@@ -69,6 +75,8 @@ export async function listPendingApprovals(ctx: TenantContext): Promise<PendingA
     case_customer_id: string | null;
     workflow_id: string | null;
     workflow_version: number | null;
+    decision_type: string | null;
+    natural_person: boolean | null;
   }>(
     `SELECT a.id, a.action_type, a.created_at, a.requested_by, r.display_name AS requester_name,
             a.payload->>'role_key' AS role_key, a.payload->>'permission_key' AS permission_key,
@@ -77,7 +85,9 @@ export async function listPendingApprovals(ctx: TenantContext): Promise<PendingA
             CASE WHEN a.entity_type = 'collection_cases' THEN a.entity_id END AS case_id,
             a.payload->>'customer_id' AS case_customer_id,
             CASE WHEN a.action_type = 'workflow.publish' THEN (a.payload->>'workflow_id')::uuid END AS workflow_id,
-            CASE WHEN a.action_type = 'workflow.publish' THEN (a.payload->>'version')::int END AS workflow_version
+            CASE WHEN a.action_type = 'workflow.publish' THEN (a.payload->>'version')::int END AS workflow_version,
+            CASE WHEN a.action_type = 'decision.approve' THEN a.payload->>'decision_type' END AS decision_type,
+            (a.payload->>'natural_person')::boolean AS natural_person
      FROM approval_requests a
      JOIN users r ON r.id = a.requested_by
      LEFT JOIN users t ON a.entity_type = 'users' AND t.id = a.entity_id
@@ -94,6 +104,14 @@ export async function listPendingApprovals(ctx: TenantContext): Promise<PendingA
     permissionKey: r.permission_key,
     grant: r.grant,
     targetUser: r.target_id ? { id: r.target_id, displayName: r.target_name ?? '' } : null,
+    decisionRef:
+      r.decision_type && r.case_customer_id
+        ? {
+            customerId: r.case_customer_id,
+            decisionType: r.decision_type,
+            naturalPerson: r.natural_person ?? false,
+          }
+        : null,
     caseRef:
       r.case_id && r.case_customer_id
         ? { caseId: r.case_id, customerId: r.case_customer_id }
@@ -283,5 +301,6 @@ export async function decideApproval(
   if (type === GRANT_CHANGE_ACTION) return decideGrantChange(ctx, approvalId, input);
   if (type === LEGAL_HANDOVER_ACTION) return decideLegalHandover(ctx, approvalId, input);
   if (type === PUBLISH_ACTION) return decidePublish(ctx, approvalId, input);
+  if (type === DECISION_APPROVAL_ACTION) return decideDecisionApproval(ctx, approvalId, input);
   throw new ConflictError('unsupported');
 }

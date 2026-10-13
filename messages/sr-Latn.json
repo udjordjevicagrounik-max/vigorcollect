@@ -177,6 +177,7 @@
     "internal": "Nešto nije u redu sa naše strane. Pokušajte ponovo; ako se ponovi, pošaljte podršci ID zahteva.",
     "self_action": "Ovu radnju ne možete izvršiti nad sopstvenim nalogom — zamolite drugog administratora.",
     "last_owner": "Ovo je jedini vlasnik organizacije; prvo dodelite vlasnika nekom drugom.",
+    "not_ready": "PDF se još pravi. Sačekajte nekoliko sekundi i pokušajte ponovo.",
     "unsupported": "Ova vrsta zahteva se još ne odlučuje na ovom mestu."
   },
   "dashboard": {
@@ -450,7 +451,11 @@
       "connected": "povezan",
       "notConnected": "nije povezan",
       "channels": "povezani: {channels}",
-      "logOnly": "samo log"
+      "logOnly": "samo log",
+      "dailyRunTitle": "Dnevni posao",
+      "dailyRun": "Pokreni dnevni posao sada",
+      "dailyRunQueued": "Dnevni posao je pokrenut; rezultati pravila se vide za minut.",
+      "dailyRunHint": "Isti posao kao svakog dana u 06:00 po zoni kompanije: obećanja, dospele fakture i pravila. Ponovno pokretanje ne pravi duplikate."
     },
     "teams": {
       "title": "Timovi",
@@ -501,7 +506,9 @@
       "proposed": "Zahtev je poslat; promena važi tek posle odobrenja.",
       "legalHandover": "Predaja case-a pravnoj službi",
       "openCase": "Otvori case",
-      "workflowPublish": "Objava pravila — verzija {version} · otvori"
+      "workflowPublish": "Objava pravila — verzija {version} · otvori",
+      "ruleDecision": "Odluka iz pravila: {type}",
+      "naturalPerson": "fizičko lice"
     }
   },
   "pwa": {
@@ -641,7 +648,8 @@
     "documentKind": {
       "dunning_letter": "Opomena",
       "statement": "IOS"
-    }
+    },
+    "pdfPending": "PDF u izradi"
   },
   "collections": {
     "actionsLabel": "Akcije nad kupcem",
@@ -925,12 +933,22 @@
     "back": "← Dokumenti kupca",
     "previewTitle": "Pregled dokumenta",
     "unsafe": "Dokument sadrži nedozvoljen sadržaj i ne prikazuje se.",
-    "downloadLater": "Preuzimanje dokumenta (PDF) biće dostupno kad se uključi PDF generator; svako preuzimanje se beleži u dnevnik izvoza.",
     "generated": "Dokument je napravljen.",
     "generate": {
       "dunning_letter": "Napravi opomenu",
       "statement": "Napravi IOS"
-    }
+    },
+    "pdfPending": "PDF se pravi — osvežite stranicu za nekoliko sekundi.",
+    "pdfRequest": "Napravi PDF",
+    "pdfRequested": "Zatražen je PDF; pojaviće se ovde kad ga worker napravi.",
+    "purpose": "Svrha preuzimanja",
+    "purposes": {
+      "customer_correspondence": "Prepiska sa kupcem",
+      "internal_review": "Interni pregled",
+      "legal": "Pravna služba"
+    },
+    "downloadPdf": "Preuzmi PDF",
+    "downloadLogged": "Link važi 5 minuta i samo za vas; svako preuzimanje se beleži u dnevnik izvoza."
   },
   "attention": {
     "title": "Zahteva pažnju",
@@ -949,7 +967,8 @@
       "task_due": "Zadatak za danas",
       "no_activity": "Nema aktivnosti",
       "unassigned_case": "Case bez vlasnika",
-      "notification": "Obaveštenje"
+      "notification": "Obaveštenje",
+      "rule_proposal": "Predlog pravila čeka čoveka"
     },
     "actions": {
       "approval_pending": "Odluči",
@@ -960,7 +979,8 @@
       "task_due": "Otvori",
       "no_activity": "Kontaktiraj",
       "unassigned_case": "Dodeli",
-      "notification": "Otvori"
+      "notification": "Otvori",
+      "rule_proposal": "Otvori"
     },
     "messages": {
       "rule_attention": "kupac traži pažnju",
@@ -969,6 +989,14 @@
       "rule_escalation": "eskalacija",
       "rule_decision_proposed": "predlog odluke čeka čoveka",
       "rule_legal_proposed": "predlog predaje pravnoj"
+    },
+    "submitForApproval": "Podnesi na odobrenje",
+    "submitted": "Predlog je poslat na odobrenje drugoj osobi.",
+    "decisionTypes": {
+      "legal_handover": "predaja pravnoj službi",
+      "pre_litigation_notice": "opomena pred utuženje",
+      "credit_status_red": "crven kreditni status",
+      "block_customer": "blokada kupca"
     }
   },
   "templatesAdmin": {

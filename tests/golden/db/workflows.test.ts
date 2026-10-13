@@ -107,7 +107,7 @@ describe('golden/db: rule engine', () => {
     });
     expect(out.case).toEqual([{ workflow_version_id: expect.any(String), invoices: 1 }]);
     expect(out.actions).toEqual([
-      expect.objectContaining({ action_type: 'queue_email', status: 'skipped', result: expect.objectContaining({ reason: 'mail_kind_pending_decision' }) }),
+      expect.objectContaining({ action_type: 'queue_email', status: 'skipped', result: expect.objectContaining({ reason: 'no_recipient' }) }),
       expect.objectContaining({ action_type: 'create_case', status: 'succeeded' }),
     ]);
   });

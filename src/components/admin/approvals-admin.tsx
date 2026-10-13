@@ -17,6 +17,7 @@ type Pending = {
   targetUser: { id: string; displayName: string } | null;
   caseRef: { caseId: string; customerId: string } | null;
   workflowRef: { workflowId: string; version: number } | null;
+  decisionRef: { customerId: string; decisionType: string; naturalPerson: boolean } | null;
   canDecide: boolean;
   requestedByMe: boolean;
 };
@@ -56,6 +57,7 @@ export function ApprovalsAdmin({
 }) {
   const t = useTranslations('admin.approvals');
   const tRoles = useTranslations('roles');
+  const tDecision = useTranslations('attention.decisionTypes');
   const { run, problem, notice, busy } = useAction();
   const [notes, setNotes] = useState<Record<string, string>>({});
   const roleName = (k: string | null) => (k && isRoleKey(k) ? tRoles(k) : (k ?? ''));
@@ -115,6 +117,19 @@ export function ApprovalsAdmin({
                       data-approval-workflow
                     >
                       {t('workflowPublish', { version: p.workflowRef.version })}
+                    </a>
+                  ) : p.decisionRef ? (
+                    <a
+                      href={`/customers/${p.decisionRef.customerId}`}
+                      className="text-brand-purple underline"
+                      data-approval-decision
+                    >
+                      {t('ruleDecision', {
+                        type: tDecision.has(p.decisionRef.decisionType as 'legal_handover')
+                          ? tDecision(p.decisionRef.decisionType as 'legal_handover')
+                          : p.decisionRef.decisionType,
+                      })}
+                      {p.decisionRef.naturalPerson ? ` · ${t('naturalPerson')}` : ''}
                     </a>
                   ) : p.caseRef ? (
                     <a

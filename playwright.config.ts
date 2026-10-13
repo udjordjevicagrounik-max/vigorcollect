@@ -85,6 +85,8 @@ export default defineConfig({
         DATABASE_URL: db.app,
         WORKER_DATABASE_URL: db.worker,
         MIGRATE_DATABASE_URL: db.migrate,
+        // The worker renders PDFs next to the app's documents (task 3.3; needs Chromium).
+        DOCUMENTS_DIR,
         BETTER_AUTH_URL: BASE_URL,
         TURNSTILE_SITE_KEY: '1x00000000000000000000AA',
         TURNSTILE_SECRET: '1x0000000000000000000000000000000AA',

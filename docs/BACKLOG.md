@@ -156,17 +156,29 @@ Ideje i tehnički dug zapisani usred zadatka (protokol: ne predlaže se usred za
 
 ## Iz 2.5 – 3.2
 
-- [ ] **Odluka: `mail_outbox.kind`** proširiti za poruke naplate (DROP + ADD CHECK, bez gubitka
-      podataka) — do tada akcija `queue_email` beleži `mail_kind_pending_decision`.
-- [ ] **Odluka: PDF** — paket za PDF (predlog u NEXT.md); do tada dokumenti su HTML, pregled u
-      aplikaciji, bez preuzimanja (`export_log.format` ne prima `html`).
-- [ ] **Volume za dokumente** u `docker-compose.yml` (`DOCUMENTS_DIR`) — sada se dokumenti app
-      kontejnera gube pri rekreiranju; S3 adapter za staging/prod.
+- [x] **Odluka: `mail_outbox.kind`** — prošireno u 017 (3.3), `queue_email` radi do sink-a.
+- [x] **Odluka: PDF** — `puppeteer-core` + Debian `chromium` u worker-u (3.3); `export_log`
+      ostaje bez `html`, preuzima se samo PDF.
+- [x] **Volume za dokumente** u `docker-compose.yml` (3.3, `documents` → `/srv/documents`).
 - [ ] Dozvole `workflow.*` i `template.*` u katalogu — sada `settings.read` / `settings.manage`.
 - [ ] Praznici u radnim danima (D-7) po `jurisdiction_profiles` — sada samo vikend.
 - [ ] Pravne formulacije šablona (opomena pred utuženje) po državi u country profilu (pravilo 17).
 - [ ] Rule engine: uslov „politika" po kupcu — ekran za izbor politike kupca (`customers.policy_code`).
-- [ ] Odluke (decisions) koje predloži pravilo: ekran za odobrenje / odbijanje.
+- [x] Odluke (decisions) koje predloži pravilo: „Podnesi na odobrenje" + Odobrenja (3.3).
+
+## Iz 3.3
+
+- [ ] **S3 storage adapter** za dokumente (staging/prod); volume `documents` nije u backup-u baze.
+- [ ] **Chromium sandbox:** sada `--no-sandbox` unutar kontejnera bez capability-ja. Alternativa
+      koja ga vraća bez root-a: poseban seccomp/AppArmor profil za worker (dozvoljava user
+      namespaces) — odluka uz security review.
+- [ ] PDF za šablone sa slikama/logotipom: renderer blokira svaku mrežu; logo kao data: URI kroz
+      belu listu (sada tagovi bez atributa).
+- [ ] SMTP (`nodemailer`) — collection mail je u sink-u; dispatcher već šalje `pending` redove.
+- [ ] Odobrena odluka iz pravila (npr. opomena pred utuženje fizičkom licu) još ne pokreće slanje —
+      sledeći korak posle odobrenja (Sprint 4: akcija „pošalji posle odobrenja").
+- [ ] Prilog uz mail (PDF opomene) — `mail_outbox.kind` `document` postoji, slanje priloga ne.
+- [ ] `listRuleProposals`: paginacija kad ih bude više od 20 po članu.
 
 ## Roadmap
 
