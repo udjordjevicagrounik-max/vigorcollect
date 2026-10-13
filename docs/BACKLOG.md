@@ -319,6 +319,13 @@ i P4 bez roka, plus preostali rizici P2 ispravki.
   dok stari izvozi `report.<key>` postoje; ukloniti posle pilota (nova migracija, pravilo 15).
 - **Custom polja — kontakt i faktura u formi:** vrednosti kontakta i fakture se menjaju kroz uvoz
   i API (PATCH); polja u formi kontakta / detalju fakture kad ti ekrani postoje.
+- **Pipedrive lead (6.4):** događaj `signup.created` i potpisani `GET /api/integrations/{id}/signups/{sid}`
+  postoje; n8n workflow (webhook → GET lead → Pipedrive „Add lead") se pravi i testira na staging-u.
+  Platformski flag `signup.pipedrive_lead` ostaje isključen dok workflow ne radi.
+- **ERP šabloni uvoza:** samo iz stvarnih izvoza (Agrounik i sledeći klijenti) — zaglavlja se ne
+  izmišljaju; do tada generički šablon + automatsko prepoznavanje kolona.
+- **Self-service V2 delovi koji su ostali:** verifikacija mejla pre aktivacije, billing / planovi,
+  limit tenanta po domenu.
 
 ## Roadmap
 

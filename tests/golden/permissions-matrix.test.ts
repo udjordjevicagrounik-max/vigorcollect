@@ -53,6 +53,8 @@ const OBJECTS = [
   'audit',
   'settings',
   'feature_flag',
+  // Sprint 6.4 (migration 030): the platform operator's tenant list — counts only in tenant #0.
+  'platform',
 ];
 
 const ACTIONS = ['read', 'create', 'update', 'assign', 'approve', 'export', 'manage'];

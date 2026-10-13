@@ -66,6 +66,13 @@ export default async function TenantSettingsPage() {
       >
         {t('fieldsLink')}
       </Link>
+      <Link
+        href="/admin/settings/library"
+        className="mb-4 ml-4 inline-flex min-h-11 items-center text-sm font-medium text-brand-purple underline"
+        data-settings-library
+      >
+        {t('libraryLink')}
+      </Link>
       <SettingsForm {...data} timezones={TIMEZONES} currencies={CURRENCIES} />
       <ConfigurationAdmin {...config} />
     </Screen>

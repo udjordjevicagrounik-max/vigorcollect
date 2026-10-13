@@ -72,3 +72,27 @@ test('login: when the browser does not navigate, "Continue" appears after 2 s', 
   await expect(fallback.getByRole('link')).toHaveAttribute('href', '/login/mfa');
   await expect(page).toHaveURL(/\/login$/);
 });
+
+test('signup (6.4): a filled honeypot gets the same "check your e-mail" answer; no overflow', async ({
+  page,
+}) => {
+  await page.goto('/signup');
+  const form = page.locator('[data-signup-form]');
+  await form.locator('input[name="company"]').fill('E2E Bot d.o.o.');
+  await form.locator('input[name="name"]').fill('E2E Bot');
+  await form.locator('input[name="email"]').fill('bot@e2e.example.test');
+  await form.locator('input[name="website"]').fill('http://spam.example.test', { force: true });
+  await waitForCaptcha(page);
+  await form.locator('button[type="submit"]').click();
+  await expect(page.locator('[data-signup-done]')).toBeVisible();
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  );
+  expect(overflow).toBeLessThanOrEqual(0);
+});
+
+test('data package (6.4): an unknown link shows "not valid", nothing else', async ({ page }) => {
+  await page.goto(`/onboarding/${'A'.repeat(43)}`);
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+  await expect(page.locator('input[type="file"]')).toHaveCount(0);
+});

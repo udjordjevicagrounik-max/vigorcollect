@@ -32,6 +32,8 @@ export const OUTBOUND_EVENT_TYPES = [
   'case.stage_changed',
   'decision.submitted',
   'risk.band_changed',
+  // 6.4: a public signup (tenant #0 only; payload ids — n8n fetches the lead with a signed GET).
+  'signup.created',
 ] as const;
 
 /** Seconds until the next attempt after attempt n (1-based); after the last one: dead. */

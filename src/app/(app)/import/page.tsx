@@ -8,7 +8,7 @@ import { Screen } from '@/components/shell/screen';
 import { PermissionDeniedError, permissionKeys } from '@/server/auth/permissions';
 import { withTenantPage } from '@/server/auth/with-tenant';
 import { listDefinitions } from '@/server/custom-fields/service';
-import { listImports } from '@/server/imports/service';
+import { listImports, listStaged } from '@/server/imports/service';
 import { listSuspiciousParties } from '@/server/imports/suspicious';
 
 export const dynamic = 'force-dynamic';
@@ -34,6 +34,7 @@ export default async function ImportPage() {
             entity: d.entityType,
           })),
         canCreateFields: keys.has('settings.manage'),
+        staged: keys.has('import.create') ? await listStaged(ctx) : [],
       };
     });
   } catch (error) {
@@ -49,6 +50,7 @@ export default async function ImportPage() {
           canRollback={data.canCreate}
           customTargets={data.customTargets}
           canCreateFields={data.canCreateFields}
+          staged={data.staged}
         />
       ) : null}
       <SuspiciousParties parties={data.suspicious} />

@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { getMasterKeyring, type MasterKeyring } from '@/server/crypto/keyring';
+import type { Queryable } from '@/server/crypto/subject-keys';
 import {
   ConflictError,
   InvalidRequestError,
@@ -464,5 +465,111 @@ export async function getImport(ctx: TenantContext, runId: string): Promise<Impo
       newAmount: x.new_amount,
       status: x.status,
     })),
+  };
+}
+
+// ---------------------------------------------------------------------------------------------
+// 6.4: files from the public onboarding package — staged until the implementation team opens them
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * A file of the client's data package into import_runs 'staged' (sealed like any upload), in the
+ * CURRENT tenant (the package's tenant, set by the public endpoint). No member: created_by NULL.
+ */
+export async function stageImport(
+  db: Queryable,
+  keyring: MasterKeyring,
+  tenantId: string,
+  input: { fileName: string; format: 'csv' | 'xlsx'; content: string },
+): Promise<{ id: string; rows: number }> {
+  const bytes = Buffer.from(input.content, 'base64');
+  if (bytes.length > MAX_FILE_BYTES) throw new ConflictError('file_too_large');
+  const grid = parseFile(input.format, bytes);
+  if (grid.length < 2) throw new ConflictError('no_valid_rows');
+  const refs = await db.query<{ source: string; company: string }>(
+    `SELECT (SELECT id FROM data_sources WHERE name = 'file-import' AND status = 'active') AS source,
+            (SELECT id FROM tenant_companies ORDER BY is_default DESC, created_at LIMIT 1) AS company`,
+  );
+  const r = refs.rows[0];
+  if (!r?.source || !r.company) throw new NotFoundError();
+  const header = grid[0] ?? [];
+  const columns = detectColumns(header);
+  const mapping: Mapping = {
+    columns,
+    decimal: detectDecimal(grid, columns),
+    dateOrder: detectDateOrder(grid, columns),
+  };
+  const id = crypto.randomUUID();
+  const sealed = sealGrid(keyring, tenantId, id, grid);
+  await db.query(
+    `INSERT INTO import_runs (id, tenant_id, source_id, company_id, file_format, file_sha256, payload_enc,
+                              payload_key_version, mapping, rows_total, status)
+     VALUES ($1, app_tenant_id(), $2, $3, $4, $5, $6, $7, $8, $9, 'staged')`,
+    [
+      id,
+      r.source,
+      r.company,
+      input.format,
+      createHash('sha256').update(bytes).digest(),
+      sealed.ciphertext,
+      sealed.keyVersion,
+      mapping,
+      grid.length - 1,
+    ],
+  );
+  return { id, rows: grid.length - 1 };
+}
+
+export type StagedImport = { id: string; rowsTotal: number; createdAt: string };
+
+export async function listStaged(ctx: TenantContext): Promise<StagedImport[]> {
+  await ctx.requirePermission('import.create');
+  const { rows } = await ctx.db.query<{ id: string; rows_total: number; created_at: Date }>(
+    `SELECT id, rows_total, created_at FROM import_runs WHERE status = 'staged' ORDER BY created_at`,
+  );
+  return rows.map((r) => ({
+    id: r.id,
+    rowsTotal: r.rows_total,
+    createdAt: r.created_at.toISOString(),
+  }));
+}
+
+/** The implementation team opens a staged file: it becomes a normal upload (wizard step 2). */
+export async function unstageImport(
+  ctx: TenantContext,
+  id: string,
+  keyring: MasterKeyring = getMasterKeyring(),
+): Promise<ImportUpload> {
+  await ctx.requirePermission('import.create');
+  const { rows } = await ctx.db.query<{
+    payload_enc: Buffer;
+    payload_key_version: number;
+    mapping: Mapping;
+    rows_total: number;
+  }>(
+    `UPDATE import_runs SET status = 'uploaded', created_by = coalesce(created_by, $2)
+     WHERE id = $1 AND status = 'staged'
+     RETURNING payload_enc, payload_key_version, mapping, rows_total`,
+    [id, ctx.userId],
+  );
+  const r = rows[0];
+  if (!r) throw new NotFoundError();
+  const grid = openGrid(keyring, ctx.tenantId, id, {
+    ciphertext: r.payload_enc,
+    keyVersion: r.payload_key_version,
+  });
+  await ctx.audit({
+    action: 'import.unstaged',
+    entityType: 'import_runs',
+    entityId: id,
+    after: { rows_total: r.rows_total },
+  });
+  return {
+    id,
+    headers: grid[0] ?? [],
+    sample: grid.slice(1, 6),
+    rowsTotal: r.rows_total,
+    mapping: r.mapping,
+    templateUsed: false,
   };
 }

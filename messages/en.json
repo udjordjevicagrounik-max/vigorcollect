@@ -27,12 +27,18 @@
       "invoices": "Invoices",
       "reports": "Reports",
       "notifications": "Notifications",
-      "gettingStarted": "Getting started"
+      "gettingStarted": "Getting started",
+      "platform": "Platform"
     },
     "tenant": "Organization",
     "switchTenant": "Switch organization",
     "account": "Account",
-    "onboardingProgress": "{done}/{total}"
+    "onboardingProgress": "{done}/{total}",
+    "lifecycle": {
+      "trial": "Trial: {days, plural, one {# day} other {# days}} left.",
+      "sandbox": "Demo sandbox with sample data, e-mail goes only to the test inbox: {days, plural, one {# day} other {# days}} left.",
+      "readOnly": "This account is read-only. Nothing is deleted — contact us to continue."
+    }
   },
   "error": {
     "title": "Something went wrong",
@@ -210,7 +216,8 @@
     "limit_exceeded": "Too many items for one bulk action — narrow the selection (the limit is in Admin → Settings).",
     "not_bulk": "This action needs a decision per item (legal effect or four eyes) and cannot run in bulk.",
     "mixed_currencies": "The amounts are in several currencies — turn on conversion to the reporting currency or filter one currency.",
-    "too_many_rows": "More than 10,000 rows — narrow the filters or export the report."
+    "too_many_rows": "More than 10,000 rows — narrow the filters or export the report.",
+    "tenant_read_only": "This organization is read-only (the trial or sandbox has ended). Contact us to continue."
   },
   "dashboard": {
     "title": "Collections overview",
@@ -391,7 +398,13 @@
         "rollback_blocked": "invoice was changed meanwhile — not undone",
         "review_required": "customer to check: possibly a natural person — not imported"
       },
-      "rolledBack": "Import undone: {reverted} reverted, {blocked} left to decide."
+      "rolledBack": "Import undone: {reverted} reverted, {blocked} left to decide.",
+      "staged": {
+        "title": "Files from the data package",
+        "hint": "The client sent these files; nothing is imported until you start it here.",
+        "row": "{rows} rows, received {date}",
+        "start": "Start import"
+      }
     },
     "history": {
       "title": "Import history",
@@ -482,7 +495,8 @@
         "sr-Latn": "Srpski (latinica)",
         "en": "English"
       },
-      "fieldsLink": "Additional fields (customers, contacts, invoices, cases) →"
+      "fieldsLink": "Additional fields (customers, contacts, invoices, cases) →",
+      "libraryLink": "Libraries: policies, import template, config pack"
     },
     "status": {
       "title": "System status",
@@ -1119,7 +1133,9 @@
       "rule_task_created": "a task was assigned",
       "rule_escalation": "escalation",
       "rule_decision_proposed": "a proposed decision awaits a person",
-      "rule_legal_proposed": "legal handover proposed"
+      "rule_legal_proposed": "legal handover proposed",
+      "signup_received": "New sandbox signup — see Platform → Tenants",
+      "trial_ending": "A trial ends in 3 days — see Platform → Tenants"
     },
     "submitForApproval": "Submit for approval",
     "submitted": "The proposal has been sent to another person for approval.",
@@ -2013,5 +2029,255 @@
     },
     "emptyTitle": "This dashboard is empty",
     "emptyDescription": "Click “Edit” → “Add widget” and pick a report or a ready-made widget."
+  },
+  "signup": {
+    "title": "Try it for 7 days",
+    "description": "A sandbox with demo customers and invoices — nothing to install, nothing to import. You get an invitation by e-mail.",
+    "company": "Company",
+    "name": "Your name",
+    "email": "Work e-mail",
+    "country": "Country",
+    "language": "Language",
+    "languages": {
+      "sr": "Serbian",
+      "en": "English"
+    },
+    "website": "Leave this empty",
+    "sandboxNote": "The sandbox sends no e-mail outside the app and is deleted 14 days after it starts. Real data comes with a trial.",
+    "submit": "Create my sandbox",
+    "done": "Thank you. If the address is valid, an invitation is on its way — check your inbox (and spam)."
+  },
+  "package": {
+    "title": "Data for {tenant}",
+    "description": "Send us what is listed below — files are encrypted at once and only our implementation team opens them. The link is valid for 72 hours.",
+    "invalidTitle": "The link is not valid",
+    "invalidDescription": "It has expired or is not correct. Ask your implementation contact for a new one.",
+    "neededTitle": "What we need",
+    "needed": {
+      "invoices": {
+        "title": "Open invoices",
+        "example": "CSV/XLSX from your ERP: invoice number, date, due date, amount, open amount, customer tax ID and name."
+      },
+      "customers": {
+        "title": "Customers",
+        "example": "Tax ID, name, address, payment terms, customer owner (collector)."
+      },
+      "contacts": {
+        "title": "Contacts for collection",
+        "example": "Name, e-mail and phone of the person who pays at each customer."
+      },
+      "payments": {
+        "title": "Recent payments (optional)",
+        "example": "Bank statement export of the last 3 months."
+      },
+      "templates": {
+        "title": "Your reminders (optional)",
+        "example": "Texts of the reminders and letters you send today."
+      },
+      "policy": {
+        "title": "Your collection policy",
+        "example": "Answer the 10 questions below — we propose the rules from them."
+      }
+    },
+    "filesTitle": "Files",
+    "filesHint": "CSV or XLSX, up to 20 files. Received so far: {n}.",
+    "questionsTitle": "Collection policy — 10 questions",
+    "send": "Send answers",
+    "answered": "Answers received — thank you.",
+    "proposal": "Thank you. Our proposal: the “{policy}” policy — we will go through it with you.",
+    "policies": {
+      "friendly": "Friendly",
+      "standard": "Standard",
+      "strict": "Strict",
+      "agro_seasonal": "Agro seasonal"
+    },
+    "outcomes": {
+      "invalid": "The upload was not accepted — refresh the page and try again.",
+      "too_many_files": "At most 20 files per package.",
+      "file_too_large": "The file is too large (at most 5 MB).",
+      "file_unreadable": "The file cannot be read — save it as CSV (UTF-8) or XLSX.",
+      "no_valid_rows": "The file has no rows."
+    },
+    "questions": {
+      "payment_terms": {
+        "q": "Usual payment term (days)?",
+        "a": {
+          "15": "15",
+          "30": "30",
+          "60": "60",
+          "90": "90"
+        }
+      },
+      "reminder_before_due": {
+        "q": "Remind before the due date?",
+        "a": {
+          "yes": "yes",
+          "no": "no"
+        }
+      },
+      "first_reminder": {
+        "q": "First reminder after the due date?",
+        "a": {
+          "d1": "after 1 day",
+          "d7": "after 7 days",
+          "d15": "after 15 days"
+        }
+      },
+      "tone": {
+        "q": "Tone of reminders?",
+        "a": {
+          "friendly": "friendly",
+          "neutral": "neutral",
+          "firm": "firm"
+        }
+      },
+      "phone_followup": {
+        "q": "Phone calls after reminders?",
+        "a": {
+          "yes": "yes",
+          "no": "no"
+        }
+      },
+      "escalation": {
+        "q": "Escalate to a manager after?",
+        "a": {
+          "d15": "15 days",
+          "d30": "30 days",
+          "d60": "60 days",
+          "d90": "90 days"
+        }
+      },
+      "legal_handover": {
+        "q": "Hand over to legal after?",
+        "a": {
+          "d30": "30 days",
+          "d60": "60 days",
+          "d90": "90 days",
+          "never": "never automatically"
+        }
+      },
+      "seasonal": {
+        "q": "Do customers pay seasonally (e.g. after harvest)?",
+        "a": {
+          "yes": "yes",
+          "no": "no"
+        }
+      },
+      "natural_persons": {
+        "q": "Do you sell to natural persons?",
+        "a": {
+          "yes": "yes",
+          "no": "no"
+        }
+      },
+      "disputes_common": {
+        "q": "Are disputes about invoices common?",
+        "a": {
+          "yes": "yes",
+          "no": "no"
+        }
+      }
+    }
+  },
+  "platform": {
+    "title": "Tenants",
+    "description": "Client accounts: status, trial, users and last activity. Business data is never shown here.",
+    "detailDescription": "Account {slug}",
+    "lifecycle": {
+      "sandbox": "Sandbox",
+      "trial": "Trial",
+      "active": "Active",
+      "suspended": "Suspended"
+    },
+    "until": "until {date}",
+    "contract": "contract signed",
+    "users": "{n, plural, one {# user} other {# users}}",
+    "lastActivity": "last activity {date}",
+    "new": "New tenant",
+    "create": "Create and invite owner",
+    "created": "Tenant created; the owner got an invitation.",
+    "saved": "Saved.",
+    "fields": {
+      "name": "Name",
+      "slug": "Short name (slug)",
+      "companyName": "Legal company name",
+      "companyTaxId": "Tax ID",
+      "country": "Country (ISO)",
+      "locale": "Language",
+      "timezone": "Time zone",
+      "currency": "Currency",
+      "policy": "Collection policy",
+      "lifecycle": "Status",
+      "trialDays": "Trial days",
+      "isDemo": "Demo account (e-mail only to the test inbox)",
+      "ownerName": "Owner name",
+      "ownerEmail": "Owner e-mail"
+    },
+    "locales": {
+      "sr": "Serbian (Latin)",
+      "en": "English"
+    },
+    "policies": {
+      "standard": "Standard",
+      "friendly": "Friendly",
+      "strict": "Strict"
+    },
+    "lifecycleTitle": "Status",
+    "toTrial": "Convert to trial (14 days)",
+    "activate": "Activate",
+    "contractSigned": "Contract signed",
+    "suspend": "Suspend",
+    "trackerTitle": "Implementation",
+    "slaNotStarted": "The 3-day clock starts when the data arrives.",
+    "slaHours": "{hours} h since the data arrived (target 72 h).",
+    "steps": {
+      "data_received": "Data received",
+      "import_done": "Import",
+      "mailbox_done": "Mailbox",
+      "bank_done": "Bank",
+      "rules_done": "Rules",
+      "training_done": "Training",
+      "go_live": "Go-live"
+    },
+    "packageLink": "New data-package link (72 h)",
+    "flagsTitle": "Features",
+    "noFlags": "No switchable features.",
+    "platformOff": "off for the whole platform"
+  },
+  "library": {
+    "title": "Libraries",
+    "description": "Ready-made policies and templates — one click, then adjust if you like.",
+    "policies": {
+      "title": "Collection policies",
+      "description": "Applying a policy adds its rules as drafts; they start working only after approval in Rules.",
+      "proposal": "Proposed from your questionnaire: {name}",
+      "apply": "Apply as drafts",
+      "applied": "Rules added as drafts. Review and publish them in Rules.",
+      "names": {
+        "friendly": "Friendly",
+        "standard": "Standard",
+        "strict": "Strict",
+        "agro_seasonal": "Agro seasonal"
+      },
+      "summaries": {
+        "friendly": "Reminder 3 business days before due, D+7, call at D+21, escalation at D+45.",
+        "standard": "Reminder 7 business days before due, D+1, D+7 with a case, call D+14, escalation D+30, notice to companies D+60.",
+        "strict": "Reminder before due, D+1 with a case, call D+5, escalation D+15, notice to companies D+30.",
+        "agro_seasonal": "For harvest-driven payers: reminder 14 days before due, D+15, call D+45, escalation after the season (D+90)."
+      }
+    },
+    "imports": {
+      "title": "Invoice import template",
+      "description": "Columns the import recognises on its own, with one example row. Your own ERP export also works — the import learns its columns once.",
+      "download": "Download template (CSV)"
+    },
+    "pack": {
+      "title": "Config pack",
+      "description": "Policies, rules, templates, fields, reports and dashboards as one file — no passwords, keys or business data. Import only adds what is missing; rules arrive as drafts.",
+      "export": "Download config pack",
+      "import": "Import config pack…",
+      "invalid": "This file is not a config pack.",
+      "imported": "Added: {added}. Already present (skipped): {skipped}."
+    }
   }
 }

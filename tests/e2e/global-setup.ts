@@ -30,8 +30,28 @@ async function inTenant(client: Client, tenantId: string | null, fn: () => Promi
   }
 }
 
+// e2e starts no renderer: a document.generated event holds a domain-event slot for the render
+// timeout and retries. Left over from an earlier run (pg-boss lives in the shared test database),
+// such jobs delay this run's import events — drop the e2e tenant's unfinished render events.
+async function dropStaleRenderEvents(worker: string) {
+  const c = new Client({ connectionString: worker });
+  await c.connect();
+  try {
+    await c.query(
+      `DELETE FROM pgboss.job j USING domain_events e
+       WHERE j.name = 'domain-event' AND j.state IN ('created', 'retry', 'active')
+         AND (j.data->>'eventId')::uuid = e.id AND e.tenant_id = $1
+         AND e.event_type IN ('document.generated', 'document.render_requested')`,
+      [E2E.tenantId],
+    );
+  } finally {
+    await c.end();
+  }
+}
+
 export default async function globalSetup(): Promise<() => Promise<void>> {
-  const { migrate } = e2eDatabaseUrls();
+  const { migrate, worker } = e2eDatabaseUrls();
+  await dropStaleRenderEvents(worker);
   const email = `e2e-${randomUUID().slice(0, 8)}@e2e.example.test`;
   const password = `e2e-${randomBytes(18).toString('base64url')}`;
   const checkerEmail = `e2e-checker-${randomUUID().slice(0, 8)}@e2e.example.test`;
@@ -175,5 +195,6 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
     );
     await client.end();
     await pool.end();
+    await dropStaleRenderEvents(worker);
   };
 }

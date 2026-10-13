@@ -1,4 +1,4 @@
-import { PgBoss } from 'pg-boss';
+import { PgBoss, type JobResult } from 'pg-boss';
 import { Pool, type PoolClient } from 'pg';
 import { logEvent } from '@/lib/log';
 import { getMasterKeyring } from '@/server/crypto/keyring';
@@ -7,6 +7,7 @@ import { processMailbox } from '@/server/integrations/mailbox';
 import { dispatchDue } from '@/server/integrations/outbound';
 import { dispatchIntegrationMail } from '@/server/mail/dispatch-integration';
 import { digestTick } from '@/server/notifications/digest';
+import { platformDaily } from '@/server/platform/jobs';
 import { DAILY_QUEUE, runTenantDaily, tenantClockTick, type DailyJob } from './clock';
 import { EVENT_HANDLERS } from './handlers';
 import { dispatchMail } from './mail-dispatch';
@@ -29,6 +30,8 @@ import { tenantTx } from './tenant-job';
 
 const RETRY = { retryLimit: EVENT_RETRY_LIMIT, retryBackoff: true, retryDelay: 5 } as const;
 const OUTBOX_POLL_MS = 5_000;
+/** Events per fetch: worst case (a 60 s render each) stays far below the 15 min job expiry. */
+const EVENT_BATCH = 5;
 
 export type Worker = { boss: PgBoss; stop(): Promise<void> };
 
@@ -91,20 +94,48 @@ export async function startWorker(
     'alerts-check',
     'fx-rates',
     'digest-dispatch',
+    'platform-daily',
   ]) {
     await boss.createQueue(name);
   }
 
-  await boss.work<{ eventId: string }, unknown, { includeMetadata: true }>(
+  // Events in small batches, still one after another in creation order; each job is settled on
+  // its own (a failing event retries alone). While batches come back full the worker fetches
+  // again at once — one event per poll interval could not keep up with a daily run (6.5).
+  await boss.work<
+    { eventId: string },
+    unknown,
+    { includeMetadata: true; perJobResults: true; batchSize: number; burstWhenBatchFull: true }
+  >(
     EVENT_QUEUE,
-    { includeMetadata: true },
+    {
+      includeMetadata: true,
+      perJobResults: true,
+      batchSize: EVENT_BATCH,
+      burstWhenBatchFull: true,
+    },
     async (jobs) => {
+      const results: JobResult[] = [];
       for (const job of jobs) {
-        await processEvent({ workerPool, appPool, handlers }, job.data.eventId, {
-          retryCount: job.retryCount,
-          retryLimit: job.retryLimit,
-        });
+        try {
+          await processEvent({ workerPool, appPool, handlers }, job.data.eventId, {
+            retryCount: job.retryCount,
+            retryLimit: job.retryLimit,
+          });
+          results.push({ id: job.id, status: 'completed' });
+        } catch (error) {
+          // processEvent already logged the attempt; pg-boss retries with backoff.
+          results.push({
+            id: job.id,
+            status: 'failed',
+            output: {
+              name: error instanceof Error ? error.name : 'unknown',
+              code: (error as { code?: string }).code ?? null,
+            },
+          });
+        }
       }
+      return results;
     },
   );
   await boss.work<DailyJob>(DAILY_QUEUE, async (jobs) => {
@@ -144,6 +175,11 @@ export async function startWorker(
     await digestTick(workerPool, appPool, new Date(), jobs[0]?.id ?? 'digest-dispatch');
   });
 
+  // 6.4: trial reminders to operators, purge of expired sandboxes (the only tenant delete).
+  await boss.work('platform-daily', async (jobs) => {
+    await platformDaily(workerPool, appPool, jobs[0]?.id ?? 'platform-daily');
+  });
+
   // Schedules in UTC; tenant-local times are resolved by tenant-clock (rule 26).
   await boss.schedule('tenant-clock', '*/15 * * * *');
   await boss.schedule('mail-dispatch', '* * * * *');
@@ -155,6 +191,7 @@ export async function startWorker(
   await boss.schedule('alerts-check', '*/5 * * * *');
   await boss.schedule('fx-rates', '30 16 * * 1-5');
   await boss.schedule('digest-dispatch', '*/15 * * * *');
+  await boss.schedule('platform-daily', '40 3 * * *');
 
   const enqueue = (client: PoolClient, event: { id: string; tenantId: string }) =>
     boss

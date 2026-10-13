@@ -139,10 +139,13 @@ export function ImportWizard({
   canRollback,
   customTargets = [],
   canCreateFields = false,
+  staged = [],
 }: {
   canRollback: boolean;
   customTargets?: CustomTarget[];
   canCreateFields?: boolean;
+  /** 6.4: files from the client's data package, waiting for the implementation team. */
+  staged?: { id: string; rowsTotal: number; createdAt: string }[];
 }) {
   const t = useTranslations('importPage.wizard');
   const tErrors = useTranslations('errors');
@@ -175,6 +178,15 @@ export function ImportWizard({
     const format = /\.xlsx$/i.test(file.name) ? 'xlsx' : 'csv';
     const content = toBase64(await file.arrayBuffer());
     const res = await call<Upload>('/api/imports', { fileName: file.name, format, content });
+    if (res) {
+      setUpload(res);
+      setMapping(res.mapping);
+      setStep(2);
+    }
+  }
+
+  async function openStaged(id: string) {
+    const res = await call<Upload>(`/api/imports/${id}/unstage`, {});
     if (res) {
       setUpload(res);
       setMapping(res.mapping);
@@ -309,6 +321,36 @@ export function ImportWizard({
       </ol>
       <FormError problem={problem} />
       <FormSuccess message={notice} />
+
+      {step === 1 && staged.length > 0 ? (
+        <section className={card} data-import-staged>
+          <h2 className="font-semibold text-text">{t('staged.title')}</h2>
+          <p className="mt-1 text-sm text-text-muted">{t('staged.hint')}</p>
+          <ul className="mt-2 flex flex-col gap-2">
+            {staged.map((s) => (
+              <li key={s.id} className="flex flex-wrap items-center gap-3">
+                <span className="text-sm text-text">
+                  {t('staged.row', {
+                    rows: s.rowsTotal,
+                    date: new Intl.DateTimeFormat(locale, {
+                      dateStyle: 'medium',
+                      timeStyle: 'short',
+                    }).format(new Date(s.createdAt)),
+                  })}
+                </span>
+                <button
+                  type="button"
+                  className={secondary}
+                  disabled={busy}
+                  onClick={() => void openStaged(s.id)}
+                >
+                  {t('staged.start')}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       {step === 1 ? (
         <section className={card} aria-labelledby="import-file">

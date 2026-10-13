@@ -62,3 +62,30 @@ test.describe('app shell', () => {
     await expect(page.getByRole('link', { name: /./ }).last()).toHaveAttribute('href', '/');
   });
 });
+
+test.describe('platform and libraries (6.4)', () => {
+  test('a client tenant has no Platform item and /platform/tenants is forbidden', async ({
+    page,
+  }) => {
+    await page.goto('/');
+    await expect(page.locator('[data-nav-item="platform"]')).toHaveCount(0);
+    await page.goto('/platform/tenants');
+    await expect(page.locator('[data-platform-tenants]')).toHaveCount(0);
+  });
+
+  test('libraries: policy templates, generic import template (CSV), config pack', async ({
+    page,
+    request,
+  }) => {
+    await page.goto('/admin/settings/library');
+    await expect(page.locator('[data-apply-template="standard"]')).toBeVisible();
+    await expect(page.locator('[data-config-pack]')).toBeVisible();
+    const csv = await request.get('/api/library/import-template');
+    expect(csv.status()).toBe(200);
+    expect(csv.headers()['content-type']).toContain('text/csv');
+    expect(await csv.text()).toContain('Broj fakture');
+    const pack = await request.get('/api/config-pack');
+    expect(pack.status()).toBe(200);
+    expect(((await pack.json()) as { version: number }).version).toBe(1);
+  });
+});
