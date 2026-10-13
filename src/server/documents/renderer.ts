@@ -54,11 +54,19 @@ export async function renderNext(pool: Pool, render: RenderFn = renderPdf): Prom
   return true;
 }
 
-let lastTick = 0;
+// Next bundles instrumentation (the loop) and the /health route as SEPARATE module instances in
+// one process — a module variable would never be seen by the route. The heartbeat lives on
+// globalThis instead.
+const HEARTBEAT = Symbol.for('collect.renderer.heartbeat');
+type Heartbeat = { [HEARTBEAT]?: number };
+
+export function markRendererAlive(at = Date.now()): void {
+  (globalThis as Heartbeat)[HEARTBEAT] = at;
+}
 
 /** /health of the renderer process: the loop ran within the last 30 s. */
 export function rendererAlive(now = Date.now()): boolean {
-  return now - lastTick < 30_000;
+  return now - ((globalThis as Heartbeat)[HEARTBEAT] ?? 0) < 30_000;
 }
 
 /** Entry for PROCESS_ROLE=renderer. Fails fast without its one database URL. */
@@ -75,7 +83,7 @@ export async function runRendererFromEnv(): Promise<void> {
   logEvent('renderer.started', {});
   void (async () => {
     while (!stopping) {
-      lastTick = Date.now();
+      markRendererAlive();
       const busy = await renderNext(pool).catch((error: unknown) => {
         logEvent('renderer.loop_error', {
           level: 'error',

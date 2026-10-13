@@ -10,7 +10,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { readDbEnv } from '@/db/env';
 
 // Which secret lives in which container (security review 2026-10-13, S-04 / S-10 / S-11).
@@ -149,5 +149,19 @@ describe('S-11: backups are encrypted; the key that decrypts never reaches the w
     ).toEqual(['restore-test']);
     expect(has('restore-test', /profiles:\s*\['ops'\]/)).toBe(true);
     expect(has('restore-test', /backups:\/srv\/backups:ro/)).toBe(true);
+  });
+});
+
+describe('S-10: the renderer /health sees the render loop', () => {
+  // Next loads instrumentation (the loop) and the /health route as separate module instances in
+  // one process; a module-level heartbeat made /health report "degraded" forever.
+  it('a heartbeat from one module instance is visible to another', async () => {
+    const loop = await import('@/server/documents/renderer');
+    loop.markRendererAlive();
+    vi.resetModules();
+    const route = await import('@/server/documents/renderer');
+    expect(route).not.toBe(loop);
+    expect(route.rendererAlive()).toBe(true);
+    expect(route.rendererAlive(Date.now() + 60_000)).toBe(false);
   });
 });
