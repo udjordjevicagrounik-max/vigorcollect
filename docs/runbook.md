@@ -327,6 +327,27 @@ Posle deploya: smoke (`/health` 200 + `X-App-Version` = očekivani tag).
   `restart`).
 - **Deljenje linka:** NE dok `.env` nema prave Turnstile ključeve (NEXT.md, rizik).
 
+## GitHub
+
+- Remote: `origin` = `git@github.com:udjordjevicagrounik-max/vigorcollect.git` (privatan repo).
+  Grane `main` i `develop` prate `origin/*`; push posle svakog merge-a (`git push`, tagovi:
+  `git push --tags`).
+- Pristup: **deploy key** samo za taj repo (repo → Settings → Deploy keys, „Allow write
+  access"). Ključ je `~/.ssh/id_ed25519_github` u dev kontejneru; `~/.ssh/config` ima
+  `Host github.com` → `IdentityFile ~/.ssh/id_ed25519_github`, `IdentitiesOnly yes`.
+  Provera: `ssh -T git@github.com` → „Hi udjordjevicagrounik-max/vigorcollect! You've
+  successfully authenticated".
+- Privatni ključ se nikad ne ispisuje, ne kopira u chat ni u repo; deli se samo javni (`.pub`).
+- **Ako se dev kontejner rekreira**, `~/.ssh` nestaje zajedno sa ključem (a i repo, ako nije
+  push-ovan — zato push posle svakog merge-a). Postupak:
+  1. `ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519_github -N "" -C "vigor-collect-vibecoder"`;
+  2. upisati `~/.ssh/config` kao gore;
+  3. na GitHub-u obrisati stari deploy key i dodati novi javni ključ (write access);
+  4. `git clone git@github.com:udjordjevicagrounik-max/vigorcollect.git /srv/vigor-collect`
+     (ili `git remote add origin …` ako repo postoji), pa `ssh -T git@github.com`.
+- Kompromitovan ključ (pojavio se u čistom tekstu): odmah obrisati deploy key na GitHub-u, pa
+  novi ključ po koracima 1–3.
+
 ## Git tok (od zatvaranja Sprinta 1)
 
 `feature/<zadatak>` → `develop` → `release/x.y` → `main`. Claude radi na `feature/*` (grana od

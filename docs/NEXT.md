@@ -6,7 +6,8 @@
 rekreira (update Vibecoder-a, restart stack-a sa novim image-om), nestaje i kod (sa celom git
 istorijom) i sve lokalne backup kopije. Redom:
 
-1. **GitHub remote + push** (`main`, `develop`, tagovi) — privatni repo; ključ/token van chata.
+1. ~~**GitHub remote + push**~~ — urađeno 2026-10-13: `origin` =
+   `udjordjevicagrounik-max/vigorcollect`, deploy key (runbook „GitHub"); `main` i `develop` push-ovani.
 2. **Backup kopija na host putanju:** bind mount host direktorijuma u kontejner (izmena
    `/opt/app/docker-compose.yml` servisa `vibecoder` — infrastruktura, Uroševa odluka) ILI cron na
    hostu sa `docker cp app-vibecoder-1:/srv/backups <host putanja>` posle 02:00 UTC.
