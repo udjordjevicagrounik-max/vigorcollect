@@ -27,12 +27,18 @@
       "invoices": "Invoices",
       "reports": "Reports",
       "notifications": "Notifications",
-      "gettingStarted": "Getting started"
+      "gettingStarted": "Getting started",
+      "platform": "Platform"
     },
     "tenant": "Organization",
     "switchTenant": "Switch organization",
     "account": "Account",
-    "onboardingProgress": "{done}/{total}"
+    "onboardingProgress": "{done}/{total}",
+    "lifecycle": {
+      "trial": "Trial: {days, plural, one {# day} other {# days}} left.",
+      "sandbox": "Demo sandbox with sample data, e-mail goes only to the test inbox: {days, plural, one {# day} other {# days}} left.",
+      "readOnly": "This account is read-only. Nothing is deleted — contact us to continue."
+    }
   },
   "error": {
     "title": "Something went wrong",
@@ -208,7 +214,10 @@
     "not_ready": "The PDF is still being prepared. Wait a few seconds and try again.",
     "unsupported": "This kind of request cannot be decided here yet.",
     "limit_exceeded": "Too many items for one bulk action — narrow the selection (the limit is in Admin → Settings).",
-    "not_bulk": "This action needs a decision per item (legal effect or four eyes) and cannot run in bulk."
+    "not_bulk": "This action needs a decision per item (legal effect or four eyes) and cannot run in bulk.",
+    "mixed_currencies": "The amounts are in several currencies — turn on conversion to the reporting currency or filter one currency.",
+    "too_many_rows": "More than 10,000 rows — narrow the filters or export the report.",
+    "tenant_read_only": "This organization is read-only (the trial or sandbox has ended). Contact us to continue."
   },
   "dashboard": {
     "title": "Collections overview",
@@ -271,7 +280,8 @@
       "empty": "Nothing scheduled for today.",
       "promise": "Promise {amount} for {date}",
       "nextAction": "{action} — scheduled for {date}",
-      "case": "Open case · {stage}"
+      "case": "Open case · {stage}",
+      "teamTitle": "My team's work today"
     },
     "empty": {
       "title": "No invoices yet",
@@ -312,7 +322,14 @@
         "ymd": "year-month-day",
         "none": "— do not import —",
         "column": "Column {n}",
-        "missing": "Required field missing: {fields}"
+        "missing": "Required field missing: {fields}",
+        "customTitle": "Additional fields",
+        "createFrom": "Create a field from column",
+        "createFor": "for",
+        "entityCustomer": "customer",
+        "entityInvoice": "invoice",
+        "notPersonal": "not personal data (P0, can be a filter)",
+        "createField": "Create field"
       },
       "fields": {
         "external_id": "Invoice ID in ERP",
@@ -381,7 +398,13 @@
         "rollback_blocked": "invoice was changed meanwhile — not undone",
         "review_required": "customer to check: possibly a natural person — not imported"
       },
-      "rolledBack": "Import undone: {reverted} reverted, {blocked} left to decide."
+      "rolledBack": "Import undone: {reverted} reverted, {blocked} left to decide.",
+      "staged": {
+        "title": "Files from the data package",
+        "hint": "The client sent these files; nothing is imported until you start it here.",
+        "row": "{rows} rows, received {date}",
+        "start": "Start import"
+      }
     },
     "history": {
       "title": "Import history",
@@ -471,7 +494,9 @@
       "locales": {
         "sr-Latn": "Srpski (latinica)",
         "en": "English"
-      }
+      },
+      "fieldsLink": "Additional fields (customers, contacts, invoices, cases) →",
+      "libraryLink": "Libraries: policies, import template, config pack"
     },
     "status": {
       "title": "System status",
@@ -1108,7 +1133,9 @@
       "rule_task_created": "a task was assigned",
       "rule_escalation": "escalation",
       "rule_decision_proposed": "a proposed decision awaits a person",
-      "rule_legal_proposed": "legal handover proposed"
+      "rule_legal_proposed": "legal handover proposed",
+      "signup_received": "New sandbox signup — see Platform → Tenants",
+      "trial_ending": "A trial ends in 3 days — see Platform → Tenants"
     },
     "submitForApproval": "Submit for approval",
     "submitted": "The proposal has been sent to another person for approval.",
@@ -1562,7 +1589,203 @@
       "avg_days_open": "Average days open"
     },
     "noOwner": "no owner",
-    "naturalPerson": "Natural person"
+    "naturalPerson": "Natural person",
+    "fields": {
+      "customer": "Customer",
+      "owner": "Collector",
+      "team": "Team",
+      "segment": "Segment",
+      "country": "Country",
+      "customer_status": "Customer status",
+      "payment_behaviour": "Payment behaviour",
+      "policy": "Collection policy",
+      "natural_person": "Natural person",
+      "invoice_number": "Invoice",
+      "aging_bucket": "Aging bucket",
+      "currency": "Currency",
+      "issue_date": "Issue date",
+      "due_date": "Due date",
+      "is_open": "Open",
+      "is_overdue": "Overdue",
+      "is_disputed": "Disputed",
+      "open_amount": "Open amount",
+      "total_amount": "Invoiced amount",
+      "days_overdue": "Days overdue",
+      "count": "Count",
+      "created_on": "Created",
+      "stage": "Stage",
+      "case_status": "Case status",
+      "priority": "Priority",
+      "opened_on": "Opened",
+      "age_days": "Age (days)",
+      "promise_status": "Promise status",
+      "promised_on": "Promise date",
+      "promised_amount": "Promised amount",
+      "paid_amount": "Paid amount",
+      "activity_kind": "Activity type",
+      "outcome": "Outcome",
+      "actor": "Done by",
+      "occurred_on": "Date",
+      "reason": "Reason",
+      "dispute_status": "Dispute status",
+      "days_open": "Days open",
+      "payment_kind": "Payment type",
+      "paid_on": "Payment date",
+      "amount": "Amount",
+      "band": "Risk band",
+      "scored_on": "Scored",
+      "score": "Risk score"
+    },
+    "values": {
+      "open": "open",
+      "closed": "closed",
+      "in_review": "in review",
+      "resolved_accepted": "accepted",
+      "resolved_rejected": "rejected",
+      "withdrawn": "withdrawn",
+      "pending": "pending",
+      "fulfilled": "kept",
+      "partial": "partly kept",
+      "broken": "broken",
+      "cancelled": "cancelled",
+      "payment": "payment",
+      "adjustment": "adjustment",
+      "call": "call",
+      "email": "e-mail",
+      "note": "note",
+      "meeting": "meeting",
+      "low": "low",
+      "normal": "normal",
+      "high": "high",
+      "urgent": "urgent",
+      "green": "low risk",
+      "yellow": "medium risk",
+      "red": "high risk",
+      "active": "active",
+      "inactive": "inactive",
+      "blocked": "blocked"
+    },
+    "aggs": {
+      "sum": "sum",
+      "count": "count",
+      "avg": "average",
+      "min": "minimum",
+      "max": "maximum"
+    },
+    "ratio": "Ratio (%)",
+    "trend": "{percent} % vs. the previous period",
+    "total": "Total",
+    "yes": "yes",
+    "no": "no",
+    "datasets": {
+      "invoices": "Invoices",
+      "customers": "Customers",
+      "cases": "Cases",
+      "promises": "Promises",
+      "activities": "Activities",
+      "disputes": "Disputes",
+      "payments": "Payments",
+      "risk": "Risk"
+    },
+    "visuals": {
+      "table": "Table",
+      "bar": "Bars",
+      "stacked_bar": "Stacked bars",
+      "line": "Line",
+      "pie": "Pie",
+      "donut": "Donut",
+      "funnel": "Funnel",
+      "kpi_number": "KPI number",
+      "kpi_trend": "KPI trend",
+      "grouped_table": "Pivot table"
+    },
+    "ops": {
+      "eq": "is",
+      "ne": "is not",
+      "in": "one of",
+      "gt": "greater than",
+      "gte": "at least",
+      "lt": "less than",
+      "lte": "at most",
+      "between": "between",
+      "contains": "contains",
+      "is_null": "is empty",
+      "not_null": "is filled",
+      "relative": "in"
+    },
+    "relative": {
+      "today": "today",
+      "yesterday": "yesterday",
+      "last_7_days": "last 7 days",
+      "last_30_days": "last 30 days",
+      "last_90_days": "last 90 days",
+      "this_month": "this month",
+      "last_month": "last month",
+      "this_quarter": "this quarter",
+      "this_year": "this year",
+      "last_year": "last year"
+    },
+    "grains": {
+      "day": "by day",
+      "week": "by week",
+      "month": "by month",
+      "quarter": "by quarter",
+      "year": "by year"
+    },
+    "list": {
+      "title": "Reports",
+      "description": "Ready-made reports and your own. Click a report to open it; “New report” builds one in a few clicks.",
+      "new": "New report",
+      "system": "Ready-made",
+      "mine": "Mine",
+      "shared": "Shared with me",
+      "emptyMine": "You have no own reports yet — start with “New report” or copy a ready-made one."
+    },
+    "builder": {
+      "title": "New report",
+      "editTitle": "Edit report",
+      "description": "Pick what to count, by what to group, and filter. The preview updates as you click.",
+      "dataset": "Data",
+      "groupBy": "Group by",
+      "measure": "Measure",
+      "filters": "Filters",
+      "addFilter": "+ Filter",
+      "remove": "Remove",
+      "fx": "in reporting currency",
+      "visual": "Show as",
+      "name": "Report name",
+      "visibility": "Who sees it",
+      "visibilities": {
+        "private": "only me",
+        "team": "my team",
+        "tenant": "whole organization"
+      },
+      "team": "Team",
+      "save": "Save",
+      "saved": "Report saved.",
+      "value": "Value",
+      "apply": "Add",
+      "loading": "Loading…",
+      "fields": "Fields",
+      "dimensionsHint": "Click a field to group by it (at most 3).",
+      "measuresHint": "Click to add a measure.",
+      "addRatio": "+ Ratio of the first two",
+      "grain": "Period",
+      "truncated": "Showing the first rows — export for all of them."
+    },
+    "view": {
+      "copy": "Copy and edit",
+      "edit": "Edit",
+      "delete": "Delete",
+      "deleted": "Report deleted.",
+      "addToDashboard": "Add to dashboard",
+      "added": "Added to your dashboard.",
+      "refresh": "Refresh",
+      "drillTitle": "Behind this row",
+      "drillMore": "Showing the first 200.",
+      "close": "Close",
+      "system": "Ready-made report — copy it to change it."
+    }
   },
   "notifications": {
     "title": "Notifications",
@@ -1698,6 +1921,363 @@
         "title": "Connect the mailbox",
         "hint": "Replies arrive in Collect and reminders leave from your address."
       }
+    }
+  },
+  "customFields": {
+    "any": "any",
+    "yes": "yes",
+    "no": "no",
+    "columns": "Additional columns",
+    "columnsSaved": "Columns saved.",
+    "save": "Save",
+    "panelTitle": "Additional fields",
+    "panelEmpty": "No additional fields yet. An administrator adds them under Admin → Settings → Fields — they then appear here, in lists, filters, import, rules and reports.",
+    "saved": "Saved.",
+    "required": "required",
+    "encrypted": "encrypted (personal data)",
+    "choose": "— choose —",
+    "currency": "Currency",
+    "admin": {
+      "title": "Fields",
+      "description": "Additional fields of customers, contacts, invoices and cases. A field is never deleted — archive it and its values stay in the history.",
+      "entity": "Entity",
+      "entities": {
+        "customer": "Customer",
+        "contact": "Contact",
+        "invoice": "Invoice",
+        "case": "Case"
+      },
+      "types": {
+        "text": "Text",
+        "number": "Number",
+        "date": "Date",
+        "bool": "Yes / no",
+        "select": "Choice",
+        "multiselect": "Multiple choice",
+        "currency": "Amount with currency"
+      },
+      "pii": {
+        "P0": "P0 — not personal",
+        "P1": "P1 — personal (encrypted)",
+        "P2": "P2 — sensitive (encrypted)",
+        "P3": "P3 — special category (encrypted)"
+      },
+      "key": "Key (a-z, 0-9, _; never changes)",
+      "type": "Type",
+      "piiClass": "Personal data class",
+      "labelSr": "Name (Serbian)",
+      "labelEn": "Name (English)",
+      "options": "Options — one per line: code Name",
+      "requiredFlag": "Required",
+      "filterable": "Filter in lists (P0 only)",
+      "showInList": "Column in the list by default",
+      "add": "Add field",
+      "created": "The field is added — it now appears in forms, lists, import, rules and reports.",
+      "archive": "Archive",
+      "restore": "Restore",
+      "archived": "archived",
+      "updated": "Saved.",
+      "empty": "No fields for this entity yet.",
+      "limit": "At most {n} active fields per entity."
+    }
+  },
+  "dashboards": {
+    "choose": "Dashboard",
+    "refresh": "Refresh",
+    "edit": "Edit",
+    "done": "Done",
+    "copy": "Copy to mine",
+    "copied": "Your own copy is ready — it is now your home.",
+    "makeHome": "Make my home",
+    "homeSet": "This is now your home dashboard.",
+    "cachedAt": "figures as of {time} (refresh for now)",
+    "addWidget": "+ Add widget",
+    "fromReport": "From a saved report",
+    "noReports": "No saved reports yet.",
+    "newReport": "or build a new report →",
+    "systemWidgets": "Ready-made",
+    "kinds": {
+      "attention": "Needs attention",
+      "my_tasks": "My work today",
+      "team_attention": "My team's work",
+      "aging": "Aging"
+    },
+    "kpis": {
+      "overdue_total": "KPI: overdue",
+      "open_total": "KPI: open",
+      "dso": "KPI: DSO",
+      "promises_today": "KPI: promises today",
+      "promises_broken": "KPI: broken promises",
+      "disputed": "KPI: disputed",
+      "open_cases": "KPI: open cases",
+      "collected_30": "KPI: collected 30 d",
+      "collection_rate": "KPI: collection rate"
+    },
+    "added": "Widget added.",
+    "saved": "Saved.",
+    "removed": "Widget removed.",
+    "remove": "Remove",
+    "up": "Move up",
+    "down": "Move down",
+    "size": "Width",
+    "sizes": {
+      "3": "quarter",
+      "4": "third",
+      "6": "half",
+      "8": "two thirds",
+      "12": "full width"
+    },
+    "emptyTitle": "This dashboard is empty",
+    "emptyDescription": "Click “Edit” → “Add widget” and pick a report or a ready-made widget."
+  },
+  "signup": {
+    "title": "Try it for 7 days",
+    "description": "A sandbox with demo customers and invoices — nothing to install, nothing to import. You get an invitation by e-mail.",
+    "company": "Company",
+    "name": "Your name",
+    "email": "Work e-mail",
+    "country": "Country",
+    "language": "Language",
+    "languages": {
+      "sr": "Serbian",
+      "en": "English"
+    },
+    "website": "Leave this empty",
+    "sandboxNote": "The sandbox sends no e-mail outside the app and is deleted 14 days after it starts. Real data comes with a trial.",
+    "submit": "Create my sandbox",
+    "done": "Thank you. If the address is valid, an invitation is on its way — check your inbox (and spam)."
+  },
+  "package": {
+    "title": "Data for {tenant}",
+    "description": "Send us what is listed below — files are encrypted at once and only our implementation team opens them. The link is valid for 72 hours.",
+    "invalidTitle": "The link is not valid",
+    "invalidDescription": "It has expired or is not correct. Ask your implementation contact for a new one.",
+    "neededTitle": "What we need",
+    "needed": {
+      "invoices": {
+        "title": "Open invoices",
+        "example": "CSV/XLSX from your ERP: invoice number, date, due date, amount, open amount, customer tax ID and name."
+      },
+      "customers": {
+        "title": "Customers",
+        "example": "Tax ID, name, address, payment terms, customer owner (collector)."
+      },
+      "contacts": {
+        "title": "Contacts for collection",
+        "example": "Name, e-mail and phone of the person who pays at each customer."
+      },
+      "payments": {
+        "title": "Recent payments (optional)",
+        "example": "Bank statement export of the last 3 months."
+      },
+      "templates": {
+        "title": "Your reminders (optional)",
+        "example": "Texts of the reminders and letters you send today."
+      },
+      "policy": {
+        "title": "Your collection policy",
+        "example": "Answer the 10 questions below — we propose the rules from them."
+      }
+    },
+    "filesTitle": "Files",
+    "filesHint": "CSV or XLSX, up to 20 files. Received so far: {n}.",
+    "questionsTitle": "Collection policy — 10 questions",
+    "send": "Send answers",
+    "answered": "Answers received — thank you.",
+    "proposal": "Thank you. Our proposal: the “{policy}” policy — we will go through it with you.",
+    "policies": {
+      "friendly": "Friendly",
+      "standard": "Standard",
+      "strict": "Strict",
+      "agro_seasonal": "Agro seasonal"
+    },
+    "outcomes": {
+      "invalid": "The upload was not accepted — refresh the page and try again.",
+      "too_many_files": "At most 20 files per package.",
+      "file_too_large": "The file is too large (at most 5 MB).",
+      "file_unreadable": "The file cannot be read — save it as CSV (UTF-8) or XLSX.",
+      "no_valid_rows": "The file has no rows."
+    },
+    "questions": {
+      "payment_terms": {
+        "q": "Usual payment term (days)?",
+        "a": {
+          "15": "15",
+          "30": "30",
+          "60": "60",
+          "90": "90"
+        }
+      },
+      "reminder_before_due": {
+        "q": "Remind before the due date?",
+        "a": {
+          "yes": "yes",
+          "no": "no"
+        }
+      },
+      "first_reminder": {
+        "q": "First reminder after the due date?",
+        "a": {
+          "d1": "after 1 day",
+          "d7": "after 7 days",
+          "d15": "after 15 days"
+        }
+      },
+      "tone": {
+        "q": "Tone of reminders?",
+        "a": {
+          "friendly": "friendly",
+          "neutral": "neutral",
+          "firm": "firm"
+        }
+      },
+      "phone_followup": {
+        "q": "Phone calls after reminders?",
+        "a": {
+          "yes": "yes",
+          "no": "no"
+        }
+      },
+      "escalation": {
+        "q": "Escalate to a manager after?",
+        "a": {
+          "d15": "15 days",
+          "d30": "30 days",
+          "d60": "60 days",
+          "d90": "90 days"
+        }
+      },
+      "legal_handover": {
+        "q": "Hand over to legal after?",
+        "a": {
+          "d30": "30 days",
+          "d60": "60 days",
+          "d90": "90 days",
+          "never": "never automatically"
+        }
+      },
+      "seasonal": {
+        "q": "Do customers pay seasonally (e.g. after harvest)?",
+        "a": {
+          "yes": "yes",
+          "no": "no"
+        }
+      },
+      "natural_persons": {
+        "q": "Do you sell to natural persons?",
+        "a": {
+          "yes": "yes",
+          "no": "no"
+        }
+      },
+      "disputes_common": {
+        "q": "Are disputes about invoices common?",
+        "a": {
+          "yes": "yes",
+          "no": "no"
+        }
+      }
+    }
+  },
+  "platform": {
+    "title": "Tenants",
+    "description": "Client accounts: status, trial, users and last activity. Business data is never shown here.",
+    "detailDescription": "Account {slug}",
+    "lifecycle": {
+      "sandbox": "Sandbox",
+      "trial": "Trial",
+      "active": "Active",
+      "suspended": "Suspended"
+    },
+    "until": "until {date}",
+    "contract": "contract signed",
+    "users": "{n, plural, one {# user} other {# users}}",
+    "lastActivity": "last activity {date}",
+    "new": "New tenant",
+    "create": "Create and invite owner",
+    "created": "Tenant created; the owner got an invitation.",
+    "saved": "Saved.",
+    "fields": {
+      "name": "Name",
+      "slug": "Short name (slug)",
+      "companyName": "Legal company name",
+      "companyTaxId": "Tax ID",
+      "country": "Country (ISO)",
+      "locale": "Language",
+      "timezone": "Time zone",
+      "currency": "Currency",
+      "policy": "Collection policy",
+      "lifecycle": "Status",
+      "trialDays": "Trial days",
+      "isDemo": "Demo account (e-mail only to the test inbox)",
+      "ownerName": "Owner name",
+      "ownerEmail": "Owner e-mail"
+    },
+    "locales": {
+      "sr": "Serbian (Latin)",
+      "en": "English"
+    },
+    "policies": {
+      "standard": "Standard",
+      "friendly": "Friendly",
+      "strict": "Strict"
+    },
+    "lifecycleTitle": "Status",
+    "toTrial": "Convert to trial (14 days)",
+    "activate": "Activate",
+    "contractSigned": "Contract signed",
+    "suspend": "Suspend",
+    "trackerTitle": "Implementation",
+    "slaNotStarted": "The 3-day clock starts when the data arrives.",
+    "slaHours": "{hours} h since the data arrived (target 72 h).",
+    "steps": {
+      "data_received": "Data received",
+      "import_done": "Import",
+      "mailbox_done": "Mailbox",
+      "bank_done": "Bank",
+      "rules_done": "Rules",
+      "training_done": "Training",
+      "go_live": "Go-live"
+    },
+    "packageLink": "New data-package link (72 h)",
+    "flagsTitle": "Features",
+    "noFlags": "No switchable features.",
+    "platformOff": "off for the whole platform"
+  },
+  "library": {
+    "title": "Libraries",
+    "description": "Ready-made policies and templates — one click, then adjust if you like.",
+    "policies": {
+      "title": "Collection policies",
+      "description": "Applying a policy adds its rules as drafts; they start working only after approval in Rules.",
+      "proposal": "Proposed from your questionnaire: {name}",
+      "apply": "Apply as drafts",
+      "applied": "Rules added as drafts. Review and publish them in Rules.",
+      "names": {
+        "friendly": "Friendly",
+        "standard": "Standard",
+        "strict": "Strict",
+        "agro_seasonal": "Agro seasonal"
+      },
+      "summaries": {
+        "friendly": "Reminder 3 business days before due, D+7, call at D+21, escalation at D+45.",
+        "standard": "Reminder 7 business days before due, D+1, D+7 with a case, call D+14, escalation D+30, notice to companies D+60.",
+        "strict": "Reminder before due, D+1 with a case, call D+5, escalation D+15, notice to companies D+30.",
+        "agro_seasonal": "For harvest-driven payers: reminder 14 days before due, D+15, call D+45, escalation after the season (D+90)."
+      }
+    },
+    "imports": {
+      "title": "Invoice import template",
+      "description": "Columns the import recognises on its own, with one example row. Your own ERP export also works — the import learns its columns once.",
+      "download": "Download template (CSV)"
+    },
+    "pack": {
+      "title": "Config pack",
+      "description": "Policies, rules, templates, fields, reports and dashboards as one file — no passwords, keys or business data. Import only adds what is missing; rules arrive as drafts.",
+      "export": "Download config pack",
+      "import": "Import config pack…",
+      "invalid": "This file is not a config pack.",
+      "imported": "Added: {added}. Already present (skipped): {skipped}."
     }
   }
 }

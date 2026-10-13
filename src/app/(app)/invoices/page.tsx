@@ -4,11 +4,14 @@ import { ForbiddenState } from '@/components/admin/forbidden-state';
 import { PageHeader } from '@/components/admin/page-header';
 import { BulkBar } from '@/components/receivables/bulk-bar';
 import { ExportButton } from '@/components/reports/export-button';
+import { CustomFieldFilters } from '@/components/custom-fields/filter-inputs';
+import { ColumnPicker } from '@/components/custom-fields/list-controls';
 import { Screen } from '@/components/shell/screen';
 import { formatAmount } from '@/lib/format-amount';
 import { PermissionDeniedError, permissionKeys } from '@/server/auth/permissions';
 import { withTenantPage } from '@/server/auth/with-tenant';
 import { bulkOptions } from '@/server/bulk/service';
+import { listColumns, listColumnValues, listDefinitions } from '@/server/custom-fields/service';
 import { codeLabels, invoiceListQuery, listOpenInvoices } from '@/server/receivables/service';
 
 export const dynamic = 'force-dynamic';
@@ -35,13 +38,34 @@ export default async function InvoicesPage({
   const locale = await getLocale();
   let data;
   try {
-    data = await withTenantPage(async (ctx) => ({
-      invoices: await listOpenInvoices(ctx, query),
-      buckets: await codeLabels(ctx, 'aging_bucket', locale),
-      bulk: await bulkOptions(ctx, 'invoices'),
-      policies: await codeLabels(ctx, 'collection_policy', locale),
-      canExport: (await permissionKeys(ctx.db, ctx.userId)).has('invoice.export'),
-    }));
+    data = await withTenantPage(async (ctx) => {
+      const rows = await listOpenInvoices(ctx, query);
+      const columns = await listColumns(ctx, 'invoices', locale);
+      const values = await listColumnValues(
+        ctx,
+        'invoice',
+        columns.map((d) => d.id),
+        rows.map((r) => r.id),
+      );
+      return {
+        invoices: rows,
+        cfValues: Object.fromEntries(values),
+        buckets: await codeLabels(ctx, 'aging_bucket', locale),
+        bulk: await bulkOptions(ctx, 'invoices'),
+        policies: await codeLabels(ctx, 'collection_policy', locale),
+        ...(await (async () => {
+          const defs = await listDefinitions(ctx, { entityType: 'invoice', locale });
+          return {
+            cfFilterable: defs.filter((d) => d.filterable),
+            cfAll: defs
+              .filter((d) => d.piiClass === 'P0')
+              .map((d) => ({ id: d.id, label: d.label })),
+            cfColumns: columns.map((d) => ({ id: d.id, label: d.label })),
+          };
+        })()),
+        canExport: (await permissionKeys(ctx.db, ctx.userId)).has('invoice.export'),
+      };
+    });
   } catch (error) {
     if (error instanceof PermissionDeniedError) return <ForbiddenState />;
     throw error;
@@ -111,6 +135,7 @@ export default async function InvoicesPage({
           />
           {t('onlyOverdue')}
         </label>
+        <CustomFieldFilters fields={data.cfFilterable} values={raw} />
         <button
           type="submit"
           className="min-h-11 rounded-md bg-brand-green px-4 font-medium text-surface hover:bg-brand-green-deep"
@@ -132,6 +157,11 @@ export default async function InvoicesPage({
         </section>
       ) : (
         <>
+          <ColumnPicker
+            listKey={ENTITY}
+            fields={data.cfAll}
+            chosen={data.cfColumns.map((c) => c.id)}
+          />
           <BulkBar
             entity={ENTITY}
             actions={data.bulk.actions}
@@ -175,6 +205,17 @@ export default async function InvoicesPage({
                   <span className="text-sm font-medium text-text md:w-40 md:text-right">
                     {money(i.amountOpen, i.currency)}
                   </span>
+                  {data.cfColumns.map((col) =>
+                    data.cfValues[i.id]?.[col.id] ? (
+                      <span
+                        key={col.id}
+                        className="text-xs text-text-muted"
+                        data-cf-column={col.id}
+                      >
+                        {col.label}: {data.cfValues[i.id]?.[col.id]}
+                      </span>
+                    ) : null,
+                  )}
                   {i.isDisputed ? (
                     <span className="w-fit rounded bg-status-warning-bg px-2 text-xs font-medium text-status-warning-fg">
                       {t('disputedMark')}

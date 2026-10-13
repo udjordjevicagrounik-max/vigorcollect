@@ -9,8 +9,17 @@ import {
 import { emitEvent } from '@/server/events';
 import { fromMinor, toMinor } from '@/server/fx/money';
 import { openGrid } from './crypto';
-import { classifyParty, type PartyRules } from './party';
-import { mappingSchema, validateRows, type ImportRow } from './rows';
+import { classifyParty, parseYesNo, type PartyRules } from './party';
+import {
+  mappingSchema,
+  normalizeAmount,
+  normalizeDate,
+  validateRows,
+  type ImportRow,
+  type Mapping,
+  type RowResult,
+} from './rows';
+import { fromImportCell, listDefinitions, setValues } from '@/server/custom-fields/service';
 
 /**
  * Applying a confirmed import run (worker, event import.confirmed) and rolling one back.
@@ -360,6 +369,8 @@ export async function applyImport(
       await applyRow(db, keyring, ctx, r.rowNumber, r.value, customers, rulesCache, counts);
     }
   }
+  // 6.1: mapped custom fields, after the rows exist (invoice by its source key, its customer).
+  const custom = await applyCustomFields(db, audit, keyring, run.source_id, mapping, results);
   await db.query(
     `UPDATE import_runs SET status = 'completed', completed_at = now(), payload_enc = NULL,
             payload_key_version = NULL, invoices_created = $2, invoices_updated = $3,
@@ -377,6 +388,8 @@ export async function applyImport(
       invoices_unchanged: counts.unchanged,
       customers_created: counts.customers,
       exceptions: counts.exceptions,
+      custom_values: custom.applied,
+      custom_skipped: custom.skipped,
     },
   });
   await emitEvent(db, {
@@ -482,4 +495,71 @@ export async function rollbackImport(
     actorId: ctx.userId,
   });
   return { reverted, blocked };
+}
+
+async function applyCustomFields(
+  db: Parameters<typeof applyImport>[0],
+  audit: Parameters<typeof applyImport>[1],
+  keyring: MasterKeyring,
+  sourceId: string,
+  mapping: Mapping,
+  results: RowResult[],
+): Promise<{ applied: number; skipped: number }> {
+  const targets = Object.keys(mapping.custom ?? {});
+  const out = { applied: 0, skipped: 0 };
+  if (!targets.length) return out;
+  const defs = await listDefinitions({ db } as Pick<TenantContext, 'db'>);
+  // setValues as the import job: no member (the run checked import.create), job audit.
+  const ctx = { db, userId: null, audit, requestId: null } as unknown as TenantContext;
+  for (const r of results) {
+    if (!r.ok || !Object.keys(r.value.custom).length) continue;
+    const { rows } = await db.query<{ id: string; customer_id: string; currency: string }>(
+      'SELECT id, customer_id, currency FROM invoices WHERE source_id = $1 AND external_id = $2',
+      [sourceId, r.value.externalId],
+    );
+    const inv = rows[0];
+    if (!inv) continue;
+    const byEntity: Record<'customer' | 'invoice', Record<string, unknown>> = {
+      customer: {},
+      invoice: {},
+    };
+    for (const [target, cell] of Object.entries(r.value.custom)) {
+      const [entity, key] = target.split('.') as ['customer' | 'invoice', string];
+      const def = defs.find((d) => d.entityType === entity && d.key === key);
+      const value = def
+        ? fromImportCell(def, cell, {
+            amount: (v) => normalizeAmount(v, mapping.decimal),
+            date: (v) => normalizeDate(v, mapping.dateOrder),
+            yesNo: (v) => {
+              const b = parseYesNo(v);
+              return b === 'invalid' ? null : b;
+            },
+            currency: inv.currency,
+          })
+        : null;
+      if (value === null) out.skipped += 1;
+      else byEntity[entity][key] = value;
+    }
+    for (const entity of ['customer', 'invoice'] as const) {
+      const values = byEntity[entity];
+      if (!Object.keys(values).length) continue;
+      await db.query('SAVEPOINT import_cf');
+      try {
+        const res = await setValues(
+          ctx,
+          entity,
+          entity === 'customer' ? inv.customer_id : inv.id,
+          values,
+          keyring,
+          { skipPermission: true },
+        );
+        await db.query('RELEASE SAVEPOINT import_cf');
+        out.applied += res.changed.length;
+      } catch {
+        await db.query('ROLLBACK TO SAVEPOINT import_cf');
+        out.skipped += Object.keys(values).length;
+      }
+    }
+  }
+  return out;
 }

@@ -118,8 +118,9 @@ test('dispute → bulk reminder → CSV export → report → aging setting → 
   expect(csv).toContain(SPOR);
 
   // 4. Disputes report.
-  await page.goto('/reports?report=disputes');
-  await expect(page.locator('[data-report="disputes"] table')).toBeVisible();
+  await page.goto('/reports');
+  await page.locator('[data-report-link="disputes"]').click();
+  await expect(page.locator('[data-visual]').first()).toBeVisible();
   await noHorizontalOverflow(page);
 
   // 5. Aging bucket setting: 1–29 / 30–60 (idempotent across runs).

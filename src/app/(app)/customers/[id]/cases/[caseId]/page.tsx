@@ -12,6 +12,8 @@ import { PermissionDeniedError, permissionKeys } from '@/server/auth/permissions
 import { NotFoundError, withTenantPage } from '@/server/auth/with-tenant';
 import { getCase, localToday } from '@/server/collections/service';
 import { codeLabels } from '@/server/receivables/service';
+import { getValues, listDefinitions } from '@/server/custom-fields/service';
+import { CustomFieldsPanel } from '@/components/custom-fields/fields-panel';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,6 +23,8 @@ const WHEN = { dateStyle: 'medium', timeStyle: 'short' } as const;
 // Case screen (task 2.4, wireframe docs/wireframes/case.html), mobile-compact: stage, owner,
 // priority, invoices, promise / activity on the case, legal handover, timeline (domain events +
 // activities).
+const CF_CASE = 'case' as const;
+
 export default async function CasePage({
   params,
 }: {
@@ -45,6 +49,9 @@ export default async function CasePage({
         stages: await codeLabels(ctx, 'case_stage', locale),
         outcomes: await codeLabels(ctx, 'activity_outcome', locale),
         nextActions: await codeLabels(ctx, 'next_action', locale),
+        // 6.1: additional fields of the case.
+        cfDefs: await listDefinitions(ctx, { entityType: 'case', locale }),
+        cfValues: await getValues(ctx, 'case', parsed.data.caseId),
       };
     });
   } catch (error) {
@@ -77,6 +84,17 @@ export default async function CasePage({
           {t('opened', { date: format.dateTime(new Date(d.openedAt), WHEN) })}
         </p>
       </header>
+
+      <div className="mb-4">
+        <CustomFieldsPanel
+          entity={CF_CASE}
+          entityId={d.id}
+          fields={data.cfDefs}
+          values={data.cfValues}
+          canEdit={data.keys.includes('case.update')}
+          defaultCurrency={data.currency}
+        />
+      </div>
 
       {open ? (
         <CaseActions

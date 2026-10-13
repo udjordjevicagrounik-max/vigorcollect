@@ -26,7 +26,7 @@ export async function RunExplanation({
   const conditions = (e.conditions ?? [])
     .map(
       (c) =>
-        `${t(`fields.${c.field as 'policy'}`)} ${t(`ops.${c.op as 'eq'}`)} ${show(c.expected)} (${show(c.actual)}) ${c.ok ? '✓' : '✗'}`,
+        `${c.field.startsWith('custom_field.') ? c.field.slice(13) : t(`fields.${c.field as 'policy'}`)} ${t(`ops.${c.op as 'eq'}`)} ${show(c.expected)} (${show(c.actual)}) ${c.ok ? '✓' : '✗'}`,
     )
     .join('; ');
   const actions = (e.actions ?? [])

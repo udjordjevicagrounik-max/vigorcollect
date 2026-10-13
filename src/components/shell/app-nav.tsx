@@ -16,7 +16,8 @@ type NavItemKey =
   | 'integrations'
   | 'approvals'
   | 'tenantSettings'
-  | 'systemStatus';
+  | 'systemStatus'
+  | 'platform';
 /** `anyOf` empty = every member; otherwise the item exists only with one of those permissions. */
 type NavItem = { key: NavItemKey; href: string; anyOf: readonly string[] };
 type NavGroup = { key: NavGroupKey; items: NavItem[] };
@@ -57,6 +58,8 @@ const NAV_GROUPS: NavGroup[] = [
       },
       { key: 'tenantSettings', href: '/admin/settings', anyOf: ['settings.read'] },
       { key: 'systemStatus', href: '/admin/status', anyOf: ['settings.read'] },
+      // 6.4: only the platform operator's owners hold platform.manage (tenant #0).
+      { key: 'platform', href: '/platform/tenants', anyOf: ['platform.manage'] },
     ],
   },
 ];

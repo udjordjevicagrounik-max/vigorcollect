@@ -112,6 +112,7 @@ export function RuleEditor({
   nextActions,
   users,
   teams,
+  customFields = [],
 }: {
   workflowId: string | null;
   initialName: string;
@@ -122,6 +123,8 @@ export function RuleEditor({
   nextActions: Record<string, string>;
   users: { id: string; name: string }[];
   teams: { id: string; name: string }[];
+  /** 6.1: P0 custom fields — conditions `custom_field.<key>`. */
+  customFields?: { key: string; label: string; type: string }[];
 }) {
   const t = useTranslations('rules');
   const tErrors = useTranslations('errors');
@@ -138,8 +141,13 @@ export function RuleEditor({
   const setAction = (i: number, a: Action) =>
     setDef({ ...def, actions: def.actions.map((x, j) => (j === i ? a : x)) });
 
+  const customBool = new Set(
+    customFields.filter((f) => f.type === 'bool').map((f) => `custom_field.${f.key}`),
+  );
+  const isBool = (f: string) => BOOLEAN_FIELDS.includes(f) || customBool.has(f);
+
   function conditionValue(c: Condition, raw: string): Condition['value'] {
-    if (BOOLEAN_FIELDS.includes(c.field)) return raw === 'true';
+    if (isBool(c.field)) return raw === 'true';
     if (c.field === 'days_overdue') return toInt(raw);
     if (c.op === 'in')
       return raw
@@ -319,13 +327,18 @@ export function RuleEditor({
                     setCondition(i, {
                       field: e.target.value,
                       op: 'eq',
-                      value: BOOLEAN_FIELDS.includes(e.target.value) ? false : '',
+                      value: isBool(e.target.value) ? false : '',
                     })
                   }
                 >
                   {FIELDS.map((x) => (
                     <option key={x} value={x}>
                       {t(`fields.${x}`)}
+                    </option>
+                  ))}
+                  {customFields.map((f) => (
+                    <option key={f.key} value={`custom_field.${f.key}`}>
+                      {f.label}
                     </option>
                   ))}
                 </select>
@@ -347,7 +360,7 @@ export function RuleEditor({
                     </option>
                   ))}
                 </select>
-                {BOOLEAN_FIELDS.includes(c.field) ? (
+                {isBool(c.field) ? (
                   <select
                     className={field}
                     aria-label={t('value')}

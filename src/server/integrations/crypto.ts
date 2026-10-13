@@ -17,7 +17,11 @@ type Target =
   | 'mailbox_connections.password'
   | 'mailbox_connections.from_address'
   | 'mailbox_connections.ms_refresh_token'
-  | 'oauth_states.verifier';
+  | 'oauth_states.verifier'
+  // 6.4: a public signup (tenant #0).
+  | 'signup_requests.company'
+  | 'signup_requests.name'
+  | 'signup_requests.email';
 
 function key(keyring: MasterKeyring, tenantId: string, target: Target, version: number): Buffer {
   const table = target.split('.')[0] ?? target;

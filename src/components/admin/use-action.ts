@@ -19,7 +19,7 @@ export function useAction() {
   const [busy, setBusy] = useState(false);
 
   async function run(
-    method: 'POST' | 'PUT' | 'DELETE',
+    method: 'POST' | 'PUT' | 'PATCH' | 'DELETE',
     path: string,
     body: unknown,
     message: string | ((status: number) => string),

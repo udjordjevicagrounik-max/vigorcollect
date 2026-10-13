@@ -1,56 +1,63 @@
 import Link from 'next/link';
-import { getLocale, getTranslations } from 'next-intl/server';
+import { getFormatter, getLocale, getTranslations } from 'next-intl/server';
 import { z } from 'zod';
 import { AttentionList } from '@/components/communication/attention-list';
+import { DashboardGrid, ReportWidget } from '@/components/dashboard/dashboard-grid';
 import { AgingBars } from '@/components/receivables/aging-bars';
 import { KpiCard } from '@/components/receivables/kpi-card';
 import { EmptyState } from '@/components/shell/empty-state';
 import { Screen } from '@/components/shell/screen';
 import { formatAmount } from '@/lib/format-amount';
-import { listAttention } from '@/server/attention/service';
-import { PermissionDeniedError, permissionKeys } from '@/server/auth/permissions';
+import { PermissionDeniedError } from '@/server/auth/permissions';
 import { withTenantPage } from '@/server/auth/with-tenant';
-import { getPreferences } from '@/server/notifications/digest';
-import { codeLabels, getDashboard, myWorkToday } from '@/server/receivables/service';
+import {
+  dashboardData,
+  homeDashboardId,
+  listDashboards,
+  type Figures,
+  type KpiKey,
+  type WidgetData,
+} from '@/server/dashboards/service';
+import { getDashboard } from '@/server/receivables/service';
+import { listReportDefinitions } from '@/server/reporting/service';
 
 export const dynamic = 'force-dynamic';
 
-const WORK_MODES = ['own', 'team'] as const;
-const CURRENT = 'page' as const;
+const TIME_SHORT = { timeStyle: 'short' } as const;
 
 const searchSchema = z
-  .object({ work: z.enum(['own', 'team']).catch('own') })
-  .catch({ work: 'own' });
+  .object({
+    d: z.uuid().optional().catch(undefined),
+    refresh: z.enum(['1']).optional().catch(undefined),
+  })
+  .catch({});
 
-// Dashboard (task 2.3), mobile-full: KPIs with definitions (docs/metrics.md), aging, my work
-// today (OWN / TEAM), drill-down to the customer. Before the first import: the empty state.
+// Home (6.3) = the member's default dashboard (own choice → role default → the system
+// "Collections overview", the 2.3 dashboard in the widget model). Before the first import: the
+// empty state.
 export default async function HomePage({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const { work } = searchSchema.parse(await searchParams);
+  const q = searchSchema.parse(await searchParams);
   const locale = await getLocale();
   let data;
   try {
     data = await withTenantPage(async (ctx) => {
-      const dashboard = await getDashboard(ctx);
-      const hasInvoices = dashboard.aging.some((a) => a.count > 0) || dashboard.openCases > 0;
+      const figures = await getDashboard(ctx);
+      const hasInvoices = figures.aging.some((a) => a.count > 0) || figures.openCases > 0;
+      if (!hasInvoices) return { hasInvoices: false as const };
+      const id = q.d ?? (await homeDashboardId(ctx));
       return {
-        dashboard,
-        hasInvoices,
-        work: hasInvoices ? await myWorkToday(ctx, work) : [],
-        // 5.2: the member's in-app preferences decide what the attention list shows.
-        attention: await (async () => {
-          const prefs = await getPreferences(ctx);
-          if (!prefs.inAppAttention) return [];
-          if (!(await permissionKeys(ctx.db, ctx.userId)).has('customer.read')) return [];
-          const items = await listAttention(ctx);
-          return prefs.inAppMail ? items : items.filter((i) => i.kind !== 'mail_undelivered');
-        })(),
-        buckets: await codeLabels(ctx, 'aging_bucket', locale),
-        stages: await codeLabels(ctx, 'case_stage', locale),
-        actions: await codeLabels(ctx, 'next_action', locale),
+        hasInvoices: true as const,
+        currency: figures.currency,
+        board: await dashboardData(ctx, id, locale, { refresh: q.refresh === '1' }),
+        dashboards: await listDashboards(ctx),
+        reports: (await listReportDefinitions(ctx).catch(() => [])).map((r) => ({
+          id: r.id,
+          name: r.name,
+        })),
       };
     });
   } catch (error) {
@@ -58,6 +65,8 @@ export default async function HomePage({
     data = null;
   }
   const t = await getTranslations('dashboard');
+  const tr = await getTranslations('reports');
+  const tErrors = await getTranslations('errors');
   if (!data || !data.hasInvoices) {
     return (
       <Screen mobileClass="mobile-full">
@@ -70,104 +79,73 @@ export default async function HomePage({
       </Screen>
     );
   }
-  const d = data.dashboard;
-  const money = (v: string) => formatAmount(v, d.currency, locale);
-  const fxNote = d.missingFx ? t('missingFx', { n: d.missingFx }) : null;
-  return (
-    <Screen mobileClass="mobile-full">
-      <header className="mb-4">
-        <h1 className="text-xl font-semibold text-brand-green">{t('title')}</h1>
-        <span aria-hidden="true" className="mt-2 block h-[3px] w-12 bg-brand-gold" />
-        <p className="mt-3 max-w-prose text-text-muted">
-          {t('description', { currency: d.currency })}
-        </p>
-      </header>
-      <section
-        aria-label={t('kpiLabel')}
-        className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3"
-      >
-        <KpiCard
-          id="overdue_total"
-          label={t('kpi.overdue_total.label')}
-          value={money(d.overdueTotal)}
-          definition={t('kpi.overdue_total.definition')}
-          definitionLabel={t('definition')}
-          note={fxNote}
-          href="/customers?overdue=1"
-        />
-        <KpiCard
-          id="open_total"
-          label={t('kpi.open_total.label')}
-          value={money(d.openTotal)}
-          definition={t('kpi.open_total.definition')}
-          definitionLabel={t('definition')}
-          note={fxNote}
-          href="/customers"
-        />
-        <KpiCard
-          id="dso"
-          label={t('kpi.dso.label')}
-          value={d.dso ? t('days', { n: d.dso }) : '—'}
-          definition={t('kpi.dso.definition', { window: d.dsoWindowDays })}
-          definitionLabel={t('definition')}
-        />
-        <KpiCard
-          id="promises_today"
-          label={t('kpi.promises_today.label')}
-          value={`${d.promisesToday.count} · ${money(d.promisesToday.amount)}`}
-          definition={t('kpi.promises_today.definition')}
-          definitionLabel={t('definition')}
-        />
-        <KpiCard
-          id="promises_broken"
-          label={t('kpi.promises_broken.label')}
-          value={d.promisesBroken}
-          definition={t('kpi.promises_broken.definition')}
-          definitionLabel={t('definition')}
-        />
-        <KpiCard
-          id="disputed"
-          label={t('kpi.disputed.label')}
-          value={t('kpi.disputed.count', { amount: money(d.disputedTotal), n: d.openDisputes })}
-          definition={t('kpi.disputed.definition')}
-          definitionLabel={t('definition')}
-          note={fxNote}
-        />
-        <KpiCard
-          id="open_cases"
-          label={t('kpi.open_cases.label')}
-          value={d.openCases}
-          definition={t('kpi.open_cases.definition')}
-          definitionLabel={t('definition')}
-        />
-        <KpiCard
-          id="collected_30"
-          label={t('kpi.collected_30.label')}
-          value={money(d.collected30)}
-          definition={t('kpi.collected_30.definition')}
-          definitionLabel={t('definition')}
-        />
-        <KpiCard
-          id="collection_rate"
-          label={t('kpi.collection_rate.label')}
-          value={d.collectionRate ? t('percent', { n: d.collectionRate }) : '—'}
-          definition={t('kpi.collection_rate.definition')}
-          definitionLabel={t('definition')}
-        />
-      </section>
+  const format = await getFormatter();
+  const { board } = data;
+  const nameOf = (n: string, key: string | null) =>
+    key === 'collections_overview' ? t('title') : n;
 
-      <AttentionList items={data.attention} locale={locale} />
+  const kpi = (key: KpiKey, d: Figures) => {
+    const money = (v: string) => formatAmount(v, d.currency, locale);
+    const fxNote = d.missingFx ? t('missingFx', { n: d.missingFx }) : null;
+    const values: Record<
+      KpiKey,
+      { value: string | number; note?: string | null; href?: string; window?: boolean }
+    > = {
+      overdue_total: { value: money(d.overdueTotal), note: fxNote, href: '/customers?overdue=1' },
+      open_total: { value: money(d.openTotal), note: fxNote, href: '/customers' },
+      dso: { value: d.dso ? t('days', { n: d.dso }) : '—', window: true },
+      promises_today: { value: `${d.promisesToday.count} · ${money(d.promisesToday.amount)}` },
+      promises_broken: { value: d.promisesBroken },
+      disputed: {
+        value: t('kpi.disputed.count', { amount: money(d.disputedTotal), n: d.openDisputes }),
+        note: fxNote,
+      },
+      open_cases: { value: d.openCases },
+      collected_30: { value: money(d.collected30) },
+      collection_rate: { value: d.collectionRate ? t('percent', { n: d.collectionRate }) : '—' },
+    };
+    const v = values[key];
+    return (
+      <KpiCard
+        id={key}
+        label={t(`kpi.${key}.label`)}
+        value={v.value}
+        definition={
+          v.window
+            ? t('kpi.dso.definition', { window: d.dsoWindowDays })
+            : t(`kpi.${key}.definition` as 'kpi.open_total.definition')
+        }
+        definitionLabel={t('definition')}
+        note={v.note ?? null}
+        {...(v.href ? { href: v.href } : {})}
+      />
+    );
+  };
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-2">
-        <section
-          aria-labelledby="aging-title"
-          className="rounded-lg border border-border bg-surface p-4"
+  const body = (w: (typeof board.widgets)[number], wd: WidgetData | undefined) => {
+    if (!wd) return null;
+    if (wd.kind === 'error')
+      return (
+        <p
+          className="rounded-lg border border-border bg-surface p-4 text-sm text-text-muted"
+          role="status"
         >
-          <h2 id="aging-title" className="font-semibold text-text">
-            {t('aging.title')}
+          {tErrors.has(wd.code as 'forbidden') ? tErrors(wd.code as 'forbidden') : wd.code}
+        </p>
+      );
+    if (wd.kind === 'kpi' && w.kpiKey) return kpi(w.kpiKey, wd.figures);
+    if (wd.kind === 'aging') {
+      const d = wd.figures;
+      return (
+        <section
+          aria-labelledby={`aging-${w.id}`}
+          className="h-full rounded-lg border border-border bg-surface p-4"
+        >
+          <h2 id={`aging-${w.id}`} className="font-semibold text-text">
+            {w.title ?? t('aging.title')}
           </h2>
           <p className="mb-3 text-xs text-text-muted">{t('aging.definition')}</p>
-          <AgingBars aging={d.aging} labels={data.buckets} currency={d.currency} locale={locale} />
+          <AgingBars aging={d.aging} labels={wd.buckets} currency={d.currency} locale={locale} />
           {d.topOverdue.length ? (
             <>
               <h3 className="mt-4 text-sm font-semibold text-text">{t('topOverdue')}</h3>
@@ -183,7 +161,8 @@ export default async function HomePage({
                         {c.displayName ?? t('naturalPerson')}
                       </span>
                       <span className="whitespace-nowrap font-medium text-text">
-                        {money(c.overdue)} · {t('days', { n: c.oldestDaysOverdue })}
+                        {formatAmount(c.overdue, d.currency, locale)} ·{' '}
+                        {t('days', { n: c.oldestDaysOverdue })}
                       </span>
                     </Link>
                   </li>
@@ -192,56 +171,45 @@ export default async function HomePage({
             </>
           ) : null}
         </section>
-
+      );
+    }
+    if (wd.kind === 'attention') return <AttentionList items={wd.items} locale={locale} />;
+    if (wd.kind === 'my_tasks' || wd.kind === 'team_attention')
+      return (
         <section
-          aria-labelledby="work-title"
-          className="rounded-lg border border-border bg-surface p-4"
-          data-my-work={work}
+          className="h-full rounded-lg border border-border bg-surface p-4"
+          data-my-work={wd.kind === 'my_tasks' ? 'own' : 'team'}
         >
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 id="work-title" className="font-semibold text-text">
-              {t('work.title')}
-            </h2>
-            <nav aria-label={t('work.modeLabel')} className="flex gap-1 text-sm">
-              {WORK_MODES.map((m) => (
-                <Link
-                  key={m}
-                  href={`/?work=${m}`}
-                  aria-current={work === m ? CURRENT : undefined}
-                  className={`inline-flex min-h-11 items-center rounded-md px-3 ${work === m ? 'bg-brand-green text-surface' : 'border border-border text-text'}`}
-                >
-                  {t(`work.${m}`)}
-                </Link>
-              ))}
-            </nav>
-          </div>
+          <h2 className="font-semibold text-text">
+            {w.title ?? t(wd.kind === 'my_tasks' ? 'work.title' : 'work.teamTitle')}
+          </h2>
           <p className="mt-1 text-xs text-text-muted">{t('work.definition')}</p>
-          {data.work.length === 0 ? (
+          {wd.items.length === 0 ? (
             <p className="mt-3 text-text-muted">{t('work.empty')}</p>
           ) : (
             <ul className="mt-3 flex flex-col gap-2 text-sm">
-              {data.work.map((w) => (
-                <li key={`${w.kind}-${w.refId}`} data-work-item={w.kind}>
+              {wd.items.map((it) => (
+                <li key={`${it.kind}-${it.refId}`} data-work-item={it.kind}>
                   <Link
-                    href={`/customers/${w.customerId}${w.kind === 'case' ? `/cases/${w.refId}` : ''}`}
+                    href={`/customers/${it.customerId}${it.kind === 'case' ? `/cases/${it.refId}` : ''}`}
                     className="block rounded-md border border-border p-2 hover:bg-brand-purple-soft"
                   >
                     <span className="font-medium text-text">
-                      {w.customerName ?? t('naturalPerson')}
+                      {it.customerName ?? t('naturalPerson')}
                     </span>
                     <span className="block text-text-muted">
-                      {w.kind === 'promise_due' && w.amount && w.currency
+                      {it.kind === 'promise_due' && it.amount && it.currency
                         ? t('work.promise', {
-                            amount: formatAmount(w.amount, w.currency, locale),
-                            date: w.date ?? '',
+                            amount: formatAmount(it.amount, it.currency, locale),
+                            date: it.date ?? '',
                           })
-                        : w.kind === 'next_action'
+                        : it.kind === 'next_action'
                           ? t('work.nextAction', {
-                              action: (w.code && data.actions[w.code]) || w.code || '',
-                              date: w.date ?? '',
+                              action: (it.code && wd.actions[it.code]) || it.code || '',
+                              date: it.date ?? '',
                             })
                           : t('work.case', {
-                              stage: (w.code && data.stages[w.code]) || w.code || '',
+                              stage: (it.code && wd.stages[it.code]) || it.code || '',
                             })}
                     </span>
                   </Link>
@@ -250,7 +218,64 @@ export default async function HomePage({
             </ul>
           )}
         </section>
-      </div>
+      );
+    if (wd.kind === 'report') {
+      const title =
+        w.title ??
+        (wd.systemKey && tr.has(`names.${wd.systemKey}` as 'names.disputes')
+          ? tr(`names.${wd.systemKey}` as 'names.disputes')
+          : wd.name);
+      return (
+        <section
+          className="h-full rounded-lg border border-border bg-surface p-4"
+          data-widget-report={w.reportId}
+        >
+          <h2 className="mb-2 font-semibold text-text">
+            <Link href={`/reports/${w.reportId}`} className="hover:underline">
+              {title}
+            </Link>
+          </h2>
+          <ReportWidget data={wd.data} visual={wd.visual} definition={wd.definition} />
+        </section>
+      );
+    }
+    return null;
+  };
+
+  return (
+    <Screen mobileClass="mobile-full">
+      <header className="mb-4">
+        <h1 className="text-xl font-semibold text-brand-green">
+          {nameOf(board.dashboard.name, board.dashboard.systemKey)}
+        </h1>
+        <span aria-hidden="true" className="mt-2 block h-[3px] w-12 bg-brand-gold" />
+        <p className="mt-3 max-w-prose text-text-muted">
+          {t('description', { currency: data.currency })}
+        </p>
+      </header>
+      <DashboardGrid
+        dashboard={{
+          id: board.dashboard.id,
+          name: nameOf(board.dashboard.name, board.dashboard.systemKey),
+          isSystem: board.dashboard.isSystem,
+          mine: board.dashboard.mine,
+        }}
+        dashboards={data.dashboards.map((d) => ({
+          id: d.id,
+          name: nameOf(d.name, d.systemKey),
+          isSystem: d.isSystem,
+          mine: d.mine,
+        }))}
+        reports={data.reports.map((r) => ({ id: r.id, name: r.name }))}
+        cachedAt={format.dateTime(new Date(board.cachedAt), TIME_SHORT)}
+        items={board.widgets.map((w) => ({
+          id: w.id,
+          size: w.size,
+          title: w.title,
+          kind: w.kind,
+          body: body(w, board.data[w.id]),
+        }))}
+      />
     </Screen>
   );
 }

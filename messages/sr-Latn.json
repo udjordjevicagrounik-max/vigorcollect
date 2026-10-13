@@ -27,12 +27,18 @@
       "invoices": "Fakture",
       "reports": "Izveštaji",
       "notifications": "Obaveštenja",
-      "gettingStarted": "Početak rada"
+      "gettingStarted": "Početak rada",
+      "platform": "Platforma"
     },
     "tenant": "Organizacija",
     "switchTenant": "Promeni organizaciju",
     "account": "Nalog",
-    "onboardingProgress": "{done}/{total}"
+    "onboardingProgress": "{done}/{total}",
+    "lifecycle": {
+      "trial": "Probni period: još {days, plural, one {# dan} few {# dana} other {# dana}}.",
+      "sandbox": "Demo okruženje sa primerom podataka, mejl ide samo u test sanduče: još {days, plural, one {# dan} few {# dana} other {# dana}}.",
+      "readOnly": "Nalog je samo za čitanje. Ništa nije obrisano — javite nam se da nastavite."
+    }
   },
   "error": {
     "title": "Nešto nije u redu",
@@ -208,7 +214,10 @@
     "not_ready": "PDF se još pravi. Sačekajte nekoliko sekundi i pokušajte ponovo.",
     "unsupported": "Ova vrsta zahteva se još ne odlučuje na ovom mestu.",
     "limit_exceeded": "Previše stavki za jednu grupnu akciju — suzite izbor (limit je u Admin → Podešavanja).",
-    "not_bulk": "Ova akcija traži odluku po stavci (pravno dejstvo ili četiri oka) i ne može grupno."
+    "not_bulk": "Ova akcija traži odluku po stavci (pravno dejstvo ili četiri oka) i ne može grupno.",
+    "mixed_currencies": "Iznosi su u više valuta — uključite preračun u izveštajnu valutu ili filtrirajte jednu valutu.",
+    "too_many_rows": "Više od 10.000 redova — suzite filtere ili izvezite izveštaj.",
+    "tenant_read_only": "Ova organizacija je samo za čitanje (probni period ili sandbox je istekao). Javite nam se da nastavite."
   },
   "dashboard": {
     "title": "Pregled naplate",
@@ -271,7 +280,8 @@
       "empty": "Za danas nema ničeg zakazanog.",
       "promise": "Obećanje {amount} za {date}",
       "nextAction": "{action} — zakazano za {date}",
-      "case": "Otvoren case · {stage}"
+      "case": "Otvoren case · {stage}",
+      "teamTitle": "Rad mog tima danas"
     },
     "empty": {
       "title": "Još nema faktura",
@@ -312,7 +322,14 @@
         "ymd": "godina-mesec-dan",
         "none": "— ne uvozi —",
         "column": "Kolona {n}",
-        "missing": "Nedostaje obavezno polje: {fields}"
+        "missing": "Nedostaje obavezno polje: {fields}",
+        "customTitle": "Dodatna polja",
+        "createFrom": "Napravi polje iz kolone",
+        "createFor": "za",
+        "entityCustomer": "kupca",
+        "entityInvoice": "fakturu",
+        "notPersonal": "nije lični podatak (P0, može kao filter)",
+        "createField": "Napravi polje"
       },
       "fields": {
         "external_id": "ID fakture u ERP-u",
@@ -381,7 +398,13 @@
         "rollback_blocked": "faktura je u međuvremenu menjana — nije poništena",
         "review_required": "kupac za proveru: možda fizičko lice — nije uvezeno"
       },
-      "rolledBack": "Uvoz je poništen: vraćeno {reverted}, ostalo za odluku {blocked}."
+      "rolledBack": "Uvoz je poništen: vraćeno {reverted}, ostalo za odluku {blocked}.",
+      "staged": {
+        "title": "Fajlovi iz paketa podataka",
+        "hint": "Klijent je poslao ove fajlove; ništa se ne uvozi dok ga ovde ne pokrenete.",
+        "row": "{rows} redova, primljeno {date}",
+        "start": "Pokreni uvoz"
+      }
     },
     "history": {
       "title": "Istorija uvoza",
@@ -471,7 +494,9 @@
       "locales": {
         "sr-Latn": "Srpski (latinica)",
         "en": "English"
-      }
+      },
+      "fieldsLink": "Dodatna polja (kupci, kontakti, fakture, case-ovi) →",
+      "libraryLink": "Biblioteke: politike, šablon uvoza, paket podešavanja"
     },
     "status": {
       "title": "Status sistema",
@@ -1108,7 +1133,9 @@
       "rule_task_created": "dodeljen je zadatak",
       "rule_escalation": "eskalacija",
       "rule_decision_proposed": "predlog odluke čeka čoveka",
-      "rule_legal_proposed": "predlog predaje pravnoj"
+      "rule_legal_proposed": "predlog predaje pravnoj",
+      "signup_received": "Nova prijava za sandbox — pogledajte Platforma → Tenanti",
+      "trial_ending": "Probni period ističe za 3 dana — pogledajte Platforma → Tenanti"
     },
     "submitForApproval": "Podnesi na odobrenje",
     "submitted": "Predlog je poslat na odobrenje drugoj osobi.",
@@ -1562,7 +1589,203 @@
       "avg_days_open": "Prosečno dana otvoreno"
     },
     "noOwner": "bez vlasnika",
-    "naturalPerson": "Fizičko lice"
+    "naturalPerson": "Fizičko lice",
+    "fields": {
+      "customer": "Kupac",
+      "owner": "Naplatar",
+      "team": "Tim",
+      "segment": "Segment",
+      "country": "Zemlja",
+      "customer_status": "Status kupca",
+      "payment_behaviour": "Ponašanje pri plaćanju",
+      "policy": "Politika naplate",
+      "natural_person": "Fizičko lice",
+      "invoice_number": "Faktura",
+      "aging_bucket": "Aging razred",
+      "currency": "Valuta",
+      "issue_date": "Datum izdavanja",
+      "due_date": "Datum dospeća",
+      "is_open": "Otvorena",
+      "is_overdue": "Dospela",
+      "is_disputed": "Sporna",
+      "open_amount": "Otvoren iznos",
+      "total_amount": "Fakturisan iznos",
+      "days_overdue": "Dana kašnjenja",
+      "count": "Broj",
+      "created_on": "Kreiran",
+      "stage": "Faza",
+      "case_status": "Status case-a",
+      "priority": "Prioritet",
+      "opened_on": "Otvoren",
+      "age_days": "Starost (dana)",
+      "promise_status": "Status obećanja",
+      "promised_on": "Datum obećanja",
+      "promised_amount": "Obećani iznos",
+      "paid_amount": "Plaćeni iznos",
+      "activity_kind": "Vrsta aktivnosti",
+      "outcome": "Ishod",
+      "actor": "Uradio",
+      "occurred_on": "Datum",
+      "reason": "Razlog",
+      "dispute_status": "Status spora",
+      "days_open": "Dana otvoreno",
+      "payment_kind": "Vrsta uplate",
+      "paid_on": "Datum uplate",
+      "amount": "Iznos",
+      "band": "Rizik",
+      "scored_on": "Ocenjeno",
+      "score": "Skor rizika"
+    },
+    "values": {
+      "open": "otvoren",
+      "closed": "zatvoren",
+      "in_review": "u obradi",
+      "resolved_accepted": "prihvaćen",
+      "resolved_rejected": "odbijen",
+      "withdrawn": "povučen",
+      "pending": "na čekanju",
+      "fulfilled": "ispunjeno",
+      "partial": "delimično",
+      "broken": "prekršeno",
+      "cancelled": "otkazano",
+      "payment": "uplata",
+      "adjustment": "korekcija",
+      "call": "poziv",
+      "email": "e-mail",
+      "note": "beleška",
+      "meeting": "sastanak",
+      "low": "nizak",
+      "normal": "normalan",
+      "high": "visok",
+      "urgent": "hitan",
+      "green": "nizak rizik",
+      "yellow": "srednji rizik",
+      "red": "visok rizik",
+      "active": "aktivan",
+      "inactive": "neaktivan",
+      "blocked": "blokiran"
+    },
+    "aggs": {
+      "sum": "zbir",
+      "count": "broj",
+      "avg": "prosek",
+      "min": "minimum",
+      "max": "maksimum"
+    },
+    "ratio": "Odnos (%)",
+    "trend": "{percent} % u odnosu na prethodni period",
+    "total": "Ukupno",
+    "yes": "da",
+    "no": "ne",
+    "datasets": {
+      "invoices": "Fakture",
+      "customers": "Kupci",
+      "cases": "Case-ovi",
+      "promises": "Obećanja",
+      "activities": "Aktivnosti",
+      "disputes": "Sporovi",
+      "payments": "Uplate",
+      "risk": "Rizik"
+    },
+    "visuals": {
+      "table": "Tabela",
+      "bar": "Stubići",
+      "stacked_bar": "Složeni stubići",
+      "line": "Linija",
+      "pie": "Pita",
+      "donut": "Prsten",
+      "funnel": "Levak",
+      "kpi_number": "KPI broj",
+      "kpi_trend": "KPI trend",
+      "grouped_table": "Pivot tabela"
+    },
+    "ops": {
+      "eq": "je",
+      "ne": "nije",
+      "in": "jedno od",
+      "gt": "veće od",
+      "gte": "najmanje",
+      "lt": "manje od",
+      "lte": "najviše",
+      "between": "između",
+      "contains": "sadrži",
+      "is_null": "je prazno",
+      "not_null": "nije prazno",
+      "relative": "u"
+    },
+    "relative": {
+      "today": "danas",
+      "yesterday": "juče",
+      "last_7_days": "poslednjih 7 dana",
+      "last_30_days": "poslednjih 30 dana",
+      "last_90_days": "poslednjih 90 dana",
+      "this_month": "ovaj mesec",
+      "last_month": "prošli mesec",
+      "this_quarter": "ovaj kvartal",
+      "this_year": "ova godina",
+      "last_year": "prošla godina"
+    },
+    "grains": {
+      "day": "po danu",
+      "week": "po nedelji",
+      "month": "po mesecu",
+      "quarter": "po kvartalu",
+      "year": "po godini"
+    },
+    "list": {
+      "title": "Izveštaji",
+      "description": "Gotovi izveštaji i vaši sopstveni. Kliknite izveštaj da ga otvorite; „Novi izveštaj\" pravi novi u par klikova.",
+      "new": "Novi izveštaj",
+      "system": "Gotovi",
+      "mine": "Moji",
+      "shared": "Podeljeni sa mnom",
+      "emptyMine": "Još nemate svoje izveštaje — počnite sa „Novi izveštaj\" ili kopirajte gotov."
+    },
+    "builder": {
+      "title": "Novi izveštaj",
+      "editTitle": "Izmena izveštaja",
+      "description": "Izaberite šta se meri, po čemu se grupiše i filtrirajte. Pregled se osvežava dok kliknete.",
+      "dataset": "Podaci",
+      "groupBy": "Grupiši po",
+      "measure": "Mera",
+      "filters": "Filteri",
+      "addFilter": "+ Filter",
+      "remove": "Ukloni",
+      "fx": "u izveštajnoj valuti",
+      "visual": "Prikaži kao",
+      "name": "Naziv izveštaja",
+      "visibility": "Ko vidi",
+      "visibilities": {
+        "private": "samo ja",
+        "team": "moj tim",
+        "tenant": "cela organizacija"
+      },
+      "team": "Tim",
+      "save": "Sačuvaj",
+      "saved": "Izveštaj je sačuvan.",
+      "value": "Vrednost",
+      "apply": "Dodaj",
+      "loading": "Učitava se…",
+      "fields": "Polja",
+      "dimensionsHint": "Kliknite polje da grupišete po njemu (najviše 3).",
+      "measuresHint": "Kliknite da dodate meru.",
+      "addRatio": "+ Odnos prve dve",
+      "grain": "Period",
+      "truncated": "Prikazani su prvi redovi — izvezite za sve."
+    },
+    "view": {
+      "copy": "Kopiraj i izmeni",
+      "edit": "Izmeni",
+      "delete": "Obriši",
+      "deleted": "Izveštaj je obrisan.",
+      "addToDashboard": "Dodaj na dashboard",
+      "added": "Dodato na vaš dashboard.",
+      "refresh": "Osveži",
+      "drillTitle": "Iza ovog reda",
+      "drillMore": "Prikazano prvih 200.",
+      "close": "Zatvori",
+      "system": "Gotov izveštaj — kopirajte ga da biste ga menjali."
+    }
   },
   "notifications": {
     "title": "Obaveštenja",
@@ -1698,6 +1921,363 @@
         "title": "Povežite sanduče",
         "hint": "Odgovori stižu u Collect, a podsetnici idu sa vaše adrese."
       }
+    }
+  },
+  "customFields": {
+    "any": "sve",
+    "yes": "da",
+    "no": "ne",
+    "columns": "Dodatne kolone",
+    "columnsSaved": "Kolone su sačuvane.",
+    "save": "Sačuvaj",
+    "panelTitle": "Dodatna polja",
+    "panelEmpty": "Još nema dodatnih polja. Administrator ih dodaje u Admin → Podešavanja → Polja — zatim se pojavljuju ovde, u listama, filterima, uvozu, pravilima i izveštajima.",
+    "saved": "Sačuvano.",
+    "required": "obavezno",
+    "encrypted": "šifrovano (lični podatak)",
+    "choose": "— izaberite —",
+    "currency": "Valuta",
+    "admin": {
+      "title": "Polja",
+      "description": "Dodatna polja kupaca, kontakata, faktura i case-ova. Polje se nikad ne briše — arhivirajte ga, a vrednosti ostaju u istoriji.",
+      "entity": "Entitet",
+      "entities": {
+        "customer": "Kupac",
+        "contact": "Kontakt",
+        "invoice": "Faktura",
+        "case": "Case"
+      },
+      "types": {
+        "text": "Tekst",
+        "number": "Broj",
+        "date": "Datum",
+        "bool": "Da / ne",
+        "select": "Izbor",
+        "multiselect": "Višestruki izbor",
+        "currency": "Iznos sa valutom"
+      },
+      "pii": {
+        "P0": "P0 — nije lični podatak",
+        "P1": "P1 — lični (šifrovano)",
+        "P2": "P2 — osetljiv (šifrovano)",
+        "P3": "P3 — posebna kategorija (šifrovano)"
+      },
+      "key": "Ključ (a-z, 0-9, _; ne menja se)",
+      "type": "Tip",
+      "piiClass": "Klasa ličnog podatka",
+      "labelSr": "Naziv (srpski)",
+      "labelEn": "Naziv (engleski)",
+      "options": "Opcije — jedna po redu: šifra Naziv",
+      "requiredFlag": "Obavezno",
+      "filterable": "Filter u listama (samo P0)",
+      "showInList": "Kolona u listi podrazumevano",
+      "add": "Dodaj polje",
+      "created": "Polje je dodato — sada se pojavljuje u formama, listama, uvozu, pravilima i izveštajima.",
+      "archive": "Arhiviraj",
+      "restore": "Vrati",
+      "archived": "arhivirano",
+      "updated": "Sačuvano.",
+      "empty": "Još nema polja za ovaj entitet.",
+      "limit": "Najviše {n} aktivnih polja po entitetu."
+    }
+  },
+  "dashboards": {
+    "choose": "Dashboard",
+    "refresh": "Osveži",
+    "edit": "Uredi",
+    "done": "Gotovo",
+    "copy": "Kopiraj u moj",
+    "copied": "Vaša kopija je spremna — sada je vaša početna.",
+    "makeHome": "Postavi kao početnu",
+    "homeSet": "Ovo je sada vaš početni dashboard.",
+    "cachedAt": "brojke od {time} (osvežite za sada)",
+    "addWidget": "+ Dodaj widget",
+    "fromReport": "Iz sačuvanog izveštaja",
+    "noReports": "Još nema sačuvanih izveštaja.",
+    "newReport": "ili napravite novi izveštaj →",
+    "systemWidgets": "Gotovi",
+    "kinds": {
+      "attention": "Zahteva pažnju",
+      "my_tasks": "Moj rad danas",
+      "team_attention": "Rad mog tima",
+      "aging": "Aging"
+    },
+    "kpis": {
+      "overdue_total": "KPI: dospelo",
+      "open_total": "KPI: otvoreno",
+      "dso": "KPI: DSO",
+      "promises_today": "KPI: obećanja danas",
+      "promises_broken": "KPI: prekršena obećanja",
+      "disputed": "KPI: sporno",
+      "open_cases": "KPI: otvoreni case-ovi",
+      "collected_30": "KPI: naplaćeno 30 d",
+      "collection_rate": "KPI: stopa naplate"
+    },
+    "added": "Widget je dodat.",
+    "saved": "Sačuvano.",
+    "removed": "Widget je uklonjen.",
+    "remove": "Ukloni",
+    "up": "Pomeri gore",
+    "down": "Pomeri dole",
+    "size": "Širina",
+    "sizes": {
+      "3": "četvrtina",
+      "4": "trećina",
+      "6": "polovina",
+      "8": "dve trećine",
+      "12": "cela širina"
+    },
+    "emptyTitle": "Ovaj dashboard je prazan",
+    "emptyDescription": "Kliknite „Uredi“ → „Dodaj widget“ i izaberite izveštaj ili gotov widget."
+  },
+  "signup": {
+    "title": "Probajte 7 dana",
+    "description": "Sandbox sa demo kupcima i fakturama — ništa ne instalirate i ne uvozite. Pozivnicu dobijate e-mailom.",
+    "company": "Kompanija",
+    "name": "Vaše ime",
+    "email": "Poslovni e-mail",
+    "country": "Zemlja",
+    "language": "Jezik",
+    "languages": {
+      "sr": "Srpski",
+      "en": "Engleski"
+    },
+    "website": "Ostavite prazno",
+    "sandboxNote": "Sandbox ne šalje e-mail van aplikacije i briše se 14 dana od početka. Pravi podaci idu u probni period.",
+    "submit": "Napravi moj sandbox",
+    "done": "Hvala. Ako je adresa ispravna, pozivnica je na putu — proverite sanduče (i spam)."
+  },
+  "package": {
+    "title": "Podaci za {tenant}",
+    "description": "Pošaljite nam ono što je navedeno ispod — fajlovi se odmah šifruju i otvara ih samo naš tim za implementaciju. Link važi 72 sata.",
+    "invalidTitle": "Link nije važeći",
+    "invalidDescription": "Istekao je ili nije ispravan. Zatražite novi od osobe koja vodi implementaciju.",
+    "neededTitle": "Šta nam treba",
+    "needed": {
+      "invoices": {
+        "title": "Otvorene fakture",
+        "example": "CSV/XLSX iz ERP-a: broj fakture, datum, dospeće, iznos, otvoreno, PIB i naziv kupca."
+      },
+      "customers": {
+        "title": "Kupci",
+        "example": "PIB, naziv, adresa, rok plaćanja, vlasnik kupca (naplatar)."
+      },
+      "contacts": {
+        "title": "Kontakti za naplatu",
+        "example": "Ime, e-mail i telefon osobe koja plaća kod svakog kupca."
+      },
+      "payments": {
+        "title": "Skorašnje uplate (opciono)",
+        "example": "Izvod banke za poslednja 3 meseca."
+      },
+      "templates": {
+        "title": "Vaši podsetnici (opciono)",
+        "example": "Tekstovi podsetnika i opomena koje danas šaljete."
+      },
+      "policy": {
+        "title": "Vaša politika naplate",
+        "example": "Odgovorite na 10 pitanja ispod — iz njih predlažemo pravila."
+      }
+    },
+    "filesTitle": "Fajlovi",
+    "filesHint": "CSV ili XLSX, najviše 20 fajlova. Primljeno do sada: {n}.",
+    "questionsTitle": "Politika naplate — 10 pitanja",
+    "send": "Pošalji odgovore",
+    "answered": "Odgovori su primljeni — hvala.",
+    "proposal": "Hvala. Naš predlog: politika „{policy}\" — proći ćemo je zajedno.",
+    "policies": {
+      "friendly": "Blaga",
+      "standard": "Standardna",
+      "strict": "Stroga",
+      "agro_seasonal": "Agro-sezonska"
+    },
+    "outcomes": {
+      "invalid": "Slanje nije prihvaćeno — osvežite stranicu i pokušajte ponovo.",
+      "too_many_files": "Najviše 20 fajlova po paketu.",
+      "file_too_large": "Fajl je prevelik (najviše 5 MB).",
+      "file_unreadable": "Fajl ne može da se pročita — sačuvajte ga kao CSV (UTF-8) ili XLSX.",
+      "no_valid_rows": "Fajl nema redova."
+    },
+    "questions": {
+      "payment_terms": {
+        "q": "Uobičajen rok plaćanja (dana)?",
+        "a": {
+          "15": "15",
+          "30": "30",
+          "60": "60",
+          "90": "90"
+        }
+      },
+      "reminder_before_due": {
+        "q": "Podsetnik pre dospeća?",
+        "a": {
+          "yes": "da",
+          "no": "ne"
+        }
+      },
+      "first_reminder": {
+        "q": "Prvi podsetnik posle dospeća?",
+        "a": {
+          "d1": "posle 1 dana",
+          "d7": "posle 7 dana",
+          "d15": "posle 15 dana"
+        }
+      },
+      "tone": {
+        "q": "Ton podsetnika?",
+        "a": {
+          "friendly": "blag",
+          "neutral": "neutralan",
+          "firm": "odlučan"
+        }
+      },
+      "phone_followup": {
+        "q": "Pozivi telefonom posle podsetnika?",
+        "a": {
+          "yes": "da",
+          "no": "ne"
+        }
+      },
+      "escalation": {
+        "q": "Eskalacija menadžeru posle?",
+        "a": {
+          "d15": "15 dana",
+          "d30": "30 dana",
+          "d60": "60 dana",
+          "d90": "90 dana"
+        }
+      },
+      "legal_handover": {
+        "q": "Predaja pravnoj službi posle?",
+        "a": {
+          "d30": "30 dana",
+          "d60": "60 dana",
+          "d90": "90 dana",
+          "never": "nikad automatski"
+        }
+      },
+      "seasonal": {
+        "q": "Da li kupci plaćaju sezonski (npr. posle žetve)?",
+        "a": {
+          "yes": "da",
+          "no": "ne"
+        }
+      },
+      "natural_persons": {
+        "q": "Prodajete li fizičkim licima?",
+        "a": {
+          "yes": "da",
+          "no": "ne"
+        }
+      },
+      "disputes_common": {
+        "q": "Da li su sporovi oko faktura česti?",
+        "a": {
+          "yes": "da",
+          "no": "ne"
+        }
+      }
+    }
+  },
+  "platform": {
+    "title": "Tenanti",
+    "description": "Nalozi klijenata: status, probni period, korisnici i poslednja aktivnost. Poslovni podaci se ovde nikad ne prikazuju.",
+    "detailDescription": "Nalog {slug}",
+    "lifecycle": {
+      "sandbox": "Demo",
+      "trial": "Probni period",
+      "active": "Aktivan",
+      "suspended": "Suspendovan"
+    },
+    "until": "do {date}",
+    "contract": "ugovor potpisan",
+    "users": "{n, plural, one {# korisnik} few {# korisnika} other {# korisnika}}",
+    "lastActivity": "poslednja aktivnost {date}",
+    "new": "Novi tenant",
+    "create": "Napravi i pozovi vlasnika",
+    "created": "Tenant je napravljen; vlasnik je dobio pozivnicu.",
+    "saved": "Sačuvano.",
+    "fields": {
+      "name": "Naziv",
+      "slug": "Kratko ime (slug)",
+      "companyName": "Pravni naziv firme",
+      "companyTaxId": "PIB",
+      "country": "Zemlja (ISO)",
+      "locale": "Jezik",
+      "timezone": "Vremenska zona",
+      "currency": "Valuta",
+      "policy": "Politika naplate",
+      "lifecycle": "Status",
+      "trialDays": "Dana probnog perioda",
+      "isDemo": "Demo nalog (mejl samo u test sanduče)",
+      "ownerName": "Ime vlasnika",
+      "ownerEmail": "Mejl vlasnika"
+    },
+    "locales": {
+      "sr": "Srpski (latinica)",
+      "en": "Engleski"
+    },
+    "policies": {
+      "standard": "Standardna",
+      "friendly": "Blaga",
+      "strict": "Stroga"
+    },
+    "lifecycleTitle": "Status",
+    "toTrial": "Pretvori u probni period (14 dana)",
+    "activate": "Aktiviraj",
+    "contractSigned": "Ugovor potpisan",
+    "suspend": "Suspenduj",
+    "trackerTitle": "Implementacija",
+    "slaNotStarted": "Rok od 3 dana počinje kad stignu podaci.",
+    "slaHours": "{hours} h od prijema podataka (cilj 72 h).",
+    "steps": {
+      "data_received": "Podaci stigli",
+      "import_done": "Uvoz",
+      "mailbox_done": "Sanduče",
+      "bank_done": "Banka",
+      "rules_done": "Pravila",
+      "training_done": "Obuka",
+      "go_live": "Puštanje u rad"
+    },
+    "packageLink": "Novi link za paket podataka (72 h)",
+    "flagsTitle": "Funkcije",
+    "noFlags": "Nema funkcija za uključivanje.",
+    "platformOff": "isključeno za celu platformu"
+  },
+  "library": {
+    "title": "Biblioteke",
+    "description": "Gotove politike i šabloni — jedan klik, pa prilagodite ako želite.",
+    "policies": {
+      "title": "Politike naplate",
+      "description": "Primena politike dodaje pravila kao nacrte; počinju da rade tek posle odobrenja u Pravilima.",
+      "proposal": "Predlog iz vašeg upitnika: {name}",
+      "apply": "Primeni kao nacrte",
+      "applied": "Pravila su dodata kao nacrti. Pregledajte ih i objavite u Pravilima.",
+      "names": {
+        "friendly": "Blaga",
+        "standard": "Standardna",
+        "strict": "Stroga",
+        "agro_seasonal": "Agro-sezonska"
+      },
+      "summaries": {
+        "friendly": "Podsetnik 3 radna dana pre dospeća, D+7, poziv D+21, eskalacija D+45.",
+        "standard": "Podsetnik 7 radnih dana pre dospeća, D+1, D+7 sa case-om, poziv D+14, eskalacija D+30, opomena pravnim licima D+60.",
+        "strict": "Podsetnik pre dospeća, D+1 sa case-om, poziv D+5, eskalacija D+15, opomena pravnim licima D+30.",
+        "agro_seasonal": "Za kupce koji plaćaju posle žetve: podsetnik 14 dana pre dospeća, D+15, poziv D+45, eskalacija posle sezone (D+90)."
+      }
+    },
+    "imports": {
+      "title": "Šablon za uvoz faktura",
+      "description": "Kolone koje uvoz sam prepoznaje, sa jednim redom primera. Radi i izvoz iz vašeg ERP-a — uvoz jednom nauči njegove kolone.",
+      "download": "Preuzmi šablon (CSV)"
+    },
+    "pack": {
+      "title": "Paket podešavanja",
+      "description": "Politike, pravila, šabloni, polja, izveštaji i dashboardi u jednom fajlu — bez lozinki, ključeva i poslovnih podataka. Uvoz samo dodaje ono što nedostaje; pravila stižu kao nacrti.",
+      "export": "Preuzmi paket podešavanja",
+      "import": "Uvezi paket podešavanja…",
+      "invalid": "Ovaj fajl nije paket podešavanja.",
+      "imported": "Dodato: {added}. Već postoji (preskočeno): {skipped}."
     }
   }
 }

@@ -29,4 +29,13 @@
   --color-status-danger-bg: #fce8e6;
   --color-status-info-fg: #4e2683;
   --color-status-info-bg: #eee8f5;
+
+  /* Charts (6.2): series 1 purple, 2 green, 3 grey, then lighter steps. Never red for neutral
+     data — red stays a status (danger). */
+  --color-chart-1: #4e2683;
+  --color-chart-2: #006633;
+  --color-chart-3: #8a948e;
+  --color-chart-4: #9b7fc4;
+  --color-chart-5: #5fa37f;
+  --color-chart-6: #c4cbc6;
 }

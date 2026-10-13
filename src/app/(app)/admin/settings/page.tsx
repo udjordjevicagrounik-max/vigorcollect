@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { getLocale, getTranslations } from 'next-intl/server';
 import { ConfigurationAdmin } from '@/components/admin/configuration-admin';
 import { ForbiddenState } from '@/components/admin/forbidden-state';
@@ -58,6 +59,20 @@ export default async function TenantSettingsPage() {
   return (
     <Screen mobileClass="mobile-full">
       <PageHeader title={t('title')} description={t('description')} />
+      <Link
+        href="/admin/settings/fields"
+        className="mb-4 inline-flex min-h-11 items-center text-sm font-medium text-brand-purple underline"
+        data-settings-fields
+      >
+        {t('fieldsLink')}
+      </Link>
+      <Link
+        href="/admin/settings/library"
+        className="mb-4 ml-4 inline-flex min-h-11 items-center text-sm font-medium text-brand-purple underline"
+        data-settings-library
+      >
+        {t('libraryLink')}
+      </Link>
       <SettingsForm {...data} timezones={TIMEZONES} currencies={CURRENCIES} />
       <ConfigurationAdmin {...config} />
     </Screen>

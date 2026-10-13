@@ -321,6 +321,42 @@ describe('golden/db: the real worker (pg-boss) end to end', () => {
       await worker.stop();
     }
   }, 40_000);
+
+  // Regression (6.4 e2e): one event per 2 s poll let a backlog delay imports by minutes. Now a
+  // batch is processed in order and settled per job — a failing event retries alone.
+  it('a backlog drains in batches; a failing event does not hold back the others', async () => {
+    const order: string[] = [];
+    const worker = await startWorker(
+      {
+        workerUrl: process.env.TEST_WORKER_DATABASE_URL ?? '',
+        appUrl: process.env.TEST_DATABASE_URL ?? '',
+      },
+      {
+        'golden.batch_ok': async (_ctx, event) => {
+          order.push(event.id);
+        },
+        'golden.batch_fail': async () => {
+          throw new Error('golden failure');
+        },
+      },
+    );
+    try {
+      const failing = await insertEvent(T.tenantJ, 'golden.batch_fail');
+      const ok: string[] = [];
+      for (let i = 0; i < 12; i += 1) ok.push(await insertEvent(T.tenantJ, 'golden.batch_ok'));
+      const started = Date.now();
+      const deadline = started + 20_000;
+      while (Date.now() < deadline && order.length < ok.length) {
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      expect(order.sort()).toEqual([...ok].sort());
+      // 13 events at one per 2 s poll took ~26 s; batches with burst finish well within 15 s.
+      expect(Date.now() - started).toBeLessThan(15_000);
+      expect((await eventState(T.tenantJ, failing))?.status).not.toBe('processed');
+    } finally {
+      await worker.stop();
+    }
+  }, 40_000);
 });
 
 // Review S-05: job_health() was SECURITY DEFINER owned by vigor_migrate and read pgboss.job,

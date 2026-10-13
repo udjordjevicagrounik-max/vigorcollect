@@ -4,6 +4,8 @@ import { ForbiddenState } from '@/components/admin/forbidden-state';
 import { PageHeader } from '@/components/admin/page-header';
 import { BulkBar } from '@/components/receivables/bulk-bar';
 import { ExportButton } from '@/components/reports/export-button';
+import { CustomFieldFilters } from '@/components/custom-fields/filter-inputs';
+import { ColumnPicker } from '@/components/custom-fields/list-controls';
 import { SavedFilters } from '@/components/receivables/saved-filters';
 import { RiskBadge } from '@/components/risk/risk-badge';
 import { Screen } from '@/components/shell/screen';
@@ -11,6 +13,7 @@ import { formatAmount, isZeroAmount } from '@/lib/format-amount';
 import { PermissionDeniedError, permissionKeys } from '@/server/auth/permissions';
 import { withTenantPage } from '@/server/auth/with-tenant';
 import { bulkOptions } from '@/server/bulk/service';
+import { listColumns, listColumnValues, listDefinitions } from '@/server/custom-fields/service';
 import {
   codeLabels,
   customerListQuery,
@@ -42,14 +45,35 @@ export default async function CustomersPage({
   const locale = await getLocale();
   let data;
   try {
-    data = await withTenantPage(async (ctx) => ({
-      customers: await listReceivableCustomers(ctx, query),
-      saved: await listSavedFilters(ctx),
-      behaviours: await codeLabels(ctx, 'payment_behaviour', locale),
-      bulk: await bulkOptions(ctx, 'customers'),
-      policies: await codeLabels(ctx, 'collection_policy', locale),
-      canExport: (await permissionKeys(ctx.db, ctx.userId)).has('customer.export'),
-    }));
+    data = await withTenantPage(async (ctx) => {
+      const rows = await listReceivableCustomers(ctx, query);
+      const columns = await listColumns(ctx, 'customers', locale);
+      const values = await listColumnValues(
+        ctx,
+        'customer',
+        columns.map((d) => d.id),
+        rows.map((r) => r.id),
+      );
+      return {
+        customers: rows,
+        cfValues: Object.fromEntries(values),
+        saved: await listSavedFilters(ctx),
+        behaviours: await codeLabels(ctx, 'payment_behaviour', locale),
+        bulk: await bulkOptions(ctx, 'customers'),
+        policies: await codeLabels(ctx, 'collection_policy', locale),
+        ...(await (async () => {
+          const defs = await listDefinitions(ctx, { entityType: 'customer', locale });
+          return {
+            cfFilterable: defs.filter((d) => d.filterable),
+            cfAll: defs
+              .filter((d) => d.piiClass === 'P0')
+              .map((d) => ({ id: d.id, label: d.label })),
+            cfColumns: columns.map((d) => ({ id: d.id, label: d.label })),
+          };
+        })()),
+        canExport: (await permissionKeys(ctx.db, ctx.userId)).has('customer.export'),
+      };
+    });
   } catch (error) {
     if (error instanceof PermissionDeniedError) return <ForbiddenState />;
     throw error;
@@ -114,6 +138,7 @@ export default async function CustomersPage({
           />
           {t('onlyMine')}
         </label>
+        <CustomFieldFilters fields={data.cfFilterable} values={raw} />
         <button
           type="submit"
           className="min-h-11 rounded-md bg-brand-green px-4 font-medium text-surface hover:bg-brand-green-deep"
@@ -122,6 +147,7 @@ export default async function CustomersPage({
         </button>
       </form>
       <SavedFilters current={query} saved={data.saved} />
+      <ColumnPicker listKey={ENTITY} fields={data.cfAll} chosen={data.cfColumns.map((c) => c.id)} />
       {data.customers.length > 0 ? (
         <BulkBar
           entity={ENTITY}
@@ -206,6 +232,11 @@ export default async function CustomersPage({
                   <th className="p-3 font-medium">{t('columns.behaviour')}</th>
                   <th className="p-3 font-medium">{t('columns.status')}</th>
                   <th className="p-3 font-medium">{t('columns.owner')}</th>
+                  {data.cfColumns.map((col) => (
+                    <th key={col.id} className="p-3 font-medium" data-cf-column={col.id}>
+                      {col.label}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
@@ -250,6 +281,11 @@ export default async function CustomersPage({
                       {t(`statuses.${c.status as (typeof STATUSES)[number]}`)}
                     </td>
                     <td className="p-3">{c.ownerName ?? t('noOwner')}</td>
+                    {data.cfColumns.map((col) => (
+                      <td key={col.id} className="p-3">
+                        {data.cfValues[c.id]?.[col.id] ?? '—'}
+                      </td>
+                    ))}
                   </tr>
                 ))}
               </tbody>
