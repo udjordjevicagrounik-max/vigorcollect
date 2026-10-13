@@ -366,8 +366,12 @@ Provera: `SELECT rolname, rolsuper, rolbypassrls FROM pg_roles WHERE rolname LIK
 
 ## Deploy
 
-`docker compose up -d app` — nikad `restart` (diže stari image).
-Posle deploya: smoke (`/health` 200 + `X-App-Version` = očekivani tag).
+`./scripts/deploy.sh` — build + start `app worker renderer` sa `APP_VERSION=$(git rev-parse --short HEAD)`
+(necommit-ovane izmene → `<rev>-dirty`), čeka `/health` i ispisuje `X-App-Version`. Samo neki
+servisi: `./scripts/deploy.sh app`. Nikad `docker compose restart` (diže stari image), nikad build
+bez `APP_VERSION` (zaglavlje bi bilo `dev` i ne bi se videlo koji commit radi). Migracije su
+poseban korak PRE deploya (`./scripts/migrate.sh up`).
+Posle deploya: smoke (`/health` 200 + `X-App-Version` = očekivani commit / tag).
 
 ### Release checklist (pravilo 23; dopunjuje se kroz 1.7)
 
@@ -481,8 +485,8 @@ Posle deploya: smoke (`/health` 200 + `X-App-Version` = očekivani tag).
   Očekivano: `HTTP/2 200` i `x-app-version`. Ako je druga mašina, domen u kopiji zameniti `DOMAIN`
   iz `/opt/app/.env`.
 
-- **Pokretanje aplikacije:** `cd /srv/vigor-collect && docker compose up -d app worker` (nikad
-  `restart`).
+- **Pokretanje aplikacije:** `cd /srv/vigor-collect && ./scripts/deploy.sh` (verzija = git commit
+  u `X-App-Version`; nikad `restart`). Provera: `curl -sI https://<domen>/health | grep -i x-app-version`.
 - **Deljenje linka:** NE dok `.env` nema prave Turnstile ključeve (NEXT.md, rizik).
 
 ## GitHub

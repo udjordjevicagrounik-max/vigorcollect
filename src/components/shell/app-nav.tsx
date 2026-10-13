@@ -7,6 +7,7 @@ type NavItemKey =
   | 'home'
   | 'customers'
   | 'invoices'
+  | 'disputes'
   | 'reports'
   | 'import'
   | 'users'
@@ -16,6 +17,7 @@ type NavItemKey =
   | 'integrations'
   | 'approvals'
   | 'tenantSettings'
+  | 'fields'
   | 'systemStatus'
   | 'platform';
 /** `anyOf` empty = every member; otherwise the item exists only with one of those permissions. */
@@ -31,6 +33,9 @@ const NAV_GROUPS: NavGroup[] = [
       { key: 'home', href: '/', anyOf: [] },
       { key: 'customers', href: '/customers', anyOf: ['customer.read'] },
       { key: 'invoices', href: '/invoices', anyOf: ['invoice.read'] },
+      // Disputes are the invoice list filtered to disputed ones (everyone with dispute.read
+      // also holds invoice.read — docs/permissions.md).
+      { key: 'disputes', href: '/invoices?disputed=only', anyOf: ['dispute.read'] },
       { key: 'reports', href: '/reports', anyOf: ['report.read'] },
       { key: 'import', href: '/import', anyOf: ['import.read', 'import.create'] },
     ],
@@ -57,6 +62,7 @@ const NAV_GROUPS: NavGroup[] = [
         ],
       },
       { key: 'tenantSettings', href: '/admin/settings', anyOf: ['settings.read'] },
+      { key: 'fields', href: '/admin/settings/fields', anyOf: ['settings.read'] },
       { key: 'systemStatus', href: '/admin/status', anyOf: ['settings.read'] },
       // 6.4: only the platform operator's owners hold platform.manage (tenant #0).
       { key: 'platform', href: '/platform/tenants', anyOf: ['platform.manage'] },
