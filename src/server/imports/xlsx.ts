@@ -7,7 +7,9 @@ import { inflateRawSync } from 'node:zlib';
  *
  * Scope: ZIP (stored / deflate, no ZIP64, no encryption), shared + inline strings, numbers,
  * booleans, formula results (cached <v>). Dates stay Excel serial numbers ("45567"); the row
- * validator understands them. Hard limits guard against zip bombs and huge sheets.
+ * validator understands them. Hard limits guard against zip bombs and huge sheets: at most
+ * MAX_COLUMNS columns (the mapping addresses 0..199) and a linear scanner instead of lazy regexes
+ * over the whole sheet — an unclosed element is `corrupt`, never a quadratic search (review S-12).
  */
 
 export class XlsxError extends Error {
@@ -18,6 +20,8 @@ export class XlsxError extends Error {
 }
 
 const MAX_ENTRY_BYTES = 64 * 1024 * 1024;
+/** Columns 0..199 can be mapped (rows.ts); anything wider is refused before a cell is padded. */
+export const MAX_COLUMNS = 200;
 
 type Entry = { method: number; compressedSize: number; size: number; offset: number };
 
@@ -84,15 +88,52 @@ export function decodeXml(text: string): string {
 
 /** Text of an <si> / <is> node: plain <t> or rich-text runs <r><t>, phonetic <rPh> ignored. */
 function richText(node: string): string {
-  const clean = node.replace(/<rPh\b[\s\S]*?<\/rPh>/g, '');
-  return [...clean.matchAll(/<t(?:\s[^>]*)?>([\s\S]*?)<\/t>|<t(?:\s[^>]*)?\/>/g)]
-    .map((m) => decodeXml(m[1] ?? ''))
-    .join('');
+  const parts: string[] = [];
+  let from = 0;
+  for (let i = node.indexOf('<rPh'); i >= 0; i = node.indexOf('<rPh', from)) {
+    const stop = node.indexOf('</rPh>', i);
+    if (stop < 0) throw new XlsxError('corrupt');
+    parts.push(node.slice(from, i));
+    from = stop + '</rPh>'.length;
+  }
+  parts.push(node.slice(from));
+  return [...elements(parts.join(''), 't')].map((m) => decodeXml(m.body)).join('');
+}
+
+type Element = { attrs: string; body: string };
+
+/**
+ * Every <tag …>…</tag> / <tag …/> in `xml`, in order, in ONE pass (indexOf, no backtracking).
+ * The tag must not nest in itself (row, c, si). An element that is opened and never closed makes
+ * the file `corrupt`.
+ */
+function* elements(xml: string, tag: string): Generator<Element> {
+  const open = `<${tag}`;
+  const close = `</${tag}>`;
+  let i = xml.indexOf(open);
+  while (i >= 0) {
+    const after = xml.charAt(i + open.length);
+    if (after !== '>' && after !== '/' && !/\s/.test(after)) {
+      i = xml.indexOf(open, i + open.length); // <rowBreaks>, <cols> … — another tag
+      continue;
+    }
+    const end = xml.indexOf('>', i + open.length);
+    if (end < 0) throw new XlsxError('corrupt');
+    if (xml.charAt(end - 1) === '/') {
+      yield { attrs: xml.slice(i + open.length, end - 1), body: '' };
+      i = xml.indexOf(open, end + 1);
+      continue;
+    }
+    const stop = xml.indexOf(close, end + 1);
+    if (stop < 0) throw new XlsxError('corrupt');
+    yield { attrs: xml.slice(i + open.length, end), body: xml.slice(end + 1, stop) };
+    i = xml.indexOf(open, stop + close.length);
+  }
 }
 
 function sharedStrings(xml: string | null): string[] {
   if (!xml) return [];
-  return [...xml.matchAll(/<si>([\s\S]*?)<\/si>|<si\/>/g)].map((m) => richText(m[1] ?? ''));
+  return [...elements(xml, 'si')].map((m) => richText(m.body));
 }
 
 function firstSheetPath(entries: Map<string, Entry>, zip: Buffer): string {
@@ -110,9 +151,8 @@ function firstSheetPath(entries: Map<string, Entry>, zip: Buffer): string {
   throw new XlsxError('no_sheet');
 }
 
-/** "AB12" → zero-based column 27. */
-function columnIndex(ref: string): number {
-  const letters = /^([A-Z]+)/.exec(ref)?.[1] ?? '';
+/** "AB" → zero-based column 27. */
+function columnIndex(letters: string): number {
   let n = 0;
   for (const ch of letters) n = n * 26 + (ch.charCodeAt(0) - 64);
   return n - 1;
@@ -129,17 +169,19 @@ export function readXlsx(file: Buffer, maxRows: number): Grid {
   if (!sheet) throw new XlsxError('no_sheet');
 
   const grid: Grid = [];
-  for (const row of sheet.matchAll(/<row\b([^>]*)>([\s\S]*?)<\/row>|<row\b([^>]*)\/>/g)) {
-    const attrs = row[1] ?? row[3] ?? '';
+  for (const row of elements(sheet, 'row')) {
+    const attrs = row.attrs;
     const rowNumber = Number.parseInt(/\br="(\d+)"/.exec(attrs)?.[1] ?? `${grid.length + 1}`, 10);
     if (rowNumber > maxRows + 1) throw new XlsxError('too_large');
     const cells: string[] = [];
     let next = 0;
-    for (const cell of (row[2] ?? '').matchAll(/<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)) {
-      const cAttrs = cell[1] ?? '';
-      const body = cell[2] ?? '';
-      const ref = /\br="([A-Z]+\d+)"/.exec(cAttrs)?.[1];
+    for (const cell of elements(row.body, 'c')) {
+      const cAttrs = cell.attrs;
+      const body = cell.body;
+      const ref = /\br="([A-Z]+)\d+"/.exec(cAttrs)?.[1];
+      if (ref && ref.length > 3) throw new XlsxError('too_large'); // beyond XFD — never padded
       const col = ref ? columnIndex(ref) : next;
+      if (col >= MAX_COLUMNS) throw new XlsxError('too_large');
       next = col + 1;
       const type = /\bt="(\w+)"/.exec(cAttrs)?.[1] ?? 'n';
       const v = /<v>([\s\S]*?)<\/v>/.exec(body)?.[1];

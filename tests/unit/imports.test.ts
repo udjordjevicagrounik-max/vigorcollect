@@ -50,6 +50,37 @@ describe('imports: XLSX without floats', () => {
     const big = buildXlsx([['h'], ['1'], ['2'], ['3']]);
     expect(() => readXlsx(big, 2)).toThrow('too_large');
   });
+
+  // Review S-12: an unbounded column reference padded every row up to that column (OOM).
+  it('refuses a cell beyond the mappable columns before padding the row', () => {
+    const sheet = (ref: string) =>
+      buildXlsx([], {
+        sheetXml: `<worksheet><sheetData><row r="1"><c r="${ref}"><v>1</v></c></row></sheetData></worksheet>`,
+      });
+    expect(readXlsx(sheet('GR1'), 10)).toEqual([[...Array<string>(199).fill(''), '1']]); // col 199
+    expect(() => readXlsx(sheet('GS1'), 10)).toThrow('too_large'); // col 200
+    expect(() => readXlsx(sheet('XFE1'), 10)).toThrow('too_large');
+    expect(() => readXlsx(sheet('ZZZZZZ1'), 10)).toThrow('too_large');
+  });
+
+  // Review S-12: lazy regexes over unclosed elements were quadratic (event loop blocked).
+  it('rejects unclosed rows in linear time', () => {
+    const file = buildXlsx([], {
+      sheetXml: `<worksheet><sheetData>${'<row r="1"><c r="A1"><v>1</v></c>'.repeat(50_000)}</sheetData></worksheet>`,
+    });
+    const started = Date.now();
+    expect(() => readXlsx(file, 100_000)).toThrow('corrupt');
+    expect(Date.now() - started).toBeLessThan(1000);
+  });
+
+  it('skips look-alike tags such as <rowBreaks>', () => {
+    const file = buildXlsx([], {
+      sheetXml:
+        '<worksheet><sheetData><row r="1"><c r="B1" t="inlineStr"><is><t>x</t></is></c></row></sheetData>' +
+        '<rowBreaks count="0"/></worksheet>',
+    });
+    expect(readXlsx(file, 10)).toEqual([['', 'x']]);
+  });
 });
 
 describe('imports: normalization', () => {
