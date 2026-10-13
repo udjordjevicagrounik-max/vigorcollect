@@ -362,6 +362,11 @@ Posle deploya: smoke (`/health` 200 + `X-App-Version` = očekivani tag).
   ceo domen na `172.17.0.1:13000` (compose servis `app`). `BETTER_AUTH_URL` u `.env` = taj URL.
 - **Iframe:** aplikacija namerno šalje `X-Frame-Options: DENY` + `frame-ancestors 'none'` (ADR 0006,
   odluka (a) 2026-10-12) — Vibecoder preview panel je ne prikazuje; otvarati u posebnom tabu.
+- **Klijentski IP (S-07):** nginx DODAJE adresu klijenta na kraj `X-Forwarded-For`
+  (`$proxy_add_x_forwarded_for`); aplikacija uzima unos `TRUSTED_PROXY_HOPS` mesta od kraja
+  (podrazumevano 1 = samo ovaj nginx). Ako se ispred doda Cloudflare ili drugi proxy koji takođe
+  dodaje XFF, povećati `TRUSTED_PROXY_HOPS` (npr. 2) u `.env` / Elestio panelu, inače svi dele
+  jedan IP ili se uzima adresa proksija.
 - **Konfiguracija proksija** nije ni u jednom git-u: živi fajl je
   `/opt/elestio/nginx/conf.d/vigorcollect-u57586.vm.elestio.app.conf`; kopija je u
   `docs/ops/nginx-preview.conf`. **Vraćanje** (novi server ili izgubljen fajl) — izmeniti POSTOJEĆI

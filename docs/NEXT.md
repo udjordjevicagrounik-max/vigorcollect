@@ -16,66 +16,68 @@ istorijom) i sve lokalne backup kopije. Redom:
 
 ## Aktivan zadatak
 
-**Sprint 4 zatvoren (4.1 → 4.2 → 4.3, `feature/sprint-4` → `develop`).** Sledeće:
+**5.0 — ispravke iz security review-a 2026-10-13 urađene (`feature/security-fixes`).** Sledeće,
+redom:
 
-1. **AI sloj predloga** (pravilo 22): `ai_suggestion` sa statusom, `src/server/ai/adapter`,
-   `ai_runs` (tokeni, cena), `redaction_level` po tenantu; ulazi su i primljena pošta (nepouzdan
-   ulaz — zaseban blok, nikad instrukcija) i objašnjenja rizika; upis samo kroz iste servise kao
-   ručna akcija (maker-checker, pravilo 19).
-2. **Izveštaji:** naplata, DSO trend, aging po vremenu, efikasnost pravila, isporučivost pošte;
-   izvoz samo kroz exportService.
-3. Iz ranijih: security review Sprint 1–4, P1 GitHub (gore).
+1. **Uroš, pre deploya na staging (blokirajuće):** `scripts/create-service-roles.sh` sa
+   `RENDERER_DB_PASSWORD` (rola `vigor_renderer`) PRE migracije 021; age par za backup van chata
+   (runbook „Šifrovanje backup-a") → `BACKUP_AGE_RECIPIENT` (worker) i `BACKUP_AGE_IDENTITY`
+   (samo servis `restore-test`); host cron `docker compose --profile ops run --rm restore-test`
+   nedeljom 03:00 UTC; pravi Turnstile ključevi (S-08); migracije kroz
+   `docker compose --profile ops run --rm --build migrate up`.
+2. **Sprint 5 security** (BACKLOG „Iz security review-a"): P3 auth / tenant / webhook (S-13, S-14,
+   S-15, S-17, S-18 ostatak, S-19, S-20, S-22, S-27) + rola `vigor_auth` (S-03 ostatak).
+3. Zatim AI sloj predloga i izveštaji (ranije „Aktivan zadatak", nepromenjeno).
 
-## Poslednja sesija — lanac Sprint 4 (2026-10-13)
+## Poslednja sesija — 5.0 ispravke iz security review-a (2026-10-13)
 
-Odluke Uroša: pošta preko n8n-a (Google Workspace, Microsoft 365, IMAP/SMTP) — n8n poziva naš API
-i webhook-ove, UI je kod nas; SEF ostaje CSV iz ERP-a; CheckPoint probni ključ (env, Uroš
-upisuje); APR i NBS javni podaci kao dodatni izvori; bez novih npm paketa.
+Izveštaj: `docs/security-review-2026-10-13.md` (59 nalaza, 0 P1, 12 P2). Odluke Uroša u zadatku
+5.0; bez novih npm paketa; apt `age` u worker stage-u odobren.
 
-### Urađeno
+### Urađeno (P2 → commit → regresioni test koji pada na starom kodu)
 
-- **4.1 `c8263ec`** (+ predlog 018, `auth/with-tenant.ts`, `auth/audit.ts`): integracije, šifrovane
-  tajne (prikaz jednom), `external_records`, `sync_runs`; inbound webhook (HMAC nad sirovim
-  telom, ±5 min, exactly-once, 202 + worker, dead letter + „pokušaj ponovo"); outbound događaji
-  (potpisan POST, backoff 1 min → 12 h, demo = sink); API ključevi (heš, scope = dozvole kreatora
-  bez checker dozvola, rate limit, opoziv, actor `api_key`); Administracija → Integracije;
-  `docs/integrations` + n8n šabloni.
-- **4.2 `c3849b4`** (+ predlog 019): primljena pošta (šifrovano, nepouzdan ulaz), uparivanje
-  (Message-ID → case, blind index → kupac, inače „Nepovezane poruke"), bounce → „Zahteva
-  pažnju", slanje kroz n8n sa Message-ID provajdera, Customer 360 → Komunikacija (neaktivni
-  linkovi, odgovor iz šablona ili slobodan tekst → aktivnost), pošta u hronologiji case-a.
-- **4.3 `9644373`** (+ predlog 020, compose): signali (interni + provajderi po zemlji), ocena sa
-  objašnjenjem, ponderi/pragovi u `tenant_settings`, provajderi checkpoint/apr/nbs (stub), predlog
-  kreditnog statusa → `decision.approve` (fizičko) / `customer.risk_override` (pravno), Customer
-  360 → Rizik, kolona Rizik, „Zahteva pažnju" za nov crveni, dnevni posao.
+- **S-12** `d2dc7bb` — XLSX: najviše 200 kolona, linearan skener (`tests/unit/imports.test.ts`).
+- **S-07** `7aa21d4` — `TRUSTED_PROXY_HOPS`, IP = `XFF[len − hops]`, proxy prepisuje
+  `x-client-ip`, Better Auth čita samo njega (`tests/unit/security.test.ts`, `auth-config`).
+- **S-05** `bc1b13a` — `job_health()` INVOKER omotač oko funkcije koju poseduje worker
+  (`worker.test.ts`: view umesto `pgboss.job` radi kao `vigor_worker`).
+- **S-09** `17e8b79` — claim commit-ovan pre POST-a (lease 10 min, `mail_outbox_claim`),
+  `Idempotency-Key`, transakcija po stavci; n8n šablon deduplikuje 7 dana (`dispatch-once.test.ts`).
+- **S-04 / S-10 / S-11** `f2a97e3` — servisi `renderer` (jedina tajna `RENDER_DATABASE_URL`,
+  read-only FS), `migrate` i `restore-test` (profil `ops`); backup šifrovan `age`-om bez podataka
+  `auth.session`/`auth.verification` (`containers.test.ts`, `renderer.test.ts`, `backup.test.ts`).
+- **S-06** `7b504f4` — drugi administrator za pozivnice/role owner/admin/cfo/collection_manager,
+  vođu tima i API ključ `ORGANIZATION`; bootstrap = tačno jedan aktivan admin (`four-eyes.test.ts`).
+- **S-01** `7a78beb` — `legal_entities_public` + column grant; ADR 0002 ispravka.
+- **S-02** `fabc652` — klasifikacija stranke u uvozu (`party_id_rules`, kolona „Fizičko lice"),
+  `review_required`, lista „Kupci za proveru" (`import-parties.test.ts`).
+- **S-03** `092f7bf` — `auth.*` nevidljiv u tenant transakciji, trigger za `activeTenantId`;
+  ADR 0004 dopuna (`auth-isolation.test.ts`).
+- Checklist + 3 oblasti, BACKLOG (P3/P4), `docs/security-review-input.md` iz skripte `c600ebe`.
+- Zaštićeno (Uroš, jedna `!` komanda): migracije 021–022, `docker-compose.yml`,
+  `src/server/auth/{better-auth,invitations,with-tenant}.ts`.
 
 ### Pretpostavke (najkonzervativnija opcija)
 
-1. **Zamene CHECK-a (nadskup, isto ime)** po obrascu 017/ADR 0003: `audit_log.actor_type` +
-   `api_key` (018); `mail_outbox` kind + `reply`, transport + `integration`, status + `bounced`,
-   `sent_at` ublažen za `bounced` (019). Zadatak ih eksplicitno traži; bez izmene redova.
-2. API ključ nije član: `ctx.userId` = id ključa; radnje koje traže osobu (aktivnost, zahtev za
-   odobrenje) ga odbijaju preko FK. Ključ dobija samo dozvole koje kreator ima, nikad checker.
-3. Webhook bez važećeg potpisa se **ne čuva** (inače bi zauzeo `external_event_id`);
-   `signature_ok` je zato uvek `true` (CHECK), a odbijanja su u logu.
-4. Jedna potpisna tajna po integraciji za oba smera; jedna aktivna mailbox integracija po tenantu.
-5. Naslov primljene pošte je **šifrovan** (zadatak kaže `subject`), jer može sadržati lične podatke.
-6. Prilozi: samo metapodaci (`mail_inbox.attachments`); `documents` ne prima druge vrste bez
-   proširenja CHECK-a — BACKLOG.
-7. Bounce: pošiljalac mailer-daemon/postmaster + citiran naš Message-ID; ili `mail.status` iz n8n-a.
-8. Adresa pošiljaoca i primaoca vidi se samo uz `contact.read`; admin (bez PII kontakata) u
-   „Nepovezanim porukama" vidi samo domen.
-9. **CheckPoint / APR / NBS su stub-ovi** (`unsupported`): API reference nisu dostupne; endpointi
-   nisu izmišljeni. Ocena radi na internim signalima; spoljni signal je „nema podatka".
-10. Prava izvora (pravilo 35): sva tri `may_redistribute = false`; CheckPoint retencija 365 dana
-    je pretpostavka do ugovora.
-11. Provajderi se pitaju samo za pravna lica (potrošač se ne proverava u registrima).
-12. Score: celobrojni poeni po pragovima, ponderisani prosek, zaokruživanje naviše od pola;
-    `inactivity_days` važi samo dok postoji dospeo dug; nikad kontaktiran = > 60 dana.
-13. `customers.credit_limit` je nov i prazan — signal izloženosti se ne računa dok se limit ne
-    unese (BACKLOG: maker-checker `approval.credit_limit`).
-14. Predlog kreditnog statusa: jedan otvoren po kupcu; `has_legal_effect` samo za crveni.
-15. Domenske sekcije 18–23 nisu pronađene u repou ni na disku — rađeno po tekstu zadatka.
+1. **S-07:** formula iz zadatka `len−1−hops` bi sa hops=1 uzela vrednost koju šalje klijent
+   (nginx dodaje adresu klijenta NA KRAJ); primenjeno `XFF[len − hops]` (0-based) — test sa lažnim
+   XFF-om to dokazuje.
+2. **S-03:** Better Auth 1.7.7 ne podržava heš tokena sesije (traži sesiju po čistom tokenu);
+   umesto heša `auth.*` je nevidljiv u svakoj tenant transakciji + trigger; `vigor_auth` → BACKLOG.
+3. **S-06:** privilegovane role tačno owner/admin/cfo/collection_manager (kao u zadatku);
+   finance_manager / legal_manager (nose `approval.*`) ostaju direktne → BACKLOG S-18 ostatak.
+   API ključ: obim `OWN` (ne vidi podatke pod scope-om) ili `ORGANIZATION`; postojeći ključevi
+   ostaju `ORGANIZATION` (bez prekida integracija) — pregledati posle deploya.
+4. **S-02:** zemlja bez pravila i red bez kolone „Fizičko lice" → `review_required` (ne uvozi
+   se); „ne" u koloni + broj bez pravila = pravno lice (fajl to tvrdi). Potrošač se ponovo
+   nalazi samo po šifri kupca iz ERP-a; bez nje → pregled. JMBG se nigde ne čuva.
+5. **S-10:** worker čeka renderer najviše 60 s, pa događaj ide na retry; e2e ne diže renderer
+   (PDF ostaje HTML pregled, kao ranije bez Chromium-a na hostu).
+6. **S-11:** restore test više nije posao worker-a (ključ nikad u worker-u) — host cron.
+7. **S-04:** `scripts/migrate.sh` čita `MIGRATE_DATABASE_URL` samo iz okruženja (više ne iz
+   `.env`); bez njega poziva servis `migrate` sa `--build`.
+8. Dev: `age` instaliran u dev kontejner (`setup-tools.sh`); `RENDERER_DB_PASSWORD` generisan u
+   lokalnom `.env` (nije ispisan) i rola napravljena u dev klasteru.
 
 ## Trajne odluke iz Sprinta 0–1
 
@@ -128,6 +130,14 @@ postoji samo šifrovano na `customers`. Ulazi u migraciju 003, aditivno.
 
 ## Rizik
 
+### Security (iz 5.0)
+
+- **Prvi deploy posle 5.0 traži ručne korake** (Aktivan zadatak 1) — bez `vigor_renderer` migracija
+  021 staje, bez `BACKUP_AGE_RECIPIENT` backup ne radi (alarm), bez identity-ja restore test pada.
+- **Gubitak age privatnog ključa = backup-i nečitljivi** — čuvati kao `PII_MASTER_KEYS`.
+- Renderer i dalje `--no-sandbox` (namerno), ali bez ijedne tajne i bez pristupa ičemu osim
+  `render_jobs`.
+
 ### Preview (dev) — od 2026-10-12
 
 - **Preview link se NE deli** dok `.env` nema prave Turnstile ključeve: aplikacija je javno
@@ -175,6 +185,9 @@ postoji samo šifrovano na `customers`. Ulazi u migraciju 003, aditivno.
 - `npm audit` u hook-u zavisi od mreže — offline commit neće proći.
 
 ## Istorija
+
+- **Lanac Sprint 4 (4.1–4.3)** (2026-10-13): `c8263ec`, `c3849b4`, `9644373`; `7bc32de` migracije
+  018–020 (Uroš); merge `6d3c6bb`. 15 pretpostavki: `git show c1bd4c2:docs/NEXT.md`.
 
 - **3.3 zatvaranje Sprinta 3** (2026-10-13): `8240d00`, `420f9cd`; `eed9198` migracija 017 +
   compose/Dockerfile (Uroš); merge `c5f1970`. 10 pretpostavki: `git show 420f9cd:docs/NEXT.md`.
