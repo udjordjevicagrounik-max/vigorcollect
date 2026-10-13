@@ -9,6 +9,7 @@ import {
   validateRows,
   type Mapping,
 } from '@/server/imports/rows';
+import { classifyParty, parseYesNo } from '@/server/imports/party';
 import { readXlsx, XlsxError } from '@/server/imports/xlsx';
 import { buildXlsx } from './fixtures/xlsx-builder';
 
@@ -49,6 +50,37 @@ describe('imports: XLSX without floats', () => {
     expect(() => readXlsx(Buffer.from('not a zip at all'), 10)).toThrow(XlsxError);
     const big = buildXlsx([['h'], ['1'], ['2'], ['3']]);
     expect(() => readXlsx(big, 2)).toThrow('too_large');
+  });
+
+  // Review S-12: an unbounded column reference padded every row up to that column (OOM).
+  it('refuses a cell beyond the mappable columns before padding the row', () => {
+    const sheet = (ref: string) =>
+      buildXlsx([], {
+        sheetXml: `<worksheet><sheetData><row r="1"><c r="${ref}"><v>1</v></c></row></sheetData></worksheet>`,
+      });
+    expect(readXlsx(sheet('GR1'), 10)).toEqual([[...Array<string>(199).fill(''), '1']]); // col 199
+    expect(() => readXlsx(sheet('GS1'), 10)).toThrow('too_large'); // col 200
+    expect(() => readXlsx(sheet('XFE1'), 10)).toThrow('too_large');
+    expect(() => readXlsx(sheet('ZZZZZZ1'), 10)).toThrow('too_large');
+  });
+
+  // Review S-12: lazy regexes over unclosed elements were quadratic (event loop blocked).
+  it('rejects unclosed rows in linear time', () => {
+    const file = buildXlsx([], {
+      sheetXml: `<worksheet><sheetData>${'<row r="1"><c r="A1"><v>1</v></c>'.repeat(50_000)}</sheetData></worksheet>`,
+    });
+    const started = Date.now();
+    expect(() => readXlsx(file, 100_000)).toThrow('corrupt');
+    expect(Date.now() - started).toBeLessThan(1000);
+  });
+
+  it('skips look-alike tags such as <rowBreaks>', () => {
+    const file = buildXlsx([], {
+      sheetXml:
+        '<worksheet><sheetData><row r="1"><c r="B1" t="inlineStr"><is><t>x</t></is></c></row></sheetData>' +
+        '<rowBreaks count="0"/></worksheet>',
+    });
+    expect(readXlsx(file, 10)).toEqual([['', 'x']]);
   });
 });
 
@@ -182,5 +214,34 @@ describe('imports: demo file (scripts/demo-import)', () => {
     const results = validateRows(grid, mapping, { currency: 'EUR', country: 'RS' });
     expect(results.filter((r) => !r.ok)).toEqual([]);
     expect(results).toHaveLength(40);
+  });
+});
+
+// Review S-02: who is the customer of a row — by the country rules and the optional column.
+describe('imports: party classification (natural persons never become companies)', () => {
+  const RS = { natural_person: '^[0-9]{13}$', company: '^[0-9]{9}$' };
+  it.each([
+    ['0101990710006', null, 'consumer'],
+    ['101234567', null, 'company'],
+    ['DEMO-1', null, 'uncertain'],
+    ['0101990710006', false, 'uncertain'], // "not a natural person" with a personal id
+    ['101234567', true, 'sole_trader'],
+    ['0101990710006', true, 'consumer'],
+    ['ABC', true, 'uncertain'],
+    ['DEMO-1', false, 'company'], // the file vouches; no rule contradicts
+  ] as const)('RS %s, stated %s → %s', (id, stated, kind) => {
+    expect(classifyParty(RS, id, stated)).toBe(kind);
+  });
+
+  it('a country without rules cannot be judged unless the file says so', () => {
+    expect(classifyParty({}, '123456789', null)).toBe('uncertain');
+    expect(classifyParty({}, '123456789', false)).toBe('company');
+    expect(classifyParty({ natural_person: '([' }, '1', null)).toBe('uncertain'); // broken rule
+  });
+
+  it('the column: yes / no / empty, anything else is a row error', () => {
+    expect(['da', 'Yes', 'X', ''].map(parseYesNo)).toEqual([true, true, true, null]);
+    expect(['ne', 'NO', '0'].map(parseYesNo)).toEqual([false, false, false]);
+    expect(parseYesNo('možda')).toBe('invalid');
   });
 });

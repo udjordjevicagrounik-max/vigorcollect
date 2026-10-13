@@ -2,10 +2,14 @@ import type { AuditEntry } from '@/server/auth/audit';
 import { ConflictError, NotFoundError, type TenantContext } from '@/server/auth/with-tenant';
 import type { MasterKeyring } from '@/server/crypto/keyring';
 import type { Queryable } from '@/server/crypto/subject-keys';
-import { findOrCreateCompanyCustomer } from '@/server/customers/repository';
+import {
+  findOrCreateCompanyCustomer,
+  findOrCreateConsumerByExternalId,
+} from '@/server/customers/repository';
 import { emitEvent } from '@/server/events';
 import { fromMinor, toMinor } from '@/server/fx/money';
 import { openGrid } from './crypto';
+import { classifyParty, type PartyRules } from './party';
 import { mappingSchema, validateRows, type ImportRow } from './rows';
 
 /**
@@ -17,6 +21,12 @@ import { mappingSchema, validateRows, type ImportRow } from './rows';
  * (total, currency, customer, a higher open amount, any change to a paid invoice) becomes a
  * reconciliation exception for a person to decide. Metadata (number, due date, references)
  * follows the source.
+ *
+ * Review S-02: every row's customer is classified first (src/server/imports/party.ts, rules per
+ * country from jurisdiction_profiles.party_id_rules + the optional "natural person" column). A
+ * consumer never becomes a legal entity and its identifier is never stored; anything uncertain
+ * is not imported — exception 'review_required'; an existing customer's natural-person flag is
+ * never flipped by an import (also 'review_required').
  */
 
 type Db = Queryable;
@@ -89,30 +99,89 @@ async function settle(
   );
 }
 
+/** Party rules of a country (cached per run); no profile / no rules = {} → uncertain. */
+async function partyRules(
+  db: Db,
+  cache: Map<string, PartyRules>,
+  country: string,
+): Promise<PartyRules> {
+  const hit = cache.get(country);
+  if (hit) return hit;
+  const { rows } = await db.query<{ rules: PartyRules }>(
+    'SELECT party_id_rules AS rules FROM jurisdiction_profiles WHERE country_code = $1',
+    [country],
+  );
+  const rules = rows[0]?.rules ?? {};
+  cache.set(country, rules);
+  return rules;
+}
+
+/** The row's customer, or null when a person must look at it (exception already written). */
+async function resolveCustomer(
+  db: Db,
+  keyring: MasterKeyring,
+  run: { id: string; timezone: string },
+  rowNumber: number,
+  row: ImportRow,
+  rulesCache: Map<string, PartyRules>,
+  counts: Counts,
+): Promise<string | null> {
+  const review = async () => {
+    await exception(db, run.id, rowNumber, null, 'review_required');
+    counts.exceptions += 1;
+    return null;
+  };
+  const kind = classifyParty(
+    await partyRules(db, rulesCache, row.customerCountry),
+    row.customerTaxId,
+    row.customerIsNaturalPerson,
+  );
+  if (kind === 'uncertain') return review();
+  if (kind === 'consumer') {
+    // Only the source system's customer id can find the same consumer again.
+    if (!row.customerExternalId) return review();
+    const consumer = await findOrCreateConsumerByExternalId(db, keyring, {
+      externalId: row.customerExternalId,
+      displayName: row.customerName,
+    });
+    if (consumer.created) counts.customers += 1;
+    return consumer.id;
+  }
+  const naturalPerson = kind === 'sole_trader';
+  const customer = await findOrCreateCompanyCustomer(db, keyring, {
+    countryCode: row.customerCountry,
+    taxId: row.customerTaxId,
+    legalName: row.customerName,
+    timezone: run.timezone,
+    registrationNumber: row.customerRegistrationNumber,
+    externalId: row.customerExternalId,
+    isNaturalPerson: naturalPerson,
+  });
+  if (!customer.created && customer.isNaturalPerson !== naturalPerson) return review();
+  if (customer.created) counts.customers += 1;
+  return customer.id;
+}
+
 async function applyRow(
   db: Db,
   keyring: MasterKeyring,
   run: { id: string; sourceId: string; companyId: string; today: string; timezone: string },
   rowNumber: number,
   row: ImportRow,
-  customers: Map<string, string>,
+  customers: Map<string, string | null>,
+  rulesCache: Map<string, PartyRules>,
   counts: Counts,
 ): Promise<void> {
-  const key = `${row.customerCountry}|${row.customerTaxId}`;
+  const key = `${row.customerCountry}|${row.customerTaxId}|${row.customerIsNaturalPerson}`;
   let customerId = customers.get(key);
-  if (!customerId) {
-    const customer = await findOrCreateCompanyCustomer(db, keyring, {
-      countryCode: row.customerCountry,
-      taxId: row.customerTaxId,
-      legalName: row.customerName,
-      timezone: run.timezone,
-      registrationNumber: row.customerRegistrationNumber,
-      externalId: row.customerExternalId,
-    });
-    customerId = customer.id;
+  if (customerId === undefined) {
+    customerId = await resolveCustomer(db, keyring, run, rowNumber, row, rulesCache, counts);
     customers.set(key, customerId);
-    if (customer.created) counts.customers += 1;
+  } else if (customerId === null) {
+    await exception(db, run.id, rowNumber, null, 'review_required');
+    counts.exceptions += 1;
   }
+  if (!customerId) return;
 
   const found = await db.query<Existing>(
     `SELECT id, customer_id, currency, amount_total, amount_open, number, due_date::text AS due_date,
@@ -260,7 +329,7 @@ export async function applyImport(
             ts.default_currency AS currency, ts.country_code AS country
      FROM import_runs r
      JOIN tenant_companies c ON c.id = r.company_id
-     JOIN legal_entities le ON le.id = c.legal_entity_id
+     JOIN legal_entities_public le ON le.id = c.legal_entity_id
      CROSS JOIN tenant_settings ts
      WHERE r.id = $1 FOR UPDATE OF r`,
     [runId],
@@ -277,7 +346,8 @@ export async function applyImport(
   const mapping = mappingSchema.parse(run.mapping);
   const results = validateRows(grid, mapping, { currency: run.currency, country: run.country });
   const counts: Counts = { created: 0, updated: 0, unchanged: 0, customers: 0, exceptions: 0 };
-  const customers = new Map<string, string>();
+  const customers = new Map<string, string | null>();
+  const rulesCache = new Map<string, PartyRules>();
   const ctx = {
     id: runId,
     sourceId: run.source_id,
@@ -286,7 +356,9 @@ export async function applyImport(
     timezone: run.timezone,
   };
   for (const r of results) {
-    if (r.ok) await applyRow(db, keyring, ctx, r.rowNumber, r.value, customers, counts);
+    if (r.ok) {
+      await applyRow(db, keyring, ctx, r.rowNumber, r.value, customers, rulesCache, counts);
+    }
   }
   await db.query(
     `UPDATE import_runs SET status = 'completed', completed_at = now(), payload_enc = NULL,

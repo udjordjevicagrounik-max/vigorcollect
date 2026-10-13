@@ -2,7 +2,7 @@ import { createHmac } from 'node:crypto';
 import type { Auth } from '@/server/auth/better-auth';
 
 // HTTP-level test client for Better Auth: real Request → auth.handler, with a cookie jar and a
-// fixed client IP (x-forwarded-for), plus an RFC 6238 TOTP generator acting as the
+// fixed client IP (x-client-ip, as src/proxy.ts sets it), plus an RFC 6238 TOTP generator acting as the
 // authenticator app. Test-side only; credentials are random per run and never printed.
 
 export class AuthClient {
@@ -14,7 +14,7 @@ export class AuthClient {
   ) {}
 
   async call(path: string, body?: unknown): Promise<{ status: number; json: unknown }> {
-    const headers = new Headers({ origin: this.baseURL, 'x-forwarded-for': this.ip });
+    const headers = new Headers({ origin: this.baseURL, 'x-client-ip': this.ip });
     if (this.jar.size) {
       headers.set('cookie', [...this.jar].map(([k, v]) => `${k}=${v}`).join('; '));
     }

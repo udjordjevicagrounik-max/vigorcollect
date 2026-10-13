@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createProxy } from '@/proxy';
 import { sameOrigin } from '@/server/auth/with-tenant';
+import { forwardedClientIp, trustedProxyHops } from '@/server/security/client-ip';
 import { contentSecurityPolicy, corsHeaders, securityHeaders } from '@/server/security/headers';
 import {
   assertTurnstileConfigured,
@@ -170,5 +171,55 @@ describe('Turnstile adapter (rule 27)', () => {
     const sent = ok.mock.calls[0] as unknown as [string, { body: URLSearchParams }];
     expect(sent[1].body.get('secret')).toBe('secret');
     expect(sent[1].body.get('remoteip')).toBe('203.0.113.1');
+  });
+});
+
+// Review S-07: the left end of X-Forwarded-For is whatever the client sent; nginx APPENDS the
+// address it saw. The old clientIp() took the first entry, so a forged header got a fresh bucket.
+describe('client IP behind TRUSTED_PROXY_HOPS trusted proxies', () => {
+  const xff = (value: string) => new Headers({ 'x-forwarded-for': value });
+
+  it('takes the entry the trusted proxy appended, never the client-supplied ones', () => {
+    expect(forwardedClientIp(xff('203.0.113.9'), 1)).toBe('203.0.113.9');
+    expect(forwardedClientIp(xff('6.6.6.6, 203.0.113.9'), 1)).toBe('203.0.113.9');
+    expect(forwardedClientIp(xff('6.6.6.6, 7.7.7.7, 203.0.113.9'), 1)).toBe('203.0.113.9');
+    expect(forwardedClientIp(xff('6.6.6.6, 203.0.113.9, 10.0.0.2'), 2)).toBe('203.0.113.9');
+  });
+
+  it('no IP when the chain is shorter than the trusted hops or the entry is not an address', () => {
+    expect(forwardedClientIp(new Headers(), 1)).toBeUndefined();
+    expect(forwardedClientIp(xff('203.0.113.9'), 2)).toBeUndefined();
+    expect(forwardedClientIp(xff('6.6.6.6, not-an-ip'), 1)).toBeUndefined();
+    expect(forwardedClientIp(xff('2001:db8::1'), 1)).toBe('2001:db8::1');
+  });
+
+  it('TRUSTED_PROXY_HOPS: default 1, integer 1..10 only', () => {
+    expect(trustedProxyHops({})).toBe(1);
+    expect(trustedProxyHops({ TRUSTED_PROXY_HOPS: '2' })).toBe(2);
+    expect(() => trustedProxyHops({ TRUSTED_PROXY_HOPS: '0' })).toThrow();
+    expect(() => trustedProxyHops({ TRUSTED_PROXY_HOPS: 'x' })).toThrow();
+  });
+
+  it('proxy: rotating a forged X-Forwarded-For stays in ONE bucket; x-client-ip is overwritten', async () => {
+    const limiter = vi.fn(async () => ({ allowed: true, retryAfter: 0 }));
+    const handle = createProxy(limiter);
+    for (const forged of ['1.1.1.1', '2.2.2.2', '3.3.3.3']) {
+      const res = await handle(
+        new NextRequest('http://localhost/api/users/x', {
+          headers: { 'x-forwarded-for': `${forged}, 203.0.113.9`, 'x-client-ip': forged },
+        }),
+      );
+      expect(res.headers.get('x-middleware-request-x-client-ip')).toBe('203.0.113.9');
+    }
+    expect(limiter.mock.calls.map((c) => (c as unknown[])[0])).toEqual([
+      'api:203.0.113.9',
+      'api:203.0.113.9',
+      'api:203.0.113.9',
+    ]);
+
+    const direct = await handle(
+      new NextRequest('http://localhost/login', { headers: { 'x-client-ip': '9.9.9.9' } }),
+    );
+    expect(direct.headers.get('x-middleware-request-x-client-ip')).toBeNull();
   });
 });

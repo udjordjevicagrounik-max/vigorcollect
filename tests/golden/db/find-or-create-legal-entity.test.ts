@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ensureFixtures, FX } from './fixtures';
-import { appPool, closePools, inTenant, migratePool, sqlState } from './helpers';
+import { appPool, closePools, inTenant, migratePool, savepointState, sqlState } from './helpers';
 
 // Golden (never delete or skip): find_or_create_legal_entity is the only app write path to
 // legal_entities — exact match, returns only an id, reveals nothing (rules 30, 33).
@@ -82,5 +82,81 @@ describe('golden/db: find_or_create_legal_entity — behaviour', () => {
     });
     expect(ids[0]).toBeDefined();
     expect(ids[0]).toBe(ids[1]);
+  });
+});
+
+// Review S-01: linking a tax id another tenant entered first exposed that row's bookkeeping —
+// created_at, created_by, updated_*, verification_status ("already on the platform since …").
+// The app now reads only the public register columns, through legal_entities_public.
+describe('golden/db: the app sees only public register data of a linked entity (S-01)', () => {
+  const PUBLIC_COLUMNS = [
+    'id',
+    'country_code',
+    'tax_id',
+    'registration_number',
+    'legal_name',
+    'normalized_name',
+    'timezone',
+    'address_line1',
+    'address_line2',
+    'postal_code',
+    'city',
+    'region',
+    'address_country_code',
+  ];
+
+  it('bookkeeping columns of legal_entities are not readable by vigor_app (42501)', async () => {
+    const states = await inTenant(appPool, FX.tenantA, async (c) => {
+      const out: Record<string, string> = {};
+      for (const col of [
+        'created_at',
+        'created_by',
+        'updated_at',
+        'updated_by',
+        'verification_status',
+      ]) {
+        out[col] = await savepointState(c, `SELECT ${col} FROM legal_entities LIMIT 1`);
+      }
+      out.star = await savepointState(c, 'SELECT * FROM legal_entities LIMIT 1');
+      return out;
+    });
+    expect(states).toEqual({
+      created_at: '42501',
+      created_by: '42501',
+      updated_at: '42501',
+      updated_by: '42501',
+      verification_status: '42501',
+      star: '42501',
+    });
+  });
+
+  it('legal_entities_public: exactly the public columns, and only linked rows', async () => {
+    const { rows: cols } = await migratePool.query<{ column_name: string }>(
+      `SELECT column_name FROM information_schema.columns
+       WHERE table_schema = 'public' AND table_name = 'legal_entities_public' ORDER BY ordinal_position`,
+    );
+    expect(cols.map((c) => c.column_name)).toEqual(PUBLIC_COLUMNS);
+    const seen = await inTenant(appPool, FX.tenantA, async (c) => {
+      const own = await c.query('SELECT id FROM legal_entities_public WHERE id = $1', [FX.entityA]);
+      const other = await c.query('SELECT id FROM legal_entities_public WHERE id = $1', [
+        FX.entityB,
+      ]);
+      return { own: own.rowCount, other: other.rowCount };
+    });
+    expect(seen).toEqual({ own: 1, other: 0 });
+  });
+
+  it('found and created answer the same way: an id, and only public columns behind it', async () => {
+    const out = await inTenant(appPool, FX.tenantB, async (c) => {
+      const found = await c.query<{ id: string }>(CALL, ['XX', 'GOLDEN-A', 'Typed by B', 'UTC']);
+      const created = await c.query<{ id: string }>(CALL, [
+        'XX',
+        `S01-${Date.now()}`,
+        'New',
+        'UTC',
+      ]);
+      return [Object.keys(found.rows[0] ?? {}), Object.keys(created.rows[0] ?? {})];
+    });
+    expect(out).toEqual([['id'], ['id']]);
   });
 });

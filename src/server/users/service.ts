@@ -3,20 +3,21 @@ import { mayInvite } from '@/server/auth/invitations';
 import { PermissionDeniedError } from '@/server/auth/permissions';
 import { ConflictError, NotFoundError, type TenantContext } from '@/server/auth/with-tenant';
 import { emitEvent } from '@/server/events';
+import { isPrivilegedRole, secondAdminRequired } from '@/server/governance/four-eyes';
 
 /**
  * Tenant members (task 1.5). Every function runs inside withTenant() / withTenantPage() — RLS
  * keeps it inside the tenant; ids of another tenant simply do not exist (404).
  *
  * Roles: owner may give any role, admin any but owner (same rule as invitations). A change that
- * touches owner/admin (to or from) is NOT applied: it becomes an approval_request (decision
- * after 0.2a/0.2b, rule 11) that another person with `user.assign` (checker-only in the matrix)
- * decides — the database enforces requester ≠ decider. Other role changes apply directly
- * (`user.update`) and keep the member's scope (widening scope is `user.assign`, 1.4+).
+ * touches a PRIVILEGED role — owner, admin, cfo, collection_manager (review S-06; before: only
+ * owner/admin) — to or from, is NOT applied: it becomes an approval_request (decision after
+ * 0.2a/0.2b, rule 11) that another person with `user.assign` (checker-only in the matrix)
+ * decides — the database enforces requester ≠ decider. Bootstrap: a tenant with exactly one
+ * active administrator applies it directly (nobody else could approve). Other role changes
+ * apply directly (`user.update`) and keep the member's scope (widening scope is `user.assign`).
  */
 
-export const ADMIN_ROLES = ['owner', 'admin'] as const;
-const isAdminRole = (key: string) => (ADMIN_ROLES as readonly string[]).includes(key);
 export const ROLE_CHANGE_ACTION = 'user_role.change';
 
 export type Member = {
@@ -229,12 +230,13 @@ export async function changeMemberRole(
     throw new ConflictError('last_owner');
   }
 
-  if (!isAdminRole(roleKey) && !target.roles.some(isAdminRole)) {
+  const privileged = isPrivilegedRole(roleKey) || target.roles.some(isPrivilegedRole);
+  if (!privileged || !(await secondAdminRequired(ctx.db))) {
     await applyRole(ctx, userId, roleKey);
     return { status: 'applied' };
   }
 
-  // Four eyes (rule 11, decision 0.2a/0.2b): owner/admin changes wait for another person.
+  // Four eyes (rule 11, review S-06): privileged role changes wait for another administrator.
   const pending = await ctx.db.query(
     `SELECT 1 FROM approval_requests WHERE action_type = $1 AND entity_type = 'users'
        AND entity_id = $2 AND status = 'pending'`,

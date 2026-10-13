@@ -36,10 +36,10 @@ rules:
   - id: no-product-name-in-code
     languages: [generic]
     severity: ERROR
-    message: The product name comes from config (rule 21); only the role names vigor_app / vigor_migrate / vigor_worker / vigor_backup / vigor_restore (ADR 0005) are allowed.
+    message: The product name comes from config (rule 21); only the role names vigor_app / vigor_migrate / vigor_worker / vigor_backup / vigor_restore (ADR 0005) / vigor_renderer (review S-10) are allowed.
     paths:
       include: [src/, messages/, tests/, scripts/]
-    pattern-regex: '(?i)vigor(?!_app|_migrate|_worker|_backup|_restore)'
+    pattern-regex: '(?i)vigor(?!_app|_migrate|_worker|_backup|_restore|_renderer)'
 
   - id: no-drizzle-kit-push
     languages: [generic]

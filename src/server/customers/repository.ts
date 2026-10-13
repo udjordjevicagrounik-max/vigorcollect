@@ -149,8 +149,10 @@ export async function createConsumer(
 
 /**
  * The tenant's customer for a canonical legal entity (country + tax id), created when missing —
- * import (2.2) "find_or_create po (country, tax_id)". Companies only: a natural person never gets
- * a canonical identity (ADR 0002, decision 4).
+ * import (2.2) "find_or_create po (country, tax_id)". A business subject: a company, or a sole
+ * trader (registered entrepreneur, ADR 0002 decision 4) with isNaturalPerson = true — then the
+ * display name is stored only encrypted. A consumer never comes here (createConsumer).
+ * Returns the existing customer's flag too: the caller never flips it silently (review S-02).
  */
 export async function findOrCreateCompanyCustomer(
   db: Queryable,
@@ -162,33 +164,63 @@ export async function findOrCreateCompanyCustomer(
     timezone: string;
     registrationNumber?: string | null;
     externalId?: string | null;
+    isNaturalPerson?: boolean;
   },
-): Promise<{ id: string; created: boolean }> {
+): Promise<{ id: string; created: boolean; isNaturalPerson: boolean }> {
   const { rows } = await db.query<{ id: string }>(
     'SELECT find_or_create_legal_entity($1, $2, $3, $4, $5) AS id',
-    [input.countryCode, input.taxId, input.legalName, input.timezone, input.registrationNumber ?? null],
+    [
+      input.countryCode,
+      input.taxId,
+      input.legalName,
+      input.timezone,
+      input.registrationNumber ?? null,
+    ],
   );
   const legalEntityId = rows[0]?.id;
   if (!legalEntityId) throw new Error('find_or_create_legal_entity returned no id');
-  const existing = await db.query<{ id: string }>('SELECT id FROM customers WHERE legal_entity_id = $1', [
-    legalEntityId,
-  ]);
-  const id = existing.rows[0]?.id;
-  if (id) return { id, created: false };
+  const existing = await db.query<{ id: string; is_natural_person: boolean }>(
+    'SELECT id, is_natural_person FROM customers WHERE legal_entity_id = $1',
+    [legalEntityId],
+  );
+  const found = existing.rows[0];
+  if (found) return { id: found.id, created: false, isNaturalPerson: found.is_natural_person };
+  const naturalPerson = input.isNaturalPerson ?? false;
   const created = await createCustomer(db, keyring, {
     countryCode: input.countryCode,
     taxId: input.taxId,
     registrationNumber: input.registrationNumber ?? undefined,
     legalName: input.legalName,
     timezone: input.timezone,
-    isNaturalPerson: false,
+    isNaturalPerson: naturalPerson,
     displayName: input.legalName,
     externalId: input.externalId ?? undefined,
+  });
+  return { id: created.id, created: true, isNaturalPerson: naturalPerson };
+}
+
+/**
+ * A consumer from an import (review S-02): matched ONLY by the customer id of the source system
+ * (customers.external_id) — the personal identifier is never stored, so it cannot be a key.
+ */
+export async function findOrCreateConsumerByExternalId(
+  db: Queryable,
+  keyring: MasterKeyring,
+  input: { externalId: string; displayName: string },
+): Promise<{ id: string; created: boolean }> {
+  const existing = await db.query<{ id: string }>(
+    `SELECT id FROM customers WHERE is_natural_person AND legal_entity_id IS NULL AND external_id = $1`,
+    [input.externalId],
+  );
+  const found = existing.rows[0];
+  if (found) return { id: found.id, created: false };
+  const created = await createConsumer(db, keyring, {
+    displayName: input.displayName,
+    externalId: input.externalId,
   });
   return { id: created.id, created: true };
 }
 
-/** Display name of a customer, decrypted for natural persons. */
 export async function readCustomerName(
   db: Queryable,
   keyring: MasterKeyring,
@@ -311,7 +343,6 @@ export async function readContact(
     phone: await decrypt('phone_enc', row.phone_enc, row.phone_key_version),
   };
 }
-
 
 /**
  * Where collection mail for a customer goes (3.3): the primary active contact with an e-mail,

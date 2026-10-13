@@ -6,6 +6,7 @@ import { Pool } from 'pg';
 import { HONEYPOT_FIELD, MIN_PASSWORD_LENGTH } from '@/lib/auth-policy';
 import { getMasterKeyring } from '@/server/crypto/keyring';
 import { createAuthMailer } from '@/server/mail/auth-mailer';
+import { CLIENT_IP_HEADER } from '@/server/security/client-ip';
 import { turnstileFromEnv, type TurnstileConfig } from '@/server/security/turnstile';
 import { activeMemberships, isMember } from './memberships';
 
@@ -172,6 +173,9 @@ export function buildAuthOptions(config: AuthConfig, pool: Pool) {
         sameSite: 'lax',
       },
       database: { generateId: 'uuid' },
+      // Review S-07: the only IP source is the header src/proxy.ts sets from the trusted end of
+      // X-Forwarded-For (TRUSTED_PROXY_HOPS); a client-supplied value is overwritten there.
+      ipAddress: { ipAddressHeaders: [CLIENT_IP_HEADER] },
     },
     databaseHooks: {
       session: {

@@ -91,7 +91,7 @@ export async function listReceivableCustomers(
             (SELECT s.band FROM risk_scores s WHERE s.customer_id = c.id ORDER BY s.computed_at DESC LIMIT 1) AS risk_band
      FROM customers c
      LEFT JOIN tenant_settings ts ON true
-     LEFT JOIN legal_entities le ON le.id = c.legal_entity_id
+     LEFT JOIN legal_entities_public le ON le.id = c.legal_entity_id
      LEFT JOIN users u ON u.id = c.owner_user_id
      LEFT JOIN LATERAL (
        SELECT sum(p.open_reporting) FILTER (WHERE p.is_open) AS exposure,
@@ -227,7 +227,7 @@ export async function getCustomer360(
             coalesce(ts.default_currency, 'EUR') AS currency,
             (SELECT tc.id FROM tenant_companies tc ORDER BY tc.is_default DESC, tc.created_at LIMIT 1) AS company_id
      FROM customers c LEFT JOIN tenant_settings ts ON true
-     LEFT JOIN legal_entities le ON le.id = c.legal_entity_id
+     LEFT JOIN legal_entities_public le ON le.id = c.legal_entity_id
      LEFT JOIN users u ON u.id = c.owner_user_id
      WHERE c.id = $1`,
     [customerId],
@@ -623,7 +623,7 @@ export async function getDashboard(ctx: TenantContext): Promise<Dashboard> {
      FROM promises pr
      JOIN customers c ON c.id = pr.customer_id AND ${filter.sql}
      JOIN tenant_companies tc ON tc.id = pr.company_id
-     JOIN legal_entities le ON le.id = tc.legal_entity_id
+     JOIN legal_entities_public le ON le.id = tc.legal_entity_id
      CROSS JOIN LATERAL (SELECT (now() AT TIME ZONE le.timezone)::date AS local_today) d`,
     filter.params,
   );
@@ -699,7 +699,7 @@ export async function myWorkToday(ctx: TenantContext, mode: 'own' | 'team'): Pro
   }>(
     `WITH mine AS (SELECT c.id, c.display_name FROM customers c WHERE ${filter.sql}),
           today AS (SELECT (now() AT TIME ZONE le.timezone)::date AS d
-                    FROM tenant_companies tc JOIN legal_entities le ON le.id = tc.legal_entity_id
+                    FROM tenant_companies tc JOIN legal_entities_public le ON le.id = tc.legal_entity_id
                     ORDER BY tc.is_default DESC, tc.created_at LIMIT 1)
      SELECT 'promise_due' AS kind, m.id AS customer_id, m.display_name AS customer_name, pr.id AS ref_id,
             pr.promised_on::text AS date, NULL AS code, pr.amount, pr.currency

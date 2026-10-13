@@ -3,10 +3,12 @@ import { ForbiddenState } from '@/components/admin/forbidden-state';
 import { PageHeader } from '@/components/admin/page-header';
 import { ImportHistory } from '@/components/import/import-history';
 import { ImportWizard } from '@/components/import/import-wizard';
+import { SuspiciousParties } from '@/components/import/suspicious-parties';
 import { Screen } from '@/components/shell/screen';
 import { PermissionDeniedError, permissionKeys } from '@/server/auth/permissions';
 import { withTenantPage } from '@/server/auth/with-tenant';
 import { listImports } from '@/server/imports/service';
+import { listSuspiciousParties } from '@/server/imports/suspicious';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,6 +22,8 @@ export default async function ImportPage() {
       return {
         canCreate: keys.has('import.create'),
         runs: keys.has('import.read') ? await listImports(ctx) : [],
+        // Review S-02: customers earlier imports may have created wrongly (never auto-changed).
+        suspicious: keys.has('customer.read') ? await listSuspiciousParties(ctx) : [],
       };
     });
   } catch (error) {
@@ -31,6 +35,7 @@ export default async function ImportPage() {
     <Screen mobileClass="mobile-compact">
       <PageHeader title={t('title')} description={t('description')} />
       {data.canCreate ? <ImportWizard canRollback={data.canCreate} /> : null}
+      <SuspiciousParties parties={data.suspicious} />
       <ImportHistory runs={data.runs} />
     </Screen>
   );

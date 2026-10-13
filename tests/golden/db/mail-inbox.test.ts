@@ -12,6 +12,7 @@ import { processWebhookEvent, registerWebhookHandler } from '@/server/integratio
 import { createIntegration } from '@/server/integrations/service';
 import { signatureHeader, verifySignature } from '@/server/integrations/signing';
 import { sendCollectionMail } from '@/server/mail/adapter';
+import { sameTx } from '@/server/jobs/tenant-job';
 import { dispatchIntegrationMail } from '@/server/mail/dispatch-integration';
 import { handleMailReceived, handleMailStatus } from '@/server/mail/inbox';
 import { safeHref, segments } from '@/lib/untrusted-text';
@@ -383,7 +384,7 @@ describe('golden/db: outgoing mail through the mailbox integration (4.2)', () =>
           text: async () => JSON.stringify({ status: 'sent', messageId: '<smtp-42@mx.example>' }),
         };
       };
-      const counts = await dispatchIntegrationMail(db, keyring, fakeFetch);
+      const counts = await dispatchIntegrationMail(sameTx(db), keyring, fakeFetch);
       const row = await db.query<{
         status: string;
         message_id: string;

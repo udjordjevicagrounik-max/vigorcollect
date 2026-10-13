@@ -204,8 +204,8 @@ async function buildContext(
      FROM customers c
      CROSS JOIN tenant_settings ts
      JOIN LATERAL (SELECT * FROM tenant_companies ORDER BY is_default DESC, created_at LIMIT 1) tc ON true
-     JOIN legal_entities cle ON cle.id = tc.legal_entity_id
-     LEFT JOIN legal_entities le ON le.id = c.legal_entity_id
+     JOIN legal_entities_public cle ON cle.id = tc.legal_entity_id
+     LEFT JOIN legal_entities_public le ON le.id = c.legal_entity_id
      LEFT JOIN users u ON u.id = c.owner_user_id
      LEFT JOIN users me ON me.id = $2
      WHERE c.id = $1`,

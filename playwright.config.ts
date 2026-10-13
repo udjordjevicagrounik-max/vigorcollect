@@ -63,7 +63,6 @@ export default defineConfig({
         HOSTNAME: '127.0.0.1',
         PRODUCT_NAME: process.env.PRODUCT_NAME ?? 'E2E Product',
         DATABASE_URL: db.app,
-        MIGRATE_DATABASE_URL: db.migrate,
         BETTER_AUTH_URL: BASE_URL,
         DOCUMENTS_DIR,
         // Cloudflare's PUBLIC Turnstile test keys ("always passes", documented by Cloudflare) —
@@ -84,8 +83,8 @@ export default defineConfig({
         PRODUCT_NAME: process.env.PRODUCT_NAME ?? 'E2E Product',
         DATABASE_URL: db.app,
         WORKER_DATABASE_URL: db.worker,
-        MIGRATE_DATABASE_URL: db.migrate,
-        // The worker renders PDFs next to the app's documents (task 3.3; needs Chromium).
+        // PDFs: the worker hands HTML to the renderer service (review S-10), which e2e does not
+        // start — documents stay HTML previews here, as on a host without Chromium before.
         DOCUMENTS_DIR,
         BETTER_AUTH_URL: BASE_URL,
         TURNSTILE_SITE_KEY: '1x00000000000000000000AA',

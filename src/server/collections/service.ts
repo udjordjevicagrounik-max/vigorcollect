@@ -93,7 +93,7 @@ export async function localToday(
 ): Promise<{ today: string; companyId: string }> {
   const { rows } = await db.query<{ today: string; id: string }>(
     `SELECT (now() AT TIME ZONE le.timezone)::date::text AS today, tc.id
-     FROM tenant_companies tc JOIN legal_entities le ON le.id = tc.legal_entity_id
+     FROM tenant_companies tc JOIN legal_entities_public le ON le.id = tc.legal_entity_id
      WHERE ($1::uuid IS NULL OR tc.id = $1)
      ORDER BY tc.is_default DESC, tc.created_at LIMIT 1`,
     [companyId ?? null],
@@ -565,7 +565,7 @@ async function scopedPromise(ctx: TenantContext, promiseId: string, permission: 
     `SELECT pr.id, pr.customer_id, pr.status, pr.amount, pr.promised_on::text, pr.case_id,
             (now() AT TIME ZONE le.timezone)::date::text AS today
      FROM promises pr JOIN customers c ON c.id = pr.customer_id
-     JOIN tenant_companies tc ON tc.id = pr.company_id JOIN legal_entities le ON le.id = tc.legal_entity_id
+     JOIN tenant_companies tc ON tc.id = pr.company_id JOIN legal_entities_public le ON le.id = tc.legal_entity_id
      WHERE pr.id = $1 AND ${filter.sql} FOR UPDATE OF pr`,
     [promiseId, ...filter.params],
   );
@@ -857,7 +857,7 @@ export async function runDailyCollections(
        SELECT pr.*, (now() AT TIME ZONE le.timezone)::date AS today, ts.promise_grace_days AS grace
        FROM promises pr
        JOIN tenant_companies tc ON tc.id = pr.company_id
-       JOIN legal_entities le ON le.id = tc.legal_entity_id
+       JOIN legal_entities_public le ON le.id = tc.legal_entity_id
        CROSS JOIN tenant_settings ts
        WHERE pr.status = 'pending')
      SELECT d.id, d.amount, d.case_id,

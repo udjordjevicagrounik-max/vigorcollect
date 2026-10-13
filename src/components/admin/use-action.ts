@@ -7,7 +7,10 @@ import type { FormProblem } from '@/components/auth/form-message';
 import { apiProblem } from '@/lib/api-problem';
 import { sendJSON } from '@/lib/post-json';
 
-/** Runs an API mutation; on success shows `message` and refreshes server data, else t(error). */
+/**
+ * Runs an API mutation; on success shows `message` (or message(status) — e.g. 202 = waits for
+ * approval) and refreshes server data, else t(error).
+ */
 export function useAction() {
   const tErrors = useTranslations('errors');
   const router = useRouter();
@@ -19,7 +22,7 @@ export function useAction() {
     method: 'POST' | 'PUT' | 'DELETE',
     path: string,
     body: unknown,
-    message: string,
+    message: string | ((status: number) => string),
   ): Promise<boolean> {
     setBusy(true);
     setProblem(null);
@@ -27,7 +30,7 @@ export function useAction() {
     const res = await sendJSON(method, path, body);
     setBusy(false);
     if (res.status >= 200 && res.status < 300) {
-      setNotice(message);
+      setNotice(typeof message === 'function' ? message(res.status) : message);
       router.refresh();
       return true;
     }

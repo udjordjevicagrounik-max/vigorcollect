@@ -1,7 +1,10 @@
 import { crc32, deflateRawSync } from 'node:zlib';
 
 /** Tiny XLSX writer for tests: one sheet, inline strings + numeric cells given as exact text. */
-export function buildXlsx(rows: (string | { n: string })[][]): Buffer {
+export function buildXlsx(
+  rows: (string | { n: string })[][],
+  opts: { sheetXml?: string } = {},
+): Buffer {
   const col = (i: number) => String.fromCharCode(65 + i);
   const sheetRows = rows
     .map((cells, r) => {
@@ -24,7 +27,8 @@ export function buildXlsx(rows: (string | { n: string })[][]): Buffer {
       '<workbook xmlns:r="r"><sheets><sheet name="Fakture" sheetId="1" r:id="rId1"/></sheets></workbook>',
     'xl/_rels/workbook.xml.rels':
       '<Relationships><Relationship Id="rId1" Type="ws" Target="worksheets/data.xml"/></Relationships>',
-    'xl/worksheets/data.xml': `<worksheet><sheetData>${sheetRows}</sheetData></worksheet>`,
+    'xl/worksheets/data.xml':
+      opts.sheetXml ?? `<worksheet><sheetData>${sheetRows}</sheetData></worksheet>`,
   };
   const locals: Buffer[] = [];
   const centrals: Buffer[] = [];

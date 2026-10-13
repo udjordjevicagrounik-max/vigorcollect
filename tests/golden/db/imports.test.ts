@@ -42,7 +42,8 @@ function ctxFor(db: PoolClient): TenantContext {
 }
 
 const csv = (lines: string[]) => Buffer.from(lines.join('\r\n'), 'utf8').toString('base64');
-const HEADER = 'ID;Broj fakture;Datum fakture;Datum dospeća;Iznos;Saldo;PIB;Naziv kupca';
+// Review S-02: the test country has no identifier rules, so the file says "company" (ne).
+const HEADER = 'ID;Broj fakture;Datum fakture;Datum dospeća;Iznos;Saldo;PIB;Naziv kupca;Fizičko lice';
 
 async function runImport(ctx: TenantContext, lines: string[]) {
   const up = await uploadImport(
@@ -78,9 +79,9 @@ describe('golden/db: invoice import', () => {
       const ctx = ctxFor(db);
       const run = await runImport(ctx, [
         HEADER,
-        `${TAX}-1;F-1;01.09.2026;30.09.2026;1.000,00;1.000,00;${TAX}A;Alfa d.o.o.`,
-        `${TAX}-2;F-2;01.09.2026;31.10.2026;500,00;200,00;${TAX}A;Alfa d.o.o.`,
-        `${TAX}-3;F-3;bad;31.10.2026;500,00;;${TAX}B;Beta d.o.o.`,
+        `${TAX}-1;F-1;01.09.2026;30.09.2026;1.000,00;1.000,00;${TAX}A;Alfa d.o.o.;ne`,
+        `${TAX}-2;F-2;01.09.2026;31.10.2026;500,00;200,00;${TAX}A;Alfa d.o.o.;ne`,
+        `${TAX}-3;F-3;bad;31.10.2026;500,00;;${TAX}B;Beta d.o.o.;ne`,
       ]);
       const report = await getImport(ctx, run.id);
       const payload = await db.query('SELECT payload_enc FROM import_runs WHERE id = $1', [run.id]);
@@ -137,14 +138,14 @@ describe('golden/db: invoice import', () => {
       const ctx = ctxFor(db);
       await runImport(ctx, [
         HEADER,
-        `${TAX}-1;F-1;01.09.2026;30.09.2026;1.000,00;1.000,00;${TAX}A;Alfa d.o.o.`,
-        `${TAX}-2;F-2;01.09.2026;31.10.2026;500,00;0,00;${TAX}A;Alfa d.o.o.`,
+        `${TAX}-1;F-1;01.09.2026;30.09.2026;1.000,00;1.000,00;${TAX}A;Alfa d.o.o.;ne`,
+        `${TAX}-2;F-2;01.09.2026;31.10.2026;500,00;0,00;${TAX}A;Alfa d.o.o.;ne`,
       ]);
       const second = await runImport(ctx, [
         HEADER,
-        `${TAX}-1;F-1;01.09.2026;15.10.2026;1.000,00;600,00;${TAX}A;Alfa d.o.o.`, // lower open, new due
-        `${TAX}-2;F-2;01.09.2026;31.10.2026;550,00;550,00;${TAX}A;Alfa d.o.o.`, // paid invoice changed
-        `${TAX}-4;F-4;01.10.2026;31.10.2026;80,00;;${TAX}A;Alfa d.o.o.`, // new
+        `${TAX}-1;F-1;01.09.2026;15.10.2026;1.000,00;600,00;${TAX}A;Alfa d.o.o.;ne`, // lower open, new due
+        `${TAX}-2;F-2;01.09.2026;31.10.2026;550,00;550,00;${TAX}A;Alfa d.o.o.;ne`, // paid invoice changed
+        `${TAX}-4;F-4;01.10.2026;31.10.2026;80,00;;${TAX}A;Alfa d.o.o.;ne`, // new
       ]);
       const again = await applyImport(db, ctx.audit, keyring, FX.tenantA, second.id);
       const count = await db.query(
@@ -185,9 +186,9 @@ describe('golden/db: invoice import', () => {
     const out = await inTenant(appPool, FX.tenantA, async (db) => {
       const ctx = ctxFor(db);
       const before = await getDashboard(ctx);
-      await runImport(ctx, [HEADER, `${TAX}-11;F-11;01.09.2026;30.09.2026;100,00;100,00;${TAX}A;Alfa`]);
+      await runImport(ctx, [HEADER, `${TAX}-11;F-11;01.09.2026;30.09.2026;100,00;100,00;${TAX}A;Alfa;ne`]);
       const mid = await getDashboard(ctx);
-      await runImport(ctx, [HEADER, `${TAX}-11;F-11;01.09.2026;30.09.2026;100,00;25,00;${TAX}A;Alfa`]);
+      await runImport(ctx, [HEADER, `${TAX}-11;F-11;01.09.2026;30.09.2026;100,00;25,00;${TAX}A;Alfa;ne`]);
       const after = await getDashboard(ctx);
       const customer = await db.query<{ customer_id: string }>(
         'SELECT customer_id FROM invoices WHERE external_id = $1',
@@ -210,11 +211,11 @@ describe('golden/db: invoice import', () => {
       const ctx = ctxFor(db);
       await runImport(ctx, [
         HEADER,
-        `${TAX}-5;F-5;01.09.2026;30.09.2026;100,00;40,00;${TAX}A;Alfa`,
+        `${TAX}-5;F-5;01.09.2026;30.09.2026;100,00;40,00;${TAX}A;Alfa;ne`,
       ]);
       const second = await runImport(ctx, [
         HEADER,
-        `${TAX}-5;F-5;01.09.2026;30.09.2026;100,00;70,00;${TAX}A;Alfa`,
+        `${TAX}-5;F-5;01.09.2026;30.09.2026;100,00;70,00;${TAX}A;Alfa;ne`,
       ]);
       return { report: await getImport(ctx, second.id), f5: await invoice(db, `${TAX}-5`) };
     });
@@ -229,13 +230,13 @@ describe('golden/db: invoice import', () => {
       const ctx = ctxFor(db);
       await runImport(ctx, [
         HEADER,
-        `${TAX}-6;F-6;01.09.2026;30.09.2026;300,00;300,00;${TAX}A;Alfa`,
+        `${TAX}-6;F-6;01.09.2026;30.09.2026;300,00;300,00;${TAX}A;Alfa;ne`,
       ]);
       const second = await runImport(ctx, [
         HEADER,
-        `${TAX}-6;F-6;01.09.2026;30.09.2026;300,00;100,00;${TAX}A;Alfa`, // settlement 200 on an older invoice
-        `${TAX}-7;F-7;01.09.2026;30.09.2026;50,00;50,00;${TAX}A;Alfa`, // created, untouched
-        `${TAX}-8;F-8;01.09.2026;30.09.2026;70,00;70,00;${TAX}A;Alfa`, // created, then put into a case
+        `${TAX}-6;F-6;01.09.2026;30.09.2026;300,00;100,00;${TAX}A;Alfa;ne`, // settlement 200 on an older invoice
+        `${TAX}-7;F-7;01.09.2026;30.09.2026;50,00;50,00;${TAX}A;Alfa;ne`, // created, untouched
+        `${TAX}-8;F-8;01.09.2026;30.09.2026;70,00;70,00;${TAX}A;Alfa;ne`, // created, then put into a case
       ]);
       const f8 = await invoice(db, `${TAX}-8`);
       const customer = await db.query<{ customer_id: string }>(
@@ -272,8 +273,8 @@ describe('golden/db: invoice import', () => {
       const ctx = ctxFor(db);
       const run = await runImport(ctx, [
         HEADER,
-        `${TAX}-9;F-9;01.09.2026;bad;1,00;;${TAX}A;Alfa`,
-        `${TAX}-10;F-10;01.09.2026;30.09.2026;1,00;;${TAX}A;Alfa`,
+        `${TAX}-9;F-9;01.09.2026;bad;1,00;;${TAX}A;Alfa;ne`,
+        `${TAX}-10;F-10;01.09.2026;30.09.2026;1,00;;${TAX}A;Alfa;ne`,
       ]);
       await db.query("SELECT set_config('app.tenant_id', $1, true)", [FX.tenantB]);
       const seen = await db.query(

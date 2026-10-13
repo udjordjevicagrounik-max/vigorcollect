@@ -9,14 +9,16 @@ import { healthReport, liveHealthDeps } from '@/server/health';
 import { jobHealth } from './health';
 
 /**
- * Ops jobs in the worker (task 1.7): nightly backup 02:00 UTC, weekly restore test Sunday 03:00
- * UTC (scripts/backup.sh, scripts/restore-test.sh — copied to <image>/ops), and the alarm check
- * every 5 minutes. The scripts need pg_dump/pg_restore (worker image) and the service roles
- * vigor_backup / vigor_restore (BACKUP_DATABASE_URL, RESTORE_DATABASE_URL) — never a superuser. Without them the job logs why and does nothing — the
+ * Ops jobs in the worker (task 1.7): nightly backup 02:00 UTC (scripts/backup.sh — copied to
+ * <image>/ops) and the alarm check every 5 minutes. The backup needs pg_dump + age (worker image),
+ * the service role vigor_backup (BACKUP_DATABASE_URL — never a superuser) and the PUBLIC age key
+ * BACKUP_AGE_RECIPIENT (review S-11). Without them the job logs why and does nothing — the
  * "backup not done by 06:00" alarm makes that visible (it is not silently "ok").
+ * The weekly restore test is not here: it holds the decryption key, which never enters the
+ * worker (compose service `restore-test`, profile ops).
  */
 
-export type OpsScript = 'backup' | 'restore-test';
+export type OpsScript = 'backup';
 
 function scriptsDir(): string {
   const candidates = [
@@ -30,16 +32,17 @@ function scriptsDir(): string {
 export function opsAvailability(): { ok: true; dir: string } | { ok: false; reason: string } {
   const dir = scriptsDir();
   if (!dir) return { ok: false, reason: 'scripts_missing' };
-  for (const tool of ['pg_dump', 'pg_restore', 'psql']) {
+  for (const tool of ['pg_dump', 'psql', 'age']) {
     // turbopackIgnore: a tool probe, not a file the app bundles — keeps the build from tracing
     // the whole project into the standalone output.
-    if (spawnSync(/* turbopackIgnore: true */ tool, ['--version'], { stdio: 'ignore' }).status !== 0) {
+    if (
+      spawnSync(/* turbopackIgnore: true */ tool, ['--version'], { stdio: 'ignore' }).status !== 0
+    ) {
       return { ok: false, reason: `${tool}_missing_in_image` };
     }
   }
-  if (!process.env.BACKUP_DATABASE_URL || !process.env.RESTORE_DATABASE_URL) {
-    return { ok: false, reason: 'no_service_role_urls' };
-  }
+  if (!process.env.BACKUP_DATABASE_URL) return { ok: false, reason: 'no_service_role_url' };
+  if (!process.env.BACKUP_AGE_RECIPIENT) return { ok: false, reason: 'no_age_recipient' };
   return { ok: true, dir };
 }
 

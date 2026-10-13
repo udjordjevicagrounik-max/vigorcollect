@@ -35,17 +35,20 @@ USER node
 EXPOSE 3000
 CMD ["node", "server.js"]
 
-# Worker (ADR 0005, task 1.7 close-out): the same app image plus the tools for the nightly
-# backup and the weekly restore test — pg_dump/pg_restore 16 (PGDG, = server major) and rclone
-# for the off-site copy. Pinned; when PGDG publishes a newer 16.x the old one leaves its main
-# repo — bump PG_CLIENT_VERSION then (docs/runbook.md "Worker image").
+# Worker image (ADR 0005, task 1.7 close-out): the same app image plus the ops tools —
+# pg_dump/pg_restore/psql 16 (PGDG, = server major), rclone for the off-site copy and age for
+# backup encryption (review S-11). Pinned; when PGDG publishes a newer 16.x the old one leaves its
+# main repo — bump PG_CLIENT_VERSION then (docs/runbook.md "Worker image").
 # Task 3.3: Debian Chromium for HTML → PDF (puppeteer-core), ONLY in this stage. Pinned to the
 # bookworm-security build; a newer security update replaces it there — bump CHROMIUM_VERSION
-# (runbook "Worker image"). No chromium-sandbox (setuid helper): the worker runs as node with
-# no capabilities and no-new-privileges (docker-compose.yml); see src/server/documents/pdf.ts.
+# (runbook "Worker image"). No chromium-sandbox (setuid helper); see src/server/documents/pdf.ts.
+# One image, several services (docker-compose.yml): worker (`node worker.mjs`, never starts
+# Chromium), renderer (`node renderer.mjs`, the only Chromium, no secrets — review S-10), and the
+# one-shot ops services migrate / restore-test (ops/*.sh).
 FROM runner AS worker
 ARG PG_CLIENT_VERSION=16.15-1.pgdg12+2
 ARG RCLONE_VERSION=1.60.1+dfsg-2+b5
+ARG AGE_VERSION=1.1.1-1+b3
 ARG CHROMIUM_VERSION=155.0.8059.39-1~deb12u1
 ARG FONTS_DEJAVU_VERSION=2.37-6
 USER root
@@ -58,14 +61,14 @@ RUN apt-get update \
       > /etc/apt/sources.list.d/pgdg.list \
  && apt-get update \
  && apt-get install -y --no-install-recommends \
-      "postgresql-client-16=${PG_CLIENT_VERSION}" "rclone=${RCLONE_VERSION}" \
+      "postgresql-client-16=${PG_CLIENT_VERSION}" "rclone=${RCLONE_VERSION}" "age=${AGE_VERSION}" \
       "chromium=${CHROMIUM_VERSION}" "chromium-common=${CHROMIUM_VERSION}" \
       "fonts-dejavu-core=${FONTS_DEJAVU_VERSION}" \
  && apt-get purge -y curl gnupg && apt-get autoremove -y \
  && rm -rf /var/lib/apt/lists/* \
  && install -d -o node -g node -m 0700 /srv/backups
 USER node
-ENV PROCESS_ROLE=worker BACKUP_DIR=/srv/backups CHROMIUM_PATH=/usr/bin/chromium
+ENV BACKUP_DIR=/srv/backups
 CMD ["node", "worker.mjs"]
 
 # Default target (no --target): the web app — the worker stage above must never be the default.

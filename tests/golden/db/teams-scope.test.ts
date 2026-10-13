@@ -289,12 +289,38 @@ describe('golden/db: teams', () => {
     expect(direct).toBe('23505');
   });
 
-  it('lead must be a member; a lead change writes audit + team.lead_changed', async () => {
+  // Review S-06: a lead's TEAM scope sees the whole team — naming one needs a second administrator.
+  it('lead must be a member; naming a lead waits for another administrator, then audit + team.lead_changed', async () => {
     const outsider = req('admin', 'PUT', `/api/teams/${TEAM.a}/lead`, { userId: U.teamB });
     expect((await setLead(outsider.req, params({ id: TEAM.a }))).status).toBe(409);
 
-    const r = req('admin', 'PUT', `/api/teams/${TEAM.a}/lead`, { userId: U.teamA });
-    expect((await setLead(r.req, params({ id: TEAM.a }))).status).toBe(200);
+    const proposed = req('admin', 'PUT', `/api/teams/${TEAM.a}/lead`, { userId: U.teamA });
+    const pending = await setLead(proposed.req, params({ id: TEAM.a }));
+    expect(pending.status).toBe(202);
+    const approvalId = String((await json(pending)).approvalId);
+    const leadNow = async () =>
+      inTenant(
+        appPool,
+        TM,
+        async (c) =>
+          (
+            await c.query<{ lead: string | null }>(
+              'SELECT lead_user_id AS lead FROM teams WHERE id = $1',
+              [TEAM.a],
+            )
+          ).rows[0]?.lead ?? null,
+      );
+    expect(await leadNow()).toBeNull();
+    const own = req('admin', 'POST', `/api/approvals/${approvalId}/decision`, {
+      decision: 'approve',
+    });
+    expect((await decide(own.req, params({ id: approvalId }))).status).toBe(403);
+
+    const r = req('owner', 'POST', `/api/approvals/${approvalId}/decision`, {
+      decision: 'approve',
+    });
+    expect((await decide(r.req, params({ id: approvalId }))).status).toBe(200);
+    expect(await leadNow()).toBe(U.teamA);
     const trail = await inTenant(appPool, TM, async (c) => ({
       audit: (
         await c.query<{ after: unknown }>(`SELECT after FROM audit_log WHERE request_id = $1`, [
@@ -308,7 +334,10 @@ describe('golden/db: teams', () => {
         )
       ).rowCount,
     }));
-    expect(trail.audit).toEqual([{ after: { lead_user_id: U.teamA } }]);
+    expect(trail.audit).toEqual([
+      { after: { status: 'approved' } },
+      { after: { lead_user_id: U.teamA } },
+    ]);
     expect(trail.events).toBe(1);
   });
 

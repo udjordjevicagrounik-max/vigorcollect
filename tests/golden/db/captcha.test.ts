@@ -71,7 +71,7 @@ async function call(
       method: 'POST',
       headers: {
         origin: BASE_URL,
-        'x-forwarded-for': `198.18.0.${Math.floor(Math.random() * 250) + 1}`,
+        'x-client-ip': `198.18.0.${Math.floor(Math.random() * 250) + 1}`,
         'content-type': 'application/json',
         ...headers,
       },

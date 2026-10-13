@@ -28,6 +28,7 @@ const FIELDS = [
   'customer_country',
   'customer_registration_number',
   'customer_external_id',
+  'customer_is_natural_person',
   'buyer_reference',
   'order_reference',
 ] as const;

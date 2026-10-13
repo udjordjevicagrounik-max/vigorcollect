@@ -4,7 +4,7 @@ import { getAppVersion } from '@/lib/version';
 import { APP_VERSION_HEADER, REQUEST_ID_HEADER, resolveRequestId } from '@/lib/request-id';
 import { contentSecurityPolicy, corsHeaders, securityHeaders } from '@/server/security/headers';
 import { databaseRateLimiter, type RateLimiter } from '@/server/security/rate-limit';
-import { clientIp } from '@/server/security/turnstile';
+import { CLIENT_IP_HEADER, forwardedClientIp } from '@/server/security/client-ip';
 
 // Next 16 renamed `middleware.ts` to `proxy.ts` (same role). Every response carries
 // X-Request-Id (correlation) and X-App-Version (rule 23) plus the security headers (1.4):
@@ -41,9 +41,12 @@ export function createProxy(limiter: RateLimiter) {
     const nonce = Buffer.from(crypto.randomUUID()).toString('base64');
     const csp = contentSecurityPolicy(nonce, { dev: process.env.NODE_ENV === 'development' });
     const path = request.nextUrl.pathname;
+    // Resolved once from the trusted end of X-Forwarded-For (review S-07); never the client's own.
+    const ip = forwardedClientIp(request.headers);
 
-    // The worker process (PROCESS_ROLE=worker) serves nothing but its own /health.
-    if (process.env.PROCESS_ROLE === 'worker' && path !== '/health') {
+    // The worker and renderer processes serve nothing but their own /health.
+    const role = process.env.PROCESS_ROLE;
+    if ((role === 'worker' || role === 'renderer') && path !== '/health') {
       return finish(new NextResponse(null, { status: 404 }), requestId, csp);
     }
 
@@ -55,8 +58,7 @@ export function createProxy(limiter: RateLimiter) {
         return finish(preflight, requestId, csp);
       }
       if (!path.startsWith('/api/auth/')) {
-        const ip = clientIp(request.headers) ?? 'unknown';
-        const limit = await limiter(`api:${ip}`);
+        const limit = await limiter(`api:${ip ?? 'unknown'}`);
         if (!limit.allowed) {
           const limited = NextResponse.json(apiErrorBody('rate_limited', requestId), {
             status: 429,
@@ -69,6 +71,8 @@ export function createProxy(limiter: RateLimiter) {
 
     const requestHeaders = new Headers(request.headers);
     requestHeaders.set(REQUEST_ID_HEADER, requestId);
+    if (ip) requestHeaders.set(CLIENT_IP_HEADER, ip);
+    else requestHeaders.delete(CLIENT_IP_HEADER);
     // Next.js reads the nonce from the request's CSP header and puts it on its own scripts.
     requestHeaders.set('Content-Security-Policy', csp);
     requestHeaders.set(NONCE_HEADER, nonce);

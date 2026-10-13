@@ -172,7 +172,7 @@ describe('golden/db: sign-in with password + TOTP', () => {
         method: 'POST',
         headers: {
           origin: BASE_URL,
-          'x-forwarded-for': '198.51.100.250',
+          'x-client-ip': '198.51.100.250',
           'content-type': 'application/json',
         },
         body: JSON.stringify({ email: people.noMfa.email, password: PASSWORD }),

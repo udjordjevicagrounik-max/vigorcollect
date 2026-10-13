@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { devGuardViolations } from '../../scripts/lib/dev-guard';
-import { resolveSecureCookies } from '@/server/auth/better-auth';
+import { Pool } from 'pg';
+import { buildAuthOptions, resolveSecureCookies } from '@/server/auth/better-auth';
 import { mayInvite } from '@/server/auth/invitations';
 import { selectTransport } from '@/server/mail/adapter';
 
@@ -82,5 +83,22 @@ describe('dev-admin-password guard', () => {
     [{ stdoutIsTTY: false }],
   ])('refuses %j', (override) => {
     expect(devGuardViolations({ ...ok, ...override }).length).toBeGreaterThan(0);
+  });
+});
+
+// Review S-07: Better Auth's own rate limit (sign-in, reset) keys on the IP src/proxy.ts resolved
+// from the trusted end of X-Forwarded-For — never on the client-controlled first entry.
+describe('Better Auth reads the client IP only from x-client-ip', () => {
+  it('ipAddressHeaders is exactly the proxy-set header', () => {
+    const options = buildAuthOptions(
+      {
+        connectionString: 'postgres://u:p@127.0.0.1:1/x',
+        secret: 's'.repeat(32),
+        baseURL: 'http://localhost:3000',
+        issuer: 'Test',
+      },
+      new Pool({ connectionString: 'postgres://u:p@127.0.0.1:1/x' }),
+    );
+    expect(options.advanced?.ipAddress?.ipAddressHeaders).toEqual(['x-client-ip']);
   });
 });

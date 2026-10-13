@@ -2,7 +2,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import type { Pool } from 'pg';
 import { z } from 'zod';
 import { logEvent } from '@/lib/log';
-import { permissionKeys, PermissionDeniedError } from '@/server/auth/permissions';
+import { checkPermission, PermissionDeniedError } from '@/server/auth/permissions';
 import {
   ConflictError,
   InvalidRequestError,
@@ -10,6 +10,13 @@ import {
   type TenantContext,
 } from '@/server/auth/with-tenant';
 import type { Queryable } from '@/server/crypto/subject-keys';
+import {
+  API_KEY_SCOPE_ACTION,
+  closeApproval,
+  lockApproval,
+  openApproval,
+  secondAdminRequired,
+} from '@/server/governance/four-eyes';
 
 /**
  * API keys per tenant (task 4.1) — how n8n (or any integration) calls our API.
@@ -22,6 +29,13 @@ import type { Queryable } from '@/server/crypto/subject-keys';
  * route still calls requirePermission(), which a key passes only for keys in its scopes; the
  * audit actor is 'api_key'. Scopes are permission keys of the catalog that the creating member
  * holds, minus the checker permissions — maker-checker always needs a person (rule 11).
+ *
+ * Data scope (review S-06 / S-16): a key is OWN (it owns nothing, so scoped data — customers and
+ * everything under them — stays out of reach) or ORGANIZATION. ORGANIZATION only when the
+ * creator holds EVERY chosen permission with ORGANIZATION scope (no widening), and only after a
+ * second administrator approves (approval_requests 'api_key.scope'; the one-administrator
+ * bootstrap tenant activates it directly). Until then activated_at IS NULL and the token does not
+ * authenticate; a rejected key is revoked.
  */
 
 export const TOKEN_PREFIX = 'ak_';
@@ -37,14 +51,20 @@ export const NEVER_FOR_KEYS = new Set([
   'approval.block_customer',
   'approval.legal_handover',
   'approval.risk_override',
+  // Checker of a workflow publication (3.1) — a person decides, never a key.
+  'settings.manage',
 ]);
 
 export const hashToken = (token: string): Buffer => createHash('sha256').update(token).digest();
+
+export type KeyScope = 'OWN' | 'ORGANIZATION';
 
 export type ApiKeyIdentity = {
   apiKeyId: string;
   tenantId: string;
   scopes: string[];
+  /** Data scope every permission of this key is granted with. */
+  scope: KeyScope;
   rateLimitPerMinute: number;
 };
 
@@ -80,10 +100,11 @@ export async function apiKeyIdentity(pool: Pool, token: string): Promise<ApiKeyI
       id: string;
       tenant_id: string;
       scopes: string[];
+      scope: KeyScope;
       rate_limit_per_minute: number;
     }>(
-      `SELECT id, tenant_id, scopes, rate_limit_per_minute FROM api_keys
-       WHERE key_hash = app_api_key_hash() AND revoked_at IS NULL`,
+      `SELECT id, tenant_id, scopes, scope, rate_limit_per_minute FROM api_keys
+       WHERE key_hash = app_api_key_hash() AND revoked_at IS NULL AND activated_at IS NOT NULL`,
     );
     await client.query('COMMIT');
     const r = rows[0];
@@ -92,6 +113,7 @@ export async function apiKeyIdentity(pool: Pool, token: string): Promise<ApiKeyI
         apiKeyId: r.id,
         tenantId: r.tenant_id,
         scopes: r.scopes,
+        scope: r.scope,
         rateLimitPerMinute: r.rate_limit_per_minute,
       };
   } catch (error) {
@@ -132,6 +154,7 @@ export const newApiKeySchema = z.object({
     .min(1)
     .max(100),
   rateLimitPerMinute: z.number().int().min(1).max(6000).default(60),
+  scope: z.enum(['OWN', 'ORGANIZATION']).default('OWN'),
 });
 
 export type ApiKeyRow = {
@@ -139,10 +162,13 @@ export type ApiKeyRow = {
   name: string;
   tokenPrefix: string;
   scopes: string[];
+  scope: KeyScope;
   rateLimitPerMinute: number;
   createdAt: string;
   lastUsedAt: string | null;
   revokedAt: string | null;
+  /** Waiting for a second administrator (review S-06). */
+  pendingApproval: boolean;
 };
 
 export async function listApiKeys(ctx: TenantContext): Promise<ApiKeyRow[]> {
@@ -152,12 +178,15 @@ export async function listApiKeys(ctx: TenantContext): Promise<ApiKeyRow[]> {
     name: string;
     token_prefix: string;
     scopes: string[];
+    scope: KeyScope;
     rate_limit_per_minute: number;
     created_at: Date;
     last_used_at: Date | null;
     revoked_at: Date | null;
+    activated_at: Date | null;
   }>(
-    `SELECT id, name, token_prefix, scopes, rate_limit_per_minute, created_at, last_used_at, revoked_at
+    `SELECT id, name, token_prefix, scopes, scope, rate_limit_per_minute, created_at, last_used_at,
+            revoked_at, activated_at
      FROM api_keys ORDER BY revoked_at NULLS FIRST, created_at DESC`,
   );
   return rows.map((r) => ({
@@ -165,36 +194,63 @@ export async function listApiKeys(ctx: TenantContext): Promise<ApiKeyRow[]> {
     name: r.name,
     tokenPrefix: r.token_prefix,
     scopes: r.scopes,
+    scope: r.scope,
     rateLimitPerMinute: r.rate_limit_per_minute,
     createdAt: r.created_at.toISOString(),
     lastUsedAt: r.last_used_at?.toISOString() ?? null,
     revokedAt: r.revoked_at?.toISOString() ?? null,
+    pendingApproval: !r.revoked_at && !r.activated_at,
   }));
 }
 
-/** Creates a key; the token is in the answer ONCE (for the UI) and nowhere else. */
+/**
+ * Creates a key; the token is in the answer ONCE (for the UI) and nowhere else. An ORGANIZATION
+ * key of a tenant with more than one administrator is created inactive and waits for approval.
+ */
 export async function createApiKey(
   ctx: TenantContext,
   input: z.input<typeof newApiKeySchema>,
-): Promise<{ id: string; token: string; tokenPrefix: string }> {
+): Promise<{
+  id: string;
+  token: string;
+  tokenPrefix: string;
+  scope: KeyScope;
+  approvalId: string | null;
+}> {
   await ctx.requirePermission('integration.manage');
   const data = newApiKeySchema.parse(input);
   const scopes = [...new Set(data.scopes)].sort();
-  const mine = await permissionKeys(ctx.db, ctx.userId);
   if (scopes.some((s) => NEVER_FOR_KEYS.has(s))) throw new InvalidRequestError();
-  // No escalation: a key can do at most what its creator can.
-  if (scopes.some((s) => !mine.has(s))) throw new PermissionDeniedError();
   const known = await ctx.db.query<{ n: number }>(
     'SELECT count(*)::int AS n FROM permissions WHERE key = ANY($1::text[])',
     [scopes],
   );
   if (known.rows[0]?.n !== scopes.length) throw new InvalidRequestError();
+  // No escalation: a key can do at most what its creator can — the permission AND its scope.
+  for (const key of scopes) {
+    const grant = await checkPermission(ctx.db, ctx.userId, key);
+    if (data.scope === 'ORGANIZATION' && grant.scope !== 'ORGANIZATION') {
+      throw new PermissionDeniedError();
+    }
+  }
+  const pending = data.scope !== 'OWN' && (await secondAdminRequired(ctx.db));
   const token = `${TOKEN_PREFIX}${randomBytes(32).toString('base64url')}`;
   const tokenPrefix = token.slice(0, 12);
   const { rows } = await ctx.db.query<{ id: string }>(
-    `INSERT INTO api_keys (tenant_id, name, token_prefix, key_hash, scopes, rate_limit_per_minute, created_by)
-     VALUES (app_tenant_id(), $1, $2, $3, $4, $5, $6) RETURNING id`,
-    [data.name, tokenPrefix, hashToken(token), scopes, data.rateLimitPerMinute, ctx.userId],
+    `INSERT INTO api_keys (tenant_id, name, token_prefix, key_hash, scopes, rate_limit_per_minute, created_by,
+                           scope, activated_at)
+     VALUES (app_tenant_id(), $1, $2, $3, $4, $5, $6, $7, CASE WHEN $8 THEN NULL ELSE now() END)
+     RETURNING id`,
+    [
+      data.name,
+      tokenPrefix,
+      hashToken(token),
+      scopes,
+      data.rateLimitPerMinute,
+      ctx.userId,
+      data.scope,
+      pending,
+    ],
   );
   const id = rows[0]?.id ?? '';
   await ctx.audit({
@@ -205,10 +261,53 @@ export async function createApiKey(
       name: data.name,
       token_prefix: tokenPrefix,
       scopes,
+      scope: data.scope,
       rate_limit_per_minute: data.rateLimitPerMinute,
+      active: !pending,
     },
   });
-  return { id, token, tokenPrefix };
+  const approvalId = pending
+    ? await openApproval(ctx, {
+        actionType: API_KEY_SCOPE_ACTION,
+        entityType: 'api_keys',
+        entityId: id,
+        payload: { api_key_id: id, scope: data.scope },
+      })
+    : null;
+  return { id, token, tokenPrefix, scope: data.scope, approvalId };
+}
+
+export const keyDecisionSchema = z.object({
+  decision: z.enum(['approve', 'reject']),
+  note: z.string().trim().min(1).max(500).optional(),
+});
+
+/** Checker side of an API key wider than OWN (review S-06): activate it, or revoke it. */
+export async function decideApiKeyScope(
+  ctx: TenantContext,
+  approvalId: string,
+  input: z.input<typeof keyDecisionSchema>,
+): Promise<{ status: 'approved' | 'rejected' }> {
+  const req = await lockApproval(ctx, approvalId, API_KEY_SCOPE_ACTION);
+  const { decision, note } = keyDecisionSchema.parse(input);
+  const status = decision === 'approve' ? 'approved' : 'rejected';
+  await closeApproval(ctx, approvalId, status, note);
+  const res = await ctx.db.query(
+    status === 'approved'
+      ? `UPDATE api_keys SET activated_at = now()
+         WHERE id = $1 AND activated_at IS NULL AND revoked_at IS NULL`
+      : `UPDATE api_keys SET revoked_at = now(), revoked_by = $2
+         WHERE id = $1 AND activated_at IS NULL AND revoked_at IS NULL`,
+    status === 'approved' ? [req.entityId] : [req.entityId, ctx.userId],
+  );
+  if (!res.rowCount) throw new ConflictError('conflict');
+  await ctx.audit({
+    action: status === 'approved' ? 'api_key.activated' : 'api_key.revoked',
+    entityType: 'api_keys',
+    entityId: req.entityId,
+    after: { approval_id: approvalId },
+  });
+  return { status };
 }
 
 export async function revokeApiKey(ctx: TenantContext, id: string): Promise<{ ok: true }> {

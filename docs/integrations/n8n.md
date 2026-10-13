@@ -63,6 +63,13 @@ n8n odgovara `2xx` tek **posle** slanja, sa telom `{"status": "sent", "messageId
 - n8n → nas: HTTP Request čvor „Retry on fail" (5 pokušaja, 5 s). Ponovljen `id` je bezbedan
   (`200 duplicate`).
 - Mi → n8n: 1 min, 5 min, 30 min, 2 h, 12 h, pa dead letter; pošta isto, pa status `failed`.
+- **Idempotency-Key** (security review S-09): svaki POST ka n8n-u nosi header
+  `Idempotency-Key` = id stavke kod nas (`mail_outbox.id` / `outbound_deliveries.id`), isti u
+  svakom ponovnom pokušaju. Stavka se pre slanja „zauzme" na 10 min (commit pre POST-a); ako
+  proces padne posle POST-a, ponovni pokušaj dolazi tek posle toga, sa istim ključem. Šablon
+  `mail-outbound.json` pamti ključ 7 dana (čvorovi „Already sent?" / „Remember key", static data
+  aktivnog workflow-a) i na ponovljen ključ odgovara sačuvanim Message-ID-om **bez ponovnog
+  slanja**. Sopstveni workflow mora da radi isto.
 
 ## Test
 

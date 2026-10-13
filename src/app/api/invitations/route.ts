@@ -9,6 +9,8 @@ export const dynamic = 'force-dynamic';
 
 // Invite a person, or re-send (a new token; the pending one is revoked). Owner → any role,
 // admin → any role but owner (ADR 0004). The token goes only into the e-mail (sink).
+// Review S-06: a privileged role (owner/admin/cfo/collection_manager) → 202, the invitation is
+// issued only after another administrator approves (Administration → Approvals).
 export const POST = withTenant(async (request, ctx) => {
   await ctx.requirePermission('user.create');
   const input = newInvitationSchema.parse(await request.json());
@@ -18,7 +20,7 @@ export const POST = withTenant(async (request, ctx) => {
       { keyring: getMasterKeyring(), baseURL: getAuthBaseURL() },
       input,
     );
-    return NextResponse.json(created, { status: 201 });
+    return NextResponse.json(created, { status: created.status === 'sent' ? 201 : 202 });
   } catch (error) {
     if (error instanceof InvitationError) {
       if (error.code === 'forbidden_role') throw new PermissionDeniedError();

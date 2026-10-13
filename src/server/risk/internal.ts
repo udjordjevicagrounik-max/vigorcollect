@@ -40,7 +40,7 @@ export async function internalSignals(db: Queryable, customerId: string): Promis
        SELECT max(p.days_overdue) FILTER (WHERE p.is_overdue) AS days,
               sum(p.open_reporting) FILTER (WHERE p.is_open) AS open,
               max(p.local_today) AS today,
-              coalesce((SELECT le.timezone FROM tenant_companies tc JOIN legal_entities le ON le.id = tc.legal_entity_id
+              coalesce((SELECT le.timezone FROM tenant_companies tc JOIN legal_entities_public le ON le.id = tc.legal_entity_id
                         ORDER BY tc.is_default DESC, tc.created_at LIMIT 1), 'UTC') AS zone
        FROM invoice_positions p WHERE p.customer_id = c.id) agg ON true
      WHERE c.id = $1`,

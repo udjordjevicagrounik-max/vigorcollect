@@ -323,6 +323,44 @@ describe('golden/db: the real worker (pg-boss) end to end', () => {
   }, 40_000);
 });
 
+// Review S-05: job_health() was SECURITY DEFINER owned by vigor_migrate and read pgboss.job,
+// which the worker owns. A compromised worker could put a view there whose function then ran as
+// vigor_migrate (owner of every table) on the next /health. The attack itself is the test.
+describe('golden/db: /health never runs worker-controlled code as the table owner', () => {
+  it('a view the worker puts in place of pgboss.job runs as vigor_worker, not vigor_migrate', async () => {
+    const w = workerPool();
+    const mod = (await import('@/server/jobs/worker')) as {
+      installJobHealth?: (pool: typeof w) => Promise<void>;
+    };
+    await mod.installJobHealth?.(w);
+    await w.query('CREATE TABLE pgboss.golden_spy (who text)');
+    await w.query('GRANT INSERT ON pgboss.golden_spy TO PUBLIC');
+    await w.query(
+      `CREATE FUNCTION pgboss.golden_spy_fn() RETURNS boolean LANGUAGE sql VOLATILE
+       AS $$ INSERT INTO pgboss.golden_spy VALUES (current_user); SELECT true $$`,
+    );
+    await w.query('GRANT EXECUTE ON FUNCTION pgboss.golden_spy_fn() TO PUBLIC');
+    await w.query('ALTER TABLE pgboss.job RENAME TO golden_job_saved');
+    try {
+      await w.query(
+        `CREATE VIEW pgboss.job AS
+         SELECT j.* FROM (SELECT pgboss.golden_spy_fn()) spy
+         LEFT JOIN pgboss.golden_job_saved j ON true`,
+      );
+      await w.query('GRANT SELECT ON pgboss.job TO PUBLIC');
+      await jobHealth(appPool).catch(() => null);
+      const { rows } = await w.query<{ who: string }>('SELECT DISTINCT who FROM pgboss.golden_spy');
+      expect(rows.map((r) => r.who)).not.toContain('vigor_migrate');
+      expect(rows.map((r) => r.who)).toEqual(['vigor_worker']);
+    } finally {
+      await w.query('DROP VIEW IF EXISTS pgboss.job');
+      await w.query('ALTER TABLE pgboss.golden_job_saved RENAME TO job');
+      await w.query('DROP FUNCTION IF EXISTS pgboss.golden_spy_fn()');
+      await w.query('DROP TABLE IF EXISTS pgboss.golden_spy');
+    }
+  });
+});
+
 describe('golden/db: retention deletes only what the policies allow', () => {
   it('mail > 7 days, processed events > 90 days, expired sessions; fresh rows stay', async () => {
     const ids = { oldMail: randomUUID(), newMail: randomUUID(), oldEvent: '', newEvent: '' };

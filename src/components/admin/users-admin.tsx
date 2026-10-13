@@ -100,7 +100,7 @@ export function UsersAdmin({
         displayName: String(form.get('name') ?? ''),
         roleKey: String(form.get('role') ?? ''),
       },
-      () => t('invite.sent'),
+      (status) => (status === 202 ? t('invite.approvalRequested') : t('invite.sent')),
     );
     if (ok) formElement.reset();
   }
@@ -229,7 +229,7 @@ export function UsersAdmin({
                           displayName: m.displayName,
                           roleKey: m.invitation?.roleKey,
                         },
-                        () => t('resent'),
+                        (status) => (status === 202 ? t('invite.approvalRequested') : t('resent')),
                       )
                     }
                   >

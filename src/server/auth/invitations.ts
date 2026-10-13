@@ -3,10 +3,19 @@ import type { Pool, PoolClient } from 'pg';
 import { z } from 'zod';
 import type { MasterKeyring } from '@/server/crypto/keyring';
 import type { Queryable } from '@/server/crypto/subject-keys';
+import {
+  closeApproval,
+  INVITE_ACTION,
+  isPrivilegedRole,
+  lockApproval,
+  openApproval,
+  secondAdminRequired,
+} from '@/server/governance/four-eyes';
 import { sendMail, type MailOptions } from '@/server/mail/adapter';
 import { writeAudit } from './audit';
 import type { Auth } from './better-auth';
-import type { TenantContext } from './with-tenant';
+import { PermissionDeniedError } from './permissions';
+import { ConflictError, type TenantContext } from './with-tenant';
 
 /**
  * One-time invitations (ADR 0004, task 1.1b; migration 006).
@@ -18,6 +27,10 @@ import type { TenantContext } from './with-tenant';
  * - Owner may invite any role; admin any role except owner; nobody else (decision after 1.1b).
  *   The route additionally requires `user.create` (1.2). The role's scope is OWN — widening it
  *   is `user.assign` (maker-checker, 1.4).
+ * - Review S-06: inviting someone into a PRIVILEGED role (owner, admin, cfo, collection_manager)
+ *   needs a second administrator — the invited row is created, but no token / e-mail exists
+ *   until another person with `user.assign` approves (approval_requests 'user.invite'). The
+ *   bootstrap tenant with exactly one active administrator invites directly.
  * - Accepting creates (or, for a person already signed in, reuses) the Better Auth identity,
  *   links it to the invited public.users row, assigns the role and writes the audit row — in
  *   one tenant transaction. The tenant comes from the invitation row found by the token hash,
@@ -58,7 +71,14 @@ export const newInvitationSchema = z.object({
 export type NewInvitation = z.input<typeof newInvitationSchema>;
 
 /** The part of the withTenant() context invitation management needs. */
-export type InvitationContext = Pick<TenantContext, 'db' | 'userId' | 'audit'>;
+export type InvitationContext = Pick<TenantContext, 'db' | 'userId' | 'audit' | 'requestId'>;
+
+export type InvitationDeps = { keyring: MasterKeyring; baseURL: string; mail?: MailOptions };
+
+/** Invitation issued (token + e-mail), or a privileged one waiting for a second administrator. */
+export type InvitationResult =
+  | { status: 'sent'; invitationId: string; userId: string }
+  | { status: 'approval_required'; approvalId: string; userId: string };
 
 async function actorRoleKeys(db: Queryable, userId: string): Promise<string[]> {
   const { rows } = await db.query<{ key: string }>(
@@ -80,9 +100,9 @@ export function mayInvite(actorRoles: string[], roleKey: string): boolean {
  */
 export async function createInvitation(
   ctx: InvitationContext,
-  deps: { keyring: MasterKeyring; baseURL: string; mail?: MailOptions },
+  deps: InvitationDeps,
   input: NewInvitation,
-): Promise<{ invitationId: string; userId: string }> {
+): Promise<InvitationResult> {
   const { db } = ctx;
   const data = newInvitationSchema.parse(input);
   if (!mayInvite(await actorRoleKeys(db, ctx.userId), data.roleKey)) {
@@ -133,10 +153,29 @@ export async function createInvitation(
     });
   }
 
-  const revoked = await db.query<{ id: string }>(
+  await revokePending(ctx, user.id, 'resent');
+  if (isPrivilegedRole(data.roleKey) && (await secondAdminRequired(db))) {
+    const approvalId = await openApproval(ctx, {
+      actionType: INVITE_ACTION,
+      entityType: 'users',
+      entityId: user.id,
+      payload: { user_id: user.id, role_key: data.roleKey },
+    });
+    return { status: 'approval_required', approvalId, userId: user.id };
+  }
+  const invitationId = await issueInvitation(ctx, deps, {
+    tenant,
+    user: { id: user.id, locale: user.locale, email: data.email },
+    roleKey: data.roleKey,
+  });
+  return { status: 'sent', invitationId, userId: user.id };
+}
+
+async function revokePending(ctx: InvitationContext, userId: string, reason: string) {
+  const revoked = await ctx.db.query<{ id: string }>(
     `UPDATE user_invitations SET status = 'revoked', updated_by = $2
      WHERE user_id = $1 AND status = 'pending' RETURNING id`,
-    [user.id, ctx.userId],
+    [userId, ctx.userId],
   );
   for (const r of revoked.rows) {
     await ctx.audit({
@@ -144,17 +183,29 @@ export async function createInvitation(
       entityType: 'user_invitations',
       entityId: r.id,
       before: { status: 'pending' },
-      after: { status: 'revoked', reason: 'resent' },
+      after: { status: 'revoked', reason },
     });
   }
+}
 
+/** Token (hash stored) + e-mail with the link: the invitation the invitee can accept. */
+async function issueInvitation(
+  ctx: InvitationContext,
+  deps: InvitationDeps,
+  target: {
+    tenant: { id: string; display_name: string };
+    user: { id: string; locale: string; email: string };
+    roleKey: string;
+  },
+): Promise<string> {
+  const { tenant, user, roleKey } = target;
   const token = randomBytes(32).toString('base64url');
-  const { rows } = await db.query<{ id: string }>(
+  const { rows } = await ctx.db.query<{ id: string }>(
     `INSERT INTO user_invitations (tenant_id, user_id, role_key, token_hash, invited_by,
                                    expires_at, created_by)
      VALUES ($1, $2, $3, $4, $5, now() + make_interval(hours => $6), $5)
      RETURNING id`,
-    [tenant.id, user.id, data.roleKey, hashInviteToken(token), ctx.userId, INVITATION_TTL_HOURS],
+    [tenant.id, user.id, roleKey, hashInviteToken(token), ctx.userId, INVITATION_TTL_HOURS],
   );
   const invitationId = rows[0]?.id;
   if (!invitationId) throw new InvitationError('invalid');
@@ -164,22 +215,71 @@ export async function createInvitation(
     action: 'user_invitation.created',
     entityType: 'user_invitations',
     entityId: invitationId,
-    after: { user_id: user.id, role_key: data.roleKey, status: 'pending' },
+    after: { user_id: user.id, role_key: roleKey, status: 'pending' },
   });
 
   await sendMail(
-    db,
+    ctx.db,
     deps.keyring,
     {
       kind: 'invitation',
-      to: data.email,
+      to: user.email,
       locale: user.locale,
       tenantName: tenant.display_name,
       url: `${deps.baseURL.replace(/\/$/, '')}/invite/${token}`,
     },
     deps.mail,
   );
-  return { invitationId, userId: user.id };
+  return invitationId;
+}
+
+export const invitationDecisionSchema = z.object({
+  decision: z.enum(['approve', 'reject']),
+  note: z.string().trim().min(1).max(500).optional(),
+});
+
+/**
+ * Checker side of a privileged invitation (review S-06): another person with `user.assign` who
+ * may hand out that role approves → the invitation is issued now (token + e-mail); rejected →
+ * nothing is sent, the invited row stays without an invitation.
+ */
+export async function decideInvitation(
+  ctx: TenantContext,
+  deps: InvitationDeps,
+  approvalId: string,
+  input: z.input<typeof invitationDecisionSchema>,
+): Promise<{ status: 'approved' | 'rejected' }> {
+  const req = await lockApproval(ctx, approvalId, INVITE_ACTION);
+  const { decision, note } = invitationDecisionSchema.parse(input);
+  const roleKey = String(req.payload.role_key ?? '');
+  if (!mayInvite(await actorRoleKeys(ctx.db, ctx.userId), roleKey)) {
+    throw new PermissionDeniedError();
+  }
+  const status = decision === 'approve' ? 'approved' : 'rejected';
+  await closeApproval(ctx, approvalId, status, note);
+  if (status === 'rejected') return { status };
+
+  const { rows } = await ctx.db.query<{
+    id: string;
+    status: string;
+    locale: string;
+    email: string;
+    tenant_id: string;
+    tenant_name: string;
+  }>(
+    `SELECT u.id, u.status, u.locale, u.email, t.id AS tenant_id, t.display_name AS tenant_name
+     FROM users u JOIN tenants t ON t.id = u.tenant_id WHERE u.id = $1 FOR UPDATE OF u`,
+    [req.entityId],
+  );
+  const user = rows[0];
+  if (!user || user.status !== 'invited') throw new ConflictError('conflict');
+  await revokePending(ctx, user.id, 'approved_again');
+  await issueInvitation(ctx, deps, {
+    tenant: { id: user.tenant_id, display_name: user.tenant_name },
+    user: { id: user.id, locale: user.locale, email: user.email },
+    roleKey,
+  });
+  return { status };
 }
 
 // ---------------------------------------------------------------------------------------------

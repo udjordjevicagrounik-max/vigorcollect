@@ -46,6 +46,33 @@
     },
     {
       "parameters": {
+        "jsCode": "// Idempotency (review S-09): Collect retries a mail it may already have handed over (crash\n// after the POST) with the SAME Idempotency-Key (= its outbox id). A key seen in the last 7 days\n// is answered with the stored result and NOT sent again. Static data of the active workflow.\nconst store = $getWorkflowStaticData('global');\nstore.sent = store.sent || {};\nconst now = Date.now();\nfor (const [k, v] of Object.entries(store.sent)) {\n  if (now - v.at > 7 * 24 * 3600 * 1000) delete store.sent[k];\n}\nconst headers = $('Collect webhook').first().json.headers || {};\nconst key = (headers['idempotency-key'] || '').toString();\nconst seen = key ? store.sent[key] : undefined;\nreturn [{ json: { ...$input.first().json, key, duplicate: Boolean(seen), messageId: seen ? seen.messageId : null } }];"
+      },
+      "id": "b7",
+      "name": "Already sent?",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [720, -100]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.duplicate }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "b8",
+      "name": "Duplicate?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [960, -100]
+    },
+    {
+      "parameters": {
         "fromEmail": "CHOOSE SENDER ADDRESS",
         "toEmail": "={{ $json.mail.to }}",
         "subject": "={{ $json.mail.subject }}",
@@ -60,13 +87,23 @@
       "name": "Send Email (SMTP)",
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
-      "position": [720, -100],
+      "position": [1200, -160],
       "credentials": {
         "smtp": {
           "id": "",
           "name": "CHOOSE YOUR SMTP CREDENTIAL"
         }
       }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Remember the key only AFTER the mail went out, with the provider's Message-ID.\nconst store = $getWorkflowStaticData('global');\nstore.sent = store.sent || {};\nconst key = $('Already sent?').first().json.key;\nconst messageId = $input.first().json.messageId || null;\nif (key) store.sent[key] = { at: Date.now(), messageId };\nreturn [{ json: { messageId } }];"
+      },
+      "id": "b9",
+      "name": "Remember key",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1440, -160]
     },
     {
       "parameters": {
@@ -80,7 +117,7 @@
       "name": "Answer sent",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [960, -100]
+      "position": [1680, -100]
     },
     {
       "parameters": {
@@ -124,7 +161,7 @@
       "main": [
         [
           {
-            "node": "Send Email (SMTP)",
+            "node": "Already sent?",
             "type": "main",
             "index": 0
           }
@@ -139,6 +176,46 @@
       ]
     },
     "Send Email (SMTP)": {
+      "main": [
+        [
+          {
+            "node": "Remember key",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Already sent?": {
+      "main": [
+        [
+          {
+            "node": "Duplicate?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Duplicate?": {
+      "main": [
+        [
+          {
+            "node": "Answer sent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Email (SMTP)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remember key": {
       "main": [
         [
           {

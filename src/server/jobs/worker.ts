@@ -17,7 +17,7 @@ import {
   type EventHandlers,
 } from './outbox';
 import { runRetention } from './retention';
-import { withTenantJob } from './tenant-job';
+import { tenantTx } from './tenant-job';
 
 /**
  * The worker process (task 1.3): same image as the app, PROCESS_ROLE=worker (src/instrumentation.ts).
@@ -32,6 +32,32 @@ export type Worker = { boss: PgBoss; stop(): Promise<void> };
 
 function txDb(client: PoolClient) {
   return { executeSql: (text: string, values?: unknown[]) => client.query(text, values) };
+}
+
+/**
+ * /health aggregates (review S-05): a SECURITY DEFINER function OWNED BY vigor_worker, the owner
+ * of the pg-boss tables. job_health() (migration 022) is an INVOKER wrapper around it. Whatever
+ * stands behind pgboss.job therefore runs as vigor_worker — never as vigor_migrate, which the
+ * old DEFINER-as-owner version allowed. Only counts and ages leave the function, never payloads.
+ */
+export async function installJobHealth(pool: Pool): Promise<void> {
+  await pool.query(`
+    CREATE OR REPLACE FUNCTION pgboss.job_health()
+      RETURNS TABLE (pending integer, failed integer, oldest_pending_seconds integer,
+                     last_retention_at timestamptz)
+      LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog
+    AS $q$
+      SELECT count(*) FILTER (WHERE state IN ('created', 'retry'))::int,
+             count(*) FILTER (WHERE state = 'failed')::int,
+             extract(epoch FROM now() - min(created_on) FILTER (
+               WHERE state IN ('created', 'retry') AND start_after <= now()))::int,
+             max(completed_on) FILTER (WHERE name = 'retention' AND state = 'completed')
+      FROM pgboss.job
+    $q$`);
+  await pool.query('REVOKE ALL ON FUNCTION pgboss.job_health() FROM PUBLIC');
+  await pool.query('GRANT EXECUTE ON FUNCTION pgboss.job_health() TO vigor_app');
+  // The 007 design granted this for the vigor_migrate-owned DEFINER; it is no longer needed.
+  await pool.query('REVOKE ALL ON pgboss.job FROM vigor_migrate');
 }
 
 export async function startWorker(
@@ -50,10 +76,9 @@ export async function startWorker(
     logEvent('worker.error', { level: 'error', name: error.name }),
   );
   await boss.start();
-  // /health reads aggregates through job_health() (owned by vigor_migrate).
-  await workerPool
-    .query('GRANT SELECT ON pgboss.job TO vigor_migrate')
-    .catch(() => logEvent('worker.health_grant_failed', { level: 'warn' }));
+  await installJobHealth(workerPool).catch(() =>
+    logEvent('worker.health_install_failed', { level: 'warn' }),
+  );
 
   for (const name of [EVENT_QUEUE, DAILY_QUEUE, 'retention']) await boss.createQueue(name, RETRY);
   for (const name of [
@@ -61,7 +86,6 @@ export async function startWorker(
     'mail-dispatch',
     'integrations-dispatch',
     'backup',
-    'restore-test',
     'alerts-check',
     'fx-rates',
   ]) {
@@ -91,17 +115,18 @@ export async function startWorker(
   await boss.work('mail-dispatch', async () => {
     await dispatchMail(workerPool);
   });
-  // 4.1/4.2: outbound deliveries (and integration mail) per tenant, inside withTenantJob.
+  // 4.1/4.2: outbound deliveries and integration mail per tenant — claim → POST → record, each
+  // in its own tenant transaction (review S-09).
   await boss.work('integrations-dispatch', async (jobs) => {
     await dispatchIntegrations(workerPool, appPool, jobs[0]?.id ?? 'integrations-dispatch');
   });
   await boss.work('retention', async () => runRetention({ workerPool, appPool }));
-  // Ops (task 1.7): scripts need pg_dump + superuser credentials; without them they log why.
+  // Ops (task 1.7): the nightly backup (pg_dump as vigor_backup, age-encrypted to a public key);
+  // without its URL / recipient it logs why. The restore test is NOT a worker job (review S-11):
+  // it needs the decryption key, which never enters this process — compose service
+  // `restore-test` (profile ops), host cron Sunday 03:00 UTC (docs/runbook.md).
   await boss.work('backup', async () => {
     await runOpsScript('backup');
-  });
-  await boss.work('restore-test', async () => {
-    await runOpsScript('restore-test');
   });
   await boss.work('alerts-check', async () => {
     await alertsCheck({ workerPool, appPool });
@@ -117,7 +142,8 @@ export async function startWorker(
   await boss.schedule('integrations-dispatch', '* * * * *');
   await boss.schedule('retention', '30 2 * * *');
   await boss.schedule('backup', '0 2 * * *');
-  await boss.schedule('restore-test', '0 3 * * 0');
+  // A schedule left from before review S-11 would only queue jobs nobody works on.
+  await boss.unschedule('restore-test').catch(() => undefined);
   await boss.schedule('alerts-check', '*/5 * * * *');
   await boss.schedule('fx-rates', '30 16 * * 1-5');
 
@@ -170,10 +196,10 @@ export async function dispatchIntegrations(
   );
   for (const r of rows) {
     try {
-      await withTenantJob(appPool, r.tenant_id, jobId, async (ctx) => {
-        await dispatchDue(ctx.db, getMasterKeyring());
-        await dispatchIntegrationMail(ctx.db, getMasterKeyring());
-      });
+      // Several short transactions per item, never one around a POST (review S-09).
+      const run = tenantTx(appPool, r.tenant_id, jobId);
+      await dispatchDue(run, getMasterKeyring());
+      await dispatchIntegrationMail(run, getMasterKeyring());
     } catch (error) {
       logEvent('integrations.dispatch_error', {
         level: 'error',

@@ -6,7 +6,8 @@ import { REQUEST_ID_HEADER, resolveRequestId } from '@/lib/request-id';
 import { getAuth, getAuthAppPool, honeypotFilled } from '@/server/auth/better-auth';
 import { acceptInvitation, InvitationError } from '@/server/auth/invitations';
 import { sameOrigin } from '@/server/auth/with-tenant';
-import { clientIp, turnstileFromEnv, verifyTurnstile } from '@/server/security/turnstile';
+import { clientIp } from '@/server/security/client-ip';
+import { turnstileFromEnv, verifyTurnstile } from '@/server/security/turnstile';
 
 // PUBLIC route (docs/permissions.md, "Javne rute"): the invitee has no tenant session yet. The
 // token itself is the authorization (256-bit, single use, 72 h). Turnstile + honeypot (rule 27),

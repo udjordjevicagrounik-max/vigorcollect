@@ -1,9 +1,17 @@
 #!/usr/bin/env bash
-# Weekly restore test (rule 28; task 1.7) — worker Sunday 03:00 UTC, or by hand.
-# Restores the latest daily dump of the main database into <db>_restore_test, then compares
-# every table's row count with the counts INSIDE the dump (COPY blocks) — no race with live
-# writes. Result → ops_runs; the copy is dropped afterwards.
+# Weekly restore test (rule 28; task 1.7) — the one-shot compose service `restore-test`
+# (profile ops, host cron Sunday 03:00 UTC), or by hand. NEVER in the worker (review S-11): this
+# is the only place that holds BACKUP_AGE_IDENTITY, the key that decrypts the backups.
+# Decrypts the latest daily dump of the main database (to a private temp file, removed on exit),
+# restores it into <db>_restore_test, then compares every table's row count with the counts
+# INSIDE the dump (COPY blocks) — no race with live writes. Tables whose data the backup never
+# contains (auth.session, auth.verification) must restore empty. Result → ops_runs; the copy is
+# dropped afterwards.
 set -euo pipefail
+if [[ "${PROCESS_ROLE:-}" == "worker" ]]; then
+  echo "restore-test: refuses to run in the worker (the decryption key never goes there)" >&2
+  exit 2
+fi
 OPS_URL_VAR=RESTORE_DATABASE_URL # vigor_restore — never the superuser
 # shellcheck source=lib/pg-admin.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/pg-admin.sh"
@@ -22,8 +30,17 @@ trap fail ERR
 
 LATEST="$(find "$BACKUP_DIR/daily" -mindepth 1 -maxdepth 1 -type d ! -name '*.partial' -printf '%f\n' | sort | tail -1)"
 [[ -n "$LATEST" ]] || { step="no-backup"; false; }
-DUMP="$BACKUP_DIR/daily/$LATEST/db-$MAIN_DB.dump"
-[[ -f "$DUMP" ]] || { step="no-dump"; false; }
+SEALED="$BACKUP_DIR/daily/$LATEST/db-$MAIN_DB.dump.age"
+[[ -f "$SEALED" ]] || { step="no-dump"; false; }
+
+step="decrypt"
+[[ "${BACKUP_AGE_IDENTITY:-}" =~ ^AGE-SECRET-KEY-1[0-9A-Z]{58}$ ]]
+umask 077
+DUMP="$(mktemp)"
+EXPECTED="$(mktemp)"
+ACTUAL="$(mktemp)"
+trap 'rm -f "$DUMP" "$EXPECTED" "$ACTUAL"' EXIT
+age -d -i <(printf '%s\n' "$BACKUP_AGE_IDENTITY") -o "$DUMP" "$SEALED"
 
 step="restore"
 dropdb --if-exists --no-password "$TARGET"
@@ -33,14 +50,15 @@ createdb --no-password "$TARGET"
 pg_restore --exit-on-error --no-owner --no-privileges --no-password -d "$TARGET" "$DUMP"
 
 step="compare"
-EXPECTED="$(mktemp)"
-ACTUAL="$(mktemp)"
-trap 'rm -f "$EXPECTED" "$ACTUAL"' EXIT
 # Rows per table as written in the dump: lines between "COPY schema.table (" and "\.".
-pg_restore --data-only -f - "$DUMP" | awk '
-  /^COPY [^ ]+ / { table = $2; rows = 0; inside = 1; next }
-  inside && $0 == "\\." { print table "\t" rows; inside = 0; next }
-  inside { rows++ }' | sed 's/"//g' | sort >"$EXPECTED"
+# Tables whose data the backup excludes have no COPY block: they must restore EMPTY.
+{
+  pg_restore --data-only -f - "$DUMP" | awk '
+    /^COPY [^ ]+ / { table = $2; rows = 0; inside = 1; next }
+    inside && $0 == "\\." { print table "\t" rows; inside = 0; next }
+    inside { rows++ }' | sed 's/"//g'
+  printf 'auth.session\t0\nauth.verification\t0\n'
+} | sort -u >"$EXPECTED"
 psql -X -At --no-psqlrc -d "$TARGET" -v ON_ERROR_STOP=1 <<'SQL' | sort >"$ACTUAL"
 SELECT format('SELECT %L || E''\t'' || count(*) FROM %I.%I', n.nspname || '.' || c.relname, n.nspname, c.relname)
 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace

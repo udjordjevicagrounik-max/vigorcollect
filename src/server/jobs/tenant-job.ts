@@ -1,5 +1,6 @@
 import type { Pool, PoolClient } from 'pg';
 import { writeAudit, type AuditEntry } from '@/server/auth/audit';
+import type { Queryable } from '@/server/crypto/subject-keys';
 
 /**
  * Job equivalent of withTenant() (rule 2): every piece of tenant work in the worker runs as
@@ -41,3 +42,20 @@ export async function withTenantJob<T>(
     client.release();
   }
 }
+
+/**
+ * Work with an EXTERNAL effect (a POST to n8n) needs several short transactions instead of one
+ * (review S-09): claim → commit → send outside any transaction → record → commit. A TenantTx runs
+ * `fn` in its own committed tenant transaction. Tests may run everything in one rolled-back
+ * transaction with sameTx(db).
+ */
+export type TenantTx = <T>(fn: (db: Queryable) => Promise<T>) => Promise<T>;
+
+export function tenantTx(appPool: Pool, tenantId: string, jobId: string): TenantTx {
+  return (fn) => withTenantJob(appPool, tenantId, jobId, (ctx) => fn(ctx.db));
+}
+
+export const sameTx =
+  (db: Queryable): TenantTx =>
+  (fn) =>
+    fn(db);

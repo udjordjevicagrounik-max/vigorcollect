@@ -197,6 +197,96 @@ Ideje i tehnički dug zapisani usred zadatka (protokol: ne predlaže se usred za
 - [ ] Domenske sekcije 18–23 (integracije, import, reconciliation, RiskProvider) nisu u repou —
       uneti dokument ili link da sledeće sesije mogu da ga čitaju.
 
+## Iz security review-a 2026-10-13 (sesija 5.0)
+
+Izvor: `docs/security-review-2026-10-13.md` (ID-jevi S-xx). P2 su ispravljeni u 5.0
+(`feature/security-fixes`); ovde su P3 sa predloženim sprintom (auth / tenant / webhook → Sprint 5)
+i P4 bez roka, plus preostali rizici P2 ispravki.
+
+### Preostalo iz P2 ispravki (5.0)
+
+- [ ] **S-08 (Uroš, env):** pravi Turnstile ključevi u `.env` preview-a; startup guard da odbije
+      Cloudflare test ključeve (`^[123]x0000`) kad je `NODE_ENV=production` — Sprint 5.
+- [ ] **S-03 ostatak:** zasebna rola `vigor_auth` samo za Better Auth pool (`AUTH_DATABASE_URL`
+      samo u `app`), `vigor_app` bez ikakvog pristupa `auth.*` — Sprint 5 (auth).
+- [ ] **S-01 ostatak:** kanonska polja `legal_entities` („first writer wins") puniti iz registra
+      (APR / VIES / provajder) uz `verification_status` — Sprint 6.
+- [ ] **S-02 ostatak:** pravila identifikatora (`party_id_rules`) za ostale zemlje SEE/EU (BA, ME,
+      MK, HR, SI …); dok ih nema, uvoz bez kolone „Fizičko lice" ide na pregled — Sprint 5.
+- [ ] **S-02 ostatak:** ekran „Kupci za proveru" ima samo listu; akcija „ovo je fizičko lice"
+      (prebacivanje na potrošača uz maker-checker, bez brisanja kanonskog reda) — Sprint 6.
+- [ ] **S-06 ostatak:** API ključevi izdati pre 022 ostali su `ORGANIZATION` (kao ranije) —
+      pregledati ih i opozvati/ponovo izdati sa `OWN` gde je dovoljno (Uroš, posle deploya).
+
+### P3 — Sprint 5 (auth / tenant / webhook)
+
+- [ ] S-13 `tenant_clock_read` otvara GUC `app.tenant_clock` koji svako može da postavi →
+      posebna NOLOGIN rola-vlasnik za `tenant_clock` / `platform_timezone`, politika `TO` ta rola.
+- [ ] S-14 `verify-tenant.sh` / `rls-drift-check.sh` su stubovi (`exit 0`) → živa provera
+      `relrowsecurity AND relforcerowsecurity` za svaku tabelu sa `tenant_id`.
+- [ ] S-15 MFA „trust device" preskače TOTP 30 dana → before hook forsira `trustDevice=false`.
+- [x] S-16 API ključ uvek `ORGANIZATION` — rešeno u 5.0 uz S-06 (obim `OWN|ORGANIZATION`, nikad
+      šire od kreatora).
+- [ ] S-17 API ključ nadživi kreatora, nema `expires_at`, opoziv u bazi reverzibilan → opoziv pri
+      deaktivaciji, `expires_at`, column grant + trigger „opoziv je konačan".
+- [ ] S-18 ostatak: promena u `finance_manager` / `legal_manager` (nose `approval.*`) i dalje ide
+      odmah — proširiti listu privilegovanih rola na svaku rolu sa 🅼 / `approval.*` dozvolom.
+- [ ] S-19 izmena matrice može dati `approval.*` collector/sales_rep roli → odbiti u
+      `proposeGrantChange` + DB trigger na `role_permissions`.
+- [ ] S-20 `team.manage` menja sopstveno članstvo i tako širi TEAM scope → zabraniti ili approval.
+- [ ] S-22 checker (legal handover, odluka o kreditnom statusu) nije ograničen `scopeFilter`-om;
+      lista pending zahteva prikazuje kupce celog tenanta.
+- [ ] S-27 SSRF filter outbound URL-a bez DNS rezolucije (IPv4-mapped, `localhost.`, CGNAT, DNS
+      rebinding) → provera razrešenog IP-a pri konekciji + jedinstven kod greške u „Test ping".
+
+### P3 — Sprint 6
+
+- [ ] S-21 autor pravila može da odobri objavu sopstvenog draft-a (proveriti i urednike verzije).
+- [ ] S-23 maker-checker u bazi: column REVOKE za `credit_limit`/`credit_status`/`status`,
+      INSERT guard na `approval_requests` (`status='pending'`), CHECK-ovi koji proveravaju da je
+      referencirani zahtev odobren i za taj entitet, `provisioned=true` samo kroz DEFINER.
+- [ ] S-24 nova verzija šablona može izgubiti `has_legal_effect` → nasleđivanje na INSERT.
+- [ ] S-25 write-off kroz `source_settlement` bez odobrenja; DELETE alokacija primljenih uplata.
+- [ ] S-26 akcije rule engine-a bez `audit()` (`create_decision`, `create_task`, `queue_email` …).
+- [ ] S-28 Sentry: IBAN sa razmacima / telefoni / tokeni u URL-u (`reset-password`, `?token=`).
+- [ ] S-29 `pii_field_registry`: nazivi priloga P0, rizik fizičkih lica P0, tela pošte/webhook-a
+      bez retencije i bez `subject_keys`.
+- [ ] S-30 servis `app` bez `cap_drop`/`no-new-privileges`/`read_only` (zaštićen compose).
+- [ ] S-31 Postgres objavljen na `172.17.0.1` (dostupan svim kontejnerima hosta).
+- [ ] S-32 `rclone sync` / `aws s3 sync --delete` briše i off-site kopije → `copy` + versioning.
+
+### P4 — bez roka
+
+- [ ] S-33 `search_path` DEFINER funkcija bez `pg_temp` na kraju (007, 010, 012, 019).
+- [ ] S-34 lozinke rola kao `psql -v` argument i u čistom DDL-u (log).
+- [ ] S-35 `api_rate_limit` čitljiv svim tenantima (`USING (true)`).
+- [ ] S-36 pre-auth `inbound_lookup` vraća ceo red integracije.
+- [ ] S-37 worker čita nove kolone `mail_outbox` svih tenanta; retencija briše i neposlatu poštu.
+- [ ] S-38 inbound: telo pre provere veličine, jedan signing ključ, limit `id` 200 vs Message-ID
+      998, događaji isključene integracije, tip integracije vs tip događaja.
+- [ ] S-39 bounce od „mailer-daemon" bez provere kanala; vezivanje po `References`; dedup po
+      Message-ID koji šalje pošiljalac; nema SPF/DKIM presude.
+- [ ] S-40 `caseId` pri generisanju dokumenta se ne proverava prema kupcu / scope-u.
+- [ ] S-41 case iz faze `legal` se ručno vraća ili zatvara bez odobrenja.
+- [x] S-42 `settings.manage` za API ključ — dodat u `NEVER_FOR_KEYS` u 5.0 (uz S-06).
+- [ ] S-43 brojač neuspešnih prijava nije atomski (ADR 0004 svesno).
+- [ ] S-44 `withTenantPage` bez fail-closed provere permisije; reset samo dva GUC-a.
+- [ ] S-45 neispravan JSON → 500 umesto 400; greške pre `run()` bez standardnog oblika.
+- [ ] S-46 GET download piše `export_log`/`audit_log`; token u query string-u.
+- [ ] S-47 `decisions` se čita pre `requirePermission` (403 vs 404 orakl unutar tenanta).
+- [ ] S-48 `export_log.actor_type` uvek `user`; outbound URL u `audit_log`.
+- [ ] S-49 lista zadataka bez `scopeFilter`-a (imena kupaca van obima).
+- [ ] S-50 uvoz/rollback audit samo zbirno.
+- [ ] S-51 pozivi risk provajdera unutar otvorene DB transakcije.
+- [ ] S-52 image-i bez digest-a; `.dockerignore` (`.e2e-data`, `*.tsbuildinfo`, `docs`).
+- [ ] S-53 `qrcode` bez izdanja od 2024-08 (izuzetak pravila 14, već u BACKLOG-u).
+- [ ] S-54 test podaci koji liče na stvarne (`.rs` email, PIB, IBAN validnog formata).
+- [ ] S-55 `migrate.sh down` i demo uvoz bez zaštite od produkcione baze.
+- [ ] S-56 `tenant_settings.attention_large_overdue` bez valute.
+- [ ] S-57 hostname preview-a u repou (uz S-08).
+- [ ] S-58 rate limiter pada otvoreno kad baza ne radi (namerno; dokumentovati).
+- [ ] S-59 `git bundle --all` nosi celu istoriju — `gitleaks git` pre bundle-a.
+
 ## Roadmap
 
 ### Marketing sajt — paralelan tok uz Sprint 1

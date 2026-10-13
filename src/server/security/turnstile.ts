@@ -42,13 +42,6 @@ export function assertTurnstileConfigured(env: Env = process.env): void {
 
 let skipLogged = false;
 
-/** First address of X-Forwarded-For (set by the reverse proxy), else X-Real-IP. */
-export function clientIp(headers: Headers): string | undefined {
-  return (
-    headers.get('x-forwarded-for')?.split(',')[0]?.trim() || headers.get('x-real-ip') || undefined
-  );
-}
-
 export async function verifyTurnstile(
   config: TurnstileConfig,
   token: string | undefined,

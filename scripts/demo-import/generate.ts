@@ -2,7 +2,8 @@
  * Demo invoice file for the import wizard (task 2.2, rule 24: generated data only). Deterministic
  * (fixed seed) and relative to TODAY, so every aging bucket and "due today" has rows whenever it
  * is generated. Companies only, tax ids in the reserved DEMO- space, Serbian export conventions
- * (";" separator, decimal comma, dd.mm.yyyy).
+ * (";" separator, decimal comma, dd.mm.yyyy). Column "Fizičko lice" = "ne" (review S-02): the
+ * DEMO- ids match no identifier rule of the country, so the file itself says "company".
  *
  *   npx tsx scripts/demo-import/generate.ts > scripts/demo-import/fakture-demo.csv
  */
@@ -52,7 +53,7 @@ export function demoCsv(today: Date = new Date(), currency = 'RSD'): string {
   const base = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
   const day = 86_400_000;
   const lines = [
-    'ID;Broj fakture;Datum fakture;Datum dospeća;Oznaka valute;Iznos;Saldo;PIB;Naziv kupca',
+    'ID;Broj fakture;Datum fakture;Datum dospeća;Oznaka valute;Iznos;Saldo;PIB;Naziv kupca;Fizičko lice',
   ];
   PAST_DUE.forEach((pastDue, i) => {
     const customer = DEMO_CUSTOMERS[i % DEMO_CUSTOMERS.length] ?? DEMO_CUSTOMERS[0];
@@ -73,6 +74,7 @@ export function demoCsv(today: Date = new Date(), currency = 'RSD'): string {
         amountText(open),
         customer.taxId,
         customer.name,
+        'ne',
       ].join(';'),
     );
   });
