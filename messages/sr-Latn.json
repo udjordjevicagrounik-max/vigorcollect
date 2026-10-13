@@ -28,7 +28,9 @@
       "reports": "Izveštaji",
       "notifications": "Obaveštenja",
       "gettingStarted": "Početak rada",
-      "platform": "Platforma"
+      "platform": "Platforma",
+      "disputes": "Sporovi",
+      "fields": "Polja"
     },
     "tenant": "Organizacija",
     "switchTenant": "Promeni organizaciju",

@@ -87,7 +87,7 @@ Kao `vigor_migrate` posle prve migracije (release checklist):
 ## 5. Aplikacija
 
 ```bash
-APP_VERSION=v0.1.0 docker compose up -d --build app worker renderer
+./scripts/deploy.sh             # APP_VERSION = git commit taga; čeka /health
 docker compose ps        # app, worker, renderer: healthy
 ```
 
@@ -119,6 +119,6 @@ Exit 0 = staging je gotov. Exit ≠ 0 → `docker compose logs app worker --sinc
 
 ## Rollback
 
-Aplikacija: `git checkout <prethodni tag>` pa `docker compose up -d --build app worker renderer`.
+Aplikacija: `git checkout <prethodni tag>` pa `./scripts/deploy.sh`.
 Migracije se ne vraćaju na staging-u bez razloga; ako mora — `migrate down <NNN>` samo za
 migracije iz tog release-a, posle backup-a (runbook „Backup / restore").
