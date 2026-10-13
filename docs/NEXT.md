@@ -14,75 +14,67 @@ istorijom) i sve lokalne backup kopije. Redom:
 
 ## Aktivan zadatak
 
-**Noćni lanac 2.5 → 3.1 → 3.2 završen na `feature/sprint-3`.** Sledeće: tvoje tri odluke (ispod),
-pa nalazi security review-a (Sprint 2 + 3), pa Sprint 3 nastavak.
+**Sprint 3 zatvoren (3.3, `feature/sprint-3-close` → `develop`).** Sledeće, redom:
 
-### Čeka tvoju odluku (STOP-ovi lanca, ništa nije zaobiđeno)
+1. **Security review Sprint 1–3** (`docs/security-review-checklist.md`, ulaz
+   `docs/security-review-input.md`): posebno renderer PDF-a (Chromium `--no-sandbox` u kontejneru
+   bez capability-ja), parser XLSX, exportService linkovi, šabloni (bela lista), collection mail.
+2. **P1 GitHub** (gore): remote + push, kopija backup-a van kontejnera.
+3. **Sprint 4 — integracije:** email sync (prijem/odgovori), SEF/ERP adapter (fakture i uplate
+   umesto fajla), CheckPoint `RiskProvider` (kreditni rizik kao predlog, pravilo 19).
 
-1. **PDF.** Image nema Chromium ni wkhtmltopdf. Dokumenti su HTML (šifrovani, pregled u
-   aplikaciji). Predlog:
-   - **(a) `puppeteer-core` + `chromium` (Debian paket) u worker image-u.** Verna kopija HTML-a
-     i istog šablona, image je oko 300 MB veći, a Chromium se ažurira sa sistemom.
-   - **(b) `pdfkit`.** Mali paket bez browsera, ali traži zaseban crtež dokumenta (šablon ≠ PDF),
-     bez HTML tabela.
-   - Preporuka: (a), samo u worker-u, render u poslu `document.render` (bez mreže, `--no-sandbox`
-     nije potreban kao `node` korisnik).
-2. **`mail_outbox.kind`** (CHECK: samo `invitation` / `password_reset`). Za `queue_email` treba
-   DROP + ADD CHECK sa `collection`, bez gubitka podataka. Do tada `queue_email` beleži
-   `mail_kind_pending_decision`.
-3. **`export_log.format`** (csv / xlsx / pdf / json). Preuzimanje HTML dokumenta bi tražilo
-   proširenje CHECK-a. Predlog: ne proširivati, nego sačekati PDF (odluka 1).
+## Poslednja sesija — 3.3 zatvaranje Sprinta 3 (2026-10-13)
 
-## Poslednja sesija — noćni lanac 2.5 → 3.1 → 3.2 (2026-10-12/13)
+Odluke Uroša (2026-10-13): PDF = `puppeteer-core` (odobren) + Debian `chromium` samo u worker
+stage-u; `mail_outbox.kind` CHECK se proširuje (DROP + ADD, ADR 0003 „Zamena CHECK-a"); 
+`export_log.format` ostaje bez `html`, preuzima se samo PDF.
 
-### Urađeno po bloku
+### Urađeno (`8240d00` kod + testovi; ovaj commit docs)
 
-- **2.5 `a4c4ee6`** (+ predlog 015):
-  - `payments.payment_kind` (payment | adjustment) je generisan iz `kind`, bez backfill-a;
-  - razlog korekcije je code lista `adjustment_reason` (podrazumevano `unknown`);
-  - korekcija se ne računa u „Naplaćeno (30 dana)", stopu naplate ni DSO (`docs/metrics.md`);
-  - `instrumentation-node.ts` (bez `process.exit` u Edge-u), pa build bez upozorenja;
-  - stari server na 3101 je ugašen;
-  - demo uvoz na dev: **40 faktura, 8 kupaca, dospelo 10.946.484,18 RSD** (otvoreno 13.651.719,58).
-- **3.1 `f740953`** (+ predlog 016): rule engine (workflows, verzije, run-ovi sa objašnjenjem,
-  idempotentnost), Standard politika D-7 … D+90, Administracija → Pravila, run-ovi u hronologiji case-a.
-- **3.2 `4dc2420`, `9c9d44f`:** šabloni (bela lista, bez eval-a, verzije), dokumenti (opomena,
-  IOS; šifrovano skladište), exportService (potpisan link + `export_log`), „Zahteva pažnju",
-  Administracija → Šabloni, Customer 360 → Dokumenti.
-- **Testovi:** unit 140, DB 259, e2e 34 (+3 namerno preskočena). `next build` bez upozorenja.
+- **Testovi:** unit 142, DB 264 + 2 preskočena (PDF golden dok image `collect-worker` nema
+  Chromium — posle build-a `npm run test:pdf`; prošao 2/2 na probnom image-u), e2e 35 + 4 namerno
+  preskočena (novo: D+90 → predlog → podnesi → checker odobrava). Migracija 017 up → down → up
+  na `collect_test`.
+- **Migracija 017** (predlog, Uroš commit-uje): `mail_outbox.kind` + `reminder` / `dunning` /
+  `statement` / `document`; `mail_outbox.customer_id` / `template_id` / `source_run_id`;
+  `document_renditions` (PDF uz HTML, jedan po dokumentu); indeks predloga pravila.
+- **`queue_email` end-to-end:** šablon → primarni kontakt kupca → `mail_outbox` (sink; demo uvek).
+- **PDF u worker-u:** posao `document.render_pdf` (handler `document.generated` /
+  `document.render_requested`), isti HTML, stabilan checksum, preuzimanje samo PDF kroz
+  exportService (`export_log` format `pdf`); „Napravi PDF" za starije dokumente.
+- **Compose / Dockerfile** (predlog): volume `documents` za app i worker, `DOCUMENTS_DIR`,
+  Chromium 155 + DejaVu fontovi pinovani u worker stage-u, worker `cap_drop: ALL`,
+  `no-new-privileges`, `shm_size`. `.env.example` dopunjen.
+- **Predlozi pravila → čovek:** „Zahteva pažnju" → „Podnesi na odobrenje" → predaja pravnoj
+  (`case.legal_handover`) ili `decision.approve` → druga osoba odobrava (pravila 11, 19).
+- **Administracija → Status sistema:** „Pokreni dnevni posao sada" (`settings.manage`, audit,
+  idempotentno, kroz outbox).
 
 ### Pretpostavke (najkonzervativnija opcija)
 
-1. `payment_kind` je generisana kolona umesto promene `kind` — bez DROP/RENAME i bez backfill-a pod
-   FORCE RLS; contract (uklanjanje `kind`) je u BACKLOG-u.
-2. DSO vraća korekcije u brojilac (korekcija nije naplata). Otvoreno ukupno i aging ih ne vraćaju,
-   jer taj dug više ne postoji.
-3. „Naplaćeno (30 dana)" je u zoni tenanta. Stopa naplate = naplaćeno ÷ (naplaćeno + dospelo).
-4. Dozvole: pravila i šabloni koriste `settings.read` / `settings.manage`; objavu odobrava druga
-   osoba sa `settings.manage`. Ključevi `workflow.*` / `template.*` su u BACKLOG-u.
-5. Engine nije osoba (`approval_requests.requested_by` je NOT NULL). Zato `create_approval` i
-   `create_decision` prave **predlog** (`decisions` source `rule`, `proposed`) i obaveštenje;
-   zahtev za predaju pravnoj podnosi čovek (pravila 11 i 19).
-6. Pokušao sam CHECK „approved ⇒ approved_by" na `decisions`, ali je oborio postojeći golden test
-   (pravilo 19 važi samo za fizička lica; pravilo sme da odluči za pravno lice). Uklonio sam ga, jer
-   bi menjao poslovno pravilo.
-7. D-7 se računa u radnim danima (pon–pet, zona kompanije), bez praznika (BACKLOG). D+N je u
-   kalendarskim danima.
-8. Run se pravi samo za objavljene verzije. Ključ dnevnog okidača je lokalni datum; za
-   „bez aktivnosti" ključ je datum poslednje aktivnosti (jednom po periodu neaktivnosti).
-9. Događaji koje izazove engine (`payload.source = workflow`) ne pokreću pravila (bez petlji).
-10. Tekstovi šablona su u `template_texts` (šablon × jezik), ne u `translations`, čiji CHECK-ovi
-    dozvoljavaju samo nazive rola i code lista. Proširenje bi tražilo DROP.
-11. Pregled dokumenta je server-render tela posle ponovne provere bele liste tagova (CSP ne
-    dozvoljava iframe/srcdoc).
-12. Skladište dokumenata je `DOCUMENTS_DIR` na disku. U Docker-u nema volume-a, pa se dokumenti
-    gube pri rekreiranju kontejnera; `docker-compose.yml` nisam dirao (zaštićen) — BACKLOG.
-13. Za „velika dospela faktura" bez praga u `tenant_settings` važi 5 najvećih; nijedan iznos nije
-    u kodu.
-14. Opomena pred utuženje fizičkom licu: šablon nosi `has_legal_effect`, pa ga engine nikad ne
-    šalje (`rule_19`), a za fizičko lice Standard pravi predlog odluke.
-15. Na dev bazi je danas dnevni posao već prošao, pa Standard pravila prvi put rade sutra posle
-    06:00 (Europe/Belgrade) — tada preview dobija case-ove i run-ove.
+1. **Chromium radi sa `--no-sandbox`.** Sopstveni sandbox traži user namespace ili setuid helper;
+   podrazumevani Docker seccomp (i AppArmor hosta) ih blokira za ne-root proces. Nisam dodao
+   `SYS_ADMIN`, `privileged` ni poseban seccomp. Granica je kontejner: `node`, bez capability-ja,
+   `no-new-privileges`, JS isključen, svaki mrežni zahtev se odbija, samo naš HTML. U NEXT 3.2 sam
+   napisao da `--no-sandbox` nije potreban — to je bilo pogrešno; proverio sam u image-u.
+2. PDF je u `document_renditions`, a ne kao nov red u `documents`: `documents_version` je UNIQUE
+   po (kupac, vrsta, verzija), pa bi drugi red iste verzije tražio DROP tog constraint-a.
+3. Checksum je stabilan jer se `CreationDate` / `ModDate` u PDF-u postavljaju na datum dokumenta
+   (ista dužina bajtova); sve ostalo Chromium daje isto za isti HTML.
+4. Primalac collection mail-a je primarni aktivni kontakt sa email-om, inače najstariji aktivni.
+   Bez njega akcija je `skipped` (`no_recipient`). Run čuva samo id-jeve (mail, kontakt, šablon).
+5. Vrsta poruke: šablon sa pravnim dejstvom = `dunning`, ostalo `reminder`.
+6. Predlog predaje pravnoj ide kroz postojeći tok `case.legal_handover` (za fizičko lice taj tok
+   i dalje upisuje ljudsku odluku); predlog pravila se veže za isti zahtev i prati njegov ishod.
+   Ostale odluke: `decision.approve` (maker `decision.create`, checker `decision.approve` — ključevi
+   već postoje u katalogu).
+7. Odbijanje odluke traži napomenu (kao predaja pravnoj).
+8. Dnevni posao na zahtev ide kroz outbox (`tenant.daily_requested`), ne direktno iz app-a: app
+   nema pristup pg-boss-u, a tenant se tako uzima iz reda događaja.
+9. PDF golden test pokreće naš `pdf.ts` u worker image-u (`docker run -i`, Node uklanja tipove),
+   jer host nema Chromium i Docker daemon ne vidi lokalne putanje. U `test:db` se preskače dok
+   image nema Chromium (prvi build 3.3); `npm run test:pdf` tada pada umesto da preskoči.
+10. Font: `fonts-dejavu-core` (latinica sa dijakriticima i ćirilica), pinovan.
 
 ## Trajne odluke iz Sprinta 0–1
 
@@ -182,6 +174,10 @@ postoji samo šifrovano na `customers`. Ulazi u migraciju 003, aditivno.
 - `npm audit` u hook-u zavisi od mreže — offline commit neće proći.
 
 ## Istorija
+
+- **Noćni lanac 2.5 → 3.1 → 3.2** (2026-10-12/13): `a4c4ee6`, `f740953`, `4dc2420`, `9c9d44f`;
+  `82e9148` migracije 015–016 (Uroš); merge `59a77e6`. Demo uvoz: 40 faktura, 8 kupaca, dospelo
+  10.946.484,18 RSD. 15 pretpostavki: `git show 0bdcfce:docs/NEXT.md`.
 
 - **Lanac Sprint 2 (2.1–2.4)** (2026-10-12): `04c2530`, `289e6ea`, `9f1f919`, `763af29`;
   `8d0624f` migracije 012–014 (Uroš); merge `710bd2d`. 20 pretpostavki:

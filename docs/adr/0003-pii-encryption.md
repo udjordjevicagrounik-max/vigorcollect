@@ -117,3 +117,19 @@ po tenantu, `src/server/mail/crypto.ts`), ne ključ iz `subject_keys` — CHECK
   dvojno čitanje, re-encrypt job, tek onda uklanjanje starog puta — nikad DROP pre toga);
 - **rotacija master ključa mora pokriti oba puta**: re-wrap `subject_keys` **i** ponovno šifrovanje
   živih `mail_outbox` redova (ili sačekati 7 dana retencije pre povlačenja stare verzije).
+
+## Zamena CHECK-a: `mail_outbox.kind` (Uroš, 2026-10-13, zadatak 3.3)
+
+Migracija 017 menja CHECK `mail_outbox_kind_check` (DROP + ADD istog imena) da bi `mail_outbox`
+primio poruke naplate: `reminder`, `dunning`, `statement`, `document` uz postojeće `invitation` i
+`password_reset`. **Zamena CHECK-a je dozvoljena pod pravilom 15** jer:
+
+- novi skup vrednosti je nadskup starog — nijedan postojeći red ne postaje neispravan, podaci se
+  ne menjaju i ne brišu;
+- nije DROP/RENAME kolone ni tabele; ime constraint-a ostaje isto (down vraća stari CHECK kao
+  `NOT VALID`, jer redovi naplate pod FORCE RLS ne mogu da se obrišu iz migracije).
+
+Poruke naplate koriste isti ključ izveden po tenantu (HKDF `mail_outbox`) kao i auth poruke;
+telo je `{subject, text, html}` šifrovano, primalac šifrovan. Novi stubovi `customer_id`,
+`template_id`, `source_run_id` su samo id-jevi (P0). Pravilo 24 važi i dalje: demo tenant šalje
+samo u sink (trigger iz 006/007).

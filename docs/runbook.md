@@ -59,8 +59,23 @@ kompaniju (zona UTC); podaci uvoza ostaju između pokretanja (uvoz je idempotent
   zahtev za odobrenje (druga osoba sa `settings.manage`). Dnevni okidači idu posle 06:00 lokalno.
 - Šabloni: Administracija → Šabloni; izmena = nova verzija; samo promenljive i tagovi sa bele liste.
 - Dokumenti (opomena, IOS): Customer 360 → Dokumenti. Sadržaj je šifrovan u `DOCUMENTS_DIR`
-  (podrazumevano `<cwd>/data/documents`; e2e `.e2e-data/documents`). U Docker-u bez volume-a se
-  gube pri rekreiranju kontejnera (BACKLOG). Preuzimanje samo kroz exportService (PDF).
+  (Docker: volume `documents` → `/srv/documents` za app i worker; host: `<cwd>/data/documents`;
+  e2e `.e2e-data/documents`). Volume NIJE u backup-u baze (BACKLOG: S3 adapter).
+- PDF (3.3): worker posle `document.generated` pravi PDF iz istog HTML-a (Chromium iz worker
+  image-a, `document_renditions`). Preuzimanje: pregled dokumenta → „Preuzmi PDF" (svrha →
+  potpisan link 5 min → `export_log`). Dokument bez PDF-a (npr. iz 3.2): „Napravi PDF".
+  Chromium radi kao `node`, bez capability-ja i sa `no-new-privileges`; sopstveni sandbox mu je
+  isključen (`--no-sandbox`), jer ga podrazumevani Docker seccomp ne dozvoljava bez root-a
+  (`src/server/documents/pdf.ts`).
+- Collection mail (3.3): `queue_email` renderuje šablon za primarni kontakt kupca i upisuje ga u
+  `mail_outbox` (kind `reminder` / `dunning`, transport `sink` dok nema SMTP-a; demo uvek sink).
+  Pregled: `readOutbox()` (sink). Bez kontakta sa email-om: akcija `skipped`, razlog `no_recipient`.
+- Dnevni posao odmah: Administracija → Status sistema → „Pokreni dnevni posao sada"
+  (`settings.manage`, audit `tenant.daily_requested`; idempotentno — isti dan ne pravi duplikate).
+- Predlozi pravila: „Zahteva pažnju" → „Podnesi na odobrenje" → Administracija → Odobrenja
+  (druga osoba). Predaja pravnoj: `approval.legal_handover`; ostale odluke: `decision.approve`.
+- PDF golden test: `npm run test:pdf` (pokreće naš `pdf.ts` u worker image-u `collect-worker`;
+  u `test:db` se preskače dok image nema Chromium).
 
 ## PII master ključ (`PII_MASTER_KEYS`)
 
@@ -190,7 +205,10 @@ Pokretanje: servis `worker` u `docker-compose.yml` — Dockerfile stage `worker`
 `/health` na 3001 unutar mreže, volume `backups` → `/srv/backups`. `app` je stage `app` (od 1.5
 traži `PII_MASTER_KEYS`, `BETTER_AUTH_*`, `TURNSTILE_*`; lokalno rade Cloudflare-ovi test ključevi).
 **Worker image:** kad PGDG objavi noviji 16.x, stari nestaje iz glavnog repoa i build pada —
-podići `PG_CLIENT_VERSION` u Dockerfile-u (`apt-cache policy postgresql-client-16`). Lokalno: `npm run build` pa
+podići `PG_CLIENT_VERSION` u Dockerfile-u (`apt-cache policy postgresql-client-16`). Isto važi za
+Chromium (3.3): `CHROMIUM_VERSION` je build iz `bookworm-security`; kad izađe novi security
+update, stari nestaje — podići verziju (`apt-cache policy chromium` u `node:22-bookworm-slim`) i
+pustiti `npm run test:pdf`. Lokalno: `npm run build` pa
 `cd .next/standalone && node worker.mjs` (iz `.env`: `DATABASE_URL`, `WORKER_DATABASE_URL`).
 
 Neuspeli događaji (`status = 'failed'`, `last_error` = kod greške) ostaju u `domain_events`.
