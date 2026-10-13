@@ -79,6 +79,15 @@ Izveštaj: `docs/security-review-2026-10-13.md` (59 nalaza, 0 P1, 12 P2). Odluke
 8. Dev: `age` instaliran u dev kontejner (`setup-tools.sh`); `RENDERER_DB_PASSWORD` generisan u
    lokalnom `.env` (nije ispisan) i rola napravljena u dev klasteru.
 
+### Incident u sesiji (dev baza, ispravljeno)
+
+Provera „test pada na starom kodu" za S-04 je privremeno vratila stari `scripts/migrate.sh`, koji
+čita `MIGRATE_DATABASE_URL` iz `.env`; test ga zove i bez argumenata (= `up`), pa je u 16:50 UTC
+na **dev** bazu `collect` primenio tadašnje 021 i delimičnu 022 (S-05, S-09). Otkriveno pri
+proveri image-a; dev baza vraćena na 020 (`down 022`, `down 021`, `VALIDATE CONSTRAINT`), app
+`/health` 200, podaci nisu dirani (`render_jobs` prazna). Test sada radi nad kopijom skripte u
+praznom privremenom direktorijumu (bez `.env`, lažni `psql`) — ne može da dođe do baze.
+
 ## Trajne odluke iz Sprinta 0–1
 
 ### Odluke Uroša za lanac 1.6 → 1.7 (2026-10-12)

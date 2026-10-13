@@ -1,5 +1,13 @@
 import { execFileSync } from 'node:child_process';
-import { chmodSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  copyFileSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -65,20 +73,31 @@ describe('S-04: the migration role is only in the one-shot migrate service', () 
 
   it('the app and the worker start without MIGRATE_DATABASE_URL', () => {
     expect(
-      readDbEnv({ DATABASE_URL: 'postgres://vigor_app:x@db:5432/collect' } as unknown as NodeJS.ProcessEnv),
+      readDbEnv({
+        DATABASE_URL: 'postgres://vigor_app:x@db:5432/collect',
+      } as unknown as NodeJS.ProcessEnv),
     ).toEqual({
       DATABASE_URL: 'postgres://vigor_app:x@db:5432/collect',
     });
   });
 
   it('scripts/migrate.sh without the URL in its environment hands over to the migrate service', () => {
-    const bin = mkdtempSync(join(tmpdir(), 'fake-docker-'));
-    const log = join(bin, 'calls');
+    // A COPY of the script in an empty tree: no .env, no migrations, no psql reachable — this
+    // test can never touch a database, whatever version of the script it runs.
+    const tree = mkdtempSync(join(tmpdir(), 'migrate-sh-'));
+    mkdirSync(join(tree, 'scripts'));
+    copyFileSync(join(process.cwd(), 'scripts/migrate.sh'), join(tree, 'scripts/migrate.sh'));
+    const bin = join(tree, 'bin');
+    mkdirSync(bin);
+    const log = join(tree, 'calls');
     writeFileSync(join(bin, 'docker'), `#!/bin/sh\necho "$@" >> "${log}"\n`);
+    writeFileSync(join(bin, 'psql'), '#!/bin/sh\nexit 99\n');
     chmodSync(join(bin, 'docker'), 0o755);
-    const env = { PATH: `${bin}:/usr/bin:/bin`, HOME: bin } as unknown as NodeJS.ProcessEnv;
-    execFileSync('bash', [join(process.cwd(), 'scripts/migrate.sh'), 'status'], { env });
-    execFileSync('bash', [join(process.cwd(), 'scripts/migrate.sh')], { env });
+    chmodSync(join(bin, 'psql'), 0o755);
+    const env = { PATH: `${bin}:/usr/bin:/bin`, HOME: tree } as unknown as NodeJS.ProcessEnv;
+    const script = join(tree, 'scripts/migrate.sh');
+    execFileSync('bash', [script, 'status'], { env, cwd: tree });
+    execFileSync('bash', [script], { env, cwd: tree });
     expect(readFileSync(log, 'utf8').trim().split('\n')).toEqual([
       'compose --profile ops run --rm --build migrate status',
       'compose --profile ops run --rm --build migrate up',
