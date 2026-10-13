@@ -623,29 +623,59 @@ export async function getDashboard(ctx: TenantContext): Promise<Dashboard> {
   const { scope } = await ctx.requirePermission('report.read');
   const filter = scopeFilter('customers', viewer(ctx, scope), 'c', 1);
   const scoped = `JOIN customers c ON c.id = p.customer_id AND ${filter.sql}`;
-  const totals = await ctx.db.query<{
-    currency: string;
-    open_total: string | null;
-    overdue_total: string | null;
-    billed: string | null;
-    dso_open: string | null;
-    window_days: number;
-    missing_fx: number;
-    disputed_total: string | null;
+  // 6.5: ONE pass over invoice_positions (fx per row is the expensive part) feeds the totals,
+  // the aging and the top five; money leaves the database as text (never a float, rule 6).
+  const one = await ctx.db.query<{
+    totals: {
+      currency: string;
+      open_total: string | null;
+      overdue_total: string | null;
+      billed: string | null;
+      dso_open: string | null;
+      window_days: number;
+      missing_fx: number;
+      disputed_total: string | null;
+    } | null;
+    aging: { bucket: string; amount: string | null; n: number }[];
+    top: { id: string; display_name: string | null; overdue: string; oldest: number }[] | null;
   }>(
-    `SELECT ts.default_currency AS currency, ts.dso_window_days AS window_days,
-            sum(p.open_reporting) FILTER (WHERE p.is_open AND p.is_disputed) AS disputed_total,
-            sum(p.open_reporting) FILTER (WHERE p.is_open) AS open_total,
-            sum(p.dso_open_reporting) AS dso_open,
-            sum(p.open_reporting) FILTER (WHERE p.is_overdue) AS overdue_total,
-            sum(p.total_reporting) FILTER (WHERE p.issue_date > p.local_today - ts.dso_window_days
-                                             AND p.accounting_status <> 'cancelled') AS billed,
-            count(*) FILTER (WHERE p.is_open AND p.open_reporting IS NULL)::int AS missing_fx
-     FROM tenant_settings ts
-     LEFT JOIN (invoice_positions p ${scoped}) ON true
-     GROUP BY ts.default_currency, ts.dso_window_days`,
+    `WITH p AS MATERIALIZED (
+       SELECT p.invoice_id, p.customer_id, p.is_open, p.is_overdue, p.is_disputed, p.issue_date,
+              p.local_today, p.accounting_status, p.aging_bucket, p.days_overdue, p.open_reporting,
+              p.dso_open_reporting, p.total_reporting
+       FROM invoice_positions p ${scoped}),
+     totals AS (
+       SELECT ts.default_currency AS currency, ts.dso_window_days AS window_days,
+              (sum(p.open_reporting) FILTER (WHERE p.is_open AND p.is_disputed))::text AS disputed_total,
+              (sum(p.open_reporting) FILTER (WHERE p.is_open))::text AS open_total,
+              (sum(p.dso_open_reporting))::text AS dso_open,
+              (sum(p.open_reporting) FILTER (WHERE p.is_overdue))::text AS overdue_total,
+              (sum(p.total_reporting) FILTER (WHERE p.issue_date > p.local_today - ts.dso_window_days
+                                                AND p.accounting_status <> 'cancelled'))::text AS billed,
+              count(*) FILTER (WHERE p.is_open AND p.open_reporting IS NULL)::int AS missing_fx
+       FROM tenant_settings ts LEFT JOIN p ON true
+       GROUP BY ts.default_currency, ts.dso_window_days),
+     aging AS (
+       SELECT b.code AS bucket, (sum(x.open_reporting))::text AS amount, count(x.invoice_id)::int AS n,
+              b.min_days_overdue
+       FROM aging_bucket_bounds b
+       LEFT JOIN (SELECT * FROM p WHERE p.is_open) x ON x.aging_bucket = b.code
+       GROUP BY b.code, b.min_days_overdue),
+     top AS (
+       SELECT c.id, c.display_name, sum(p.open_reporting) AS overdue, max(p.days_overdue) AS oldest
+       FROM p JOIN customers c ON c.id = p.customer_id
+       WHERE p.is_overdue GROUP BY c.id, c.display_name
+       HAVING sum(p.open_reporting) > 0
+       ORDER BY sum(p.open_reporting) DESC LIMIT 5)
+     SELECT (SELECT row_to_json(t) FROM totals t) AS totals,
+            coalesce((SELECT json_agg(json_build_object('bucket', a.bucket, 'amount', a.amount, 'n', a.n)
+                                      ORDER BY a.min_days_overdue) FROM aging a), '[]') AS aging,
+            (SELECT json_agg(json_build_object('id', x.id, 'display_name', x.display_name,
+                                               'overdue', x.overdue::text, 'oldest', x.oldest)
+                             ORDER BY x.overdue DESC) FROM top x) AS top`,
     filter.params,
   );
+  const totals = { rows: one.rows[0]?.totals ? [one.rows[0].totals] : [] };
   const t = totals.rows[0];
   // DSO = open (adjustments added back — they are not collection) / (billed in the window /
   // window days), in numeric — never a float.
@@ -668,13 +698,7 @@ export async function getDashboard(ctx: TenantContext): Promise<Dashboard> {
      FROM c30`,
     [...filter.params, t?.overdue_total ?? '0'],
   );
-  const aging = await ctx.db.query<{ bucket: string; amount: string | null; n: number }>(
-    `SELECT b.code AS bucket, sum(x.open_reporting) AS amount, count(x.invoice_id)::int AS n
-     FROM aging_bucket_bounds b
-     LEFT JOIN (SELECT p.* FROM invoice_positions p ${scoped} WHERE p.is_open) x ON x.aging_bucket = b.code
-     GROUP BY b.code, b.min_days_overdue ORDER BY b.min_days_overdue`,
-    filter.params,
-  );
+  const aging = { rows: one.rows[0]?.aging ?? [] };
   const promises = await ctx.db.query<{
     today_n: number;
     today_amount: string | null;
@@ -700,19 +724,7 @@ export async function getDashboard(ctx: TenantContext): Promise<Dashboard> {
      WHERE d.status IN ('open', 'in_review')`,
     filter.params,
   );
-  const top = await ctx.db.query<{
-    id: string;
-    display_name: string | null;
-    overdue: string;
-    oldest: number;
-  }>(
-    `SELECT c.id, c.display_name, sum(p.open_reporting) AS overdue, max(p.days_overdue) AS oldest
-     FROM invoice_positions p ${scoped}
-     WHERE p.is_overdue GROUP BY c.id, c.display_name
-     HAVING sum(p.open_reporting) > 0
-     ORDER BY sum(p.open_reporting) DESC LIMIT 5`,
-    filter.params,
-  );
+  const top = { rows: one.rows[0]?.top ?? [] };
   const pr = promises.rows[0];
   return {
     currency: t?.currency ?? 'EUR',

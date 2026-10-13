@@ -21,15 +21,60 @@
 
 ## Aktivan zadatak
 
-**MVP funkcionalno kompletan; sledeće: Sprint 6 staging + Agrounik pilot.**
+**Sprint 6 gotov; čeka: staging instanca, Agrounik podaci, naplatari, ime proizvoda.**
 
-1. **Staging:** jedina blokada su pravi Turnstile ključevi (S-08); migracije 024–026 kroz
-   `docker compose --profile ops run --rm --build migrate up`; worker sada traži `BETTER_AUTH_URL`
-   (docker-compose.yml, 5.3).
-2. **Agrounik pilot:** tenant + pozivnice → „Početak rada" (12 koraka) → uvoz → sanduče kroz
-   formu (Admin → Integracije → Pošta) → pravila → prvi digest.
-3. **Sprint 6 security** (BACKLOG „Iz security review-a", P3) + review opsega Sprinta 5
-   (`scripts/security-review-input.sh`).
+1. **Staging instanca** (Elestio #2) po `docs/staging.md`: servisne role → migracije (do 031) →
+   app/worker/renderer → smoke. Blokade: Turnstile ključevi (S-08), vault vrednosti za staging.
+2. **Agrounik podaci:** Platforma → Tenanti → Novi tenant (trial 14 dana, mejl samo u sink dok
+   ugovor nije potpisan) → „Novi link za paket podataka" (72 h) → fajlovi stižu kao „staged" →
+   Uvoz → „Pokreni uvoz". Za demo/staging: `scripts/pseudonymize.ts` nad ERP izvozom.
+3. **Naplatari:** pozivnice iz tenanta (owner → Korisnici), obuka → tracker „Obuka".
+4. **Ime proizvoda:** `PRODUCT_NAME` (pravilo 21) — svuda iz konfiguracije, bez izmene koda.
+5. **Release 0.1:** grana `release/0.1` od `develop`; posle staging-a `scripts/release.sh check 0.1.0`
+   → merge u `main` → `scripts/release.sh tag 0.1.0` (runbook „Git tok").
+
+## Poslednja sesija — Sprint 6 (6.1–6.5, 2026-10-13)
+
+Grana `feature/sprint-6` → `develop`. Sekcije CLAUDE.md 15, 17, 20, 24, 27, 29, 30–34 poštovane;
+nema novih npm paketa (grafikoni su sopstveni SVG).
+
+- **6.1** `3f87b07` — custom polja (027): definicije po entitetu (ključ nepromenljiv, arhiviranje
+  umesto brisanja, max 30), tipizirane vrednosti (ne jsonb), P1+ šifrovano i nefiltrabilno, red u
+  `pii_field_registry` automatski; forme, kolone liste po korisniku, filteri, uvoz (i kreiranje
+  polja iz kolone), uslovi pravila `custom_field.<key>`, export, API GET/PATCH.
+- **6.2** `18c14a9` — report builder (028): bela lista dataset-ova, nikad slobodan SQL, scope,
+  agregacija u bazi, 10.000 redova (preko → export), relativni datumi, 9 vizuala, drill-down;
+  6 sistemskih izveštaja kao definicije; više valuta bez FX → greška.
+- **6.3** `c9b985c` — dashboardi (029): sistemski „Pregled naplate" (neobrisiv, kopira se u
+  lični), widgeti iz izveštaja + pažnja + zadaci, keš 5 min (pažnja/zadaci uvek sveži), drag na
+  desktopu / ↑↓ na mobilnom, Početna = default dashboard, objava timu.
+- **6.4** `782a8d0` — platforma (030): Platforma → Tenanti (samo tenant #0 + `platform.manage`,
+  bez poslovnih podataka), životni ciklus sandbox → trial → active/suspended, sink do
+  `contract_signed_at`, read-only posle isteka, brisanje samo isteklog demo sandbox-a (platformski
+  posao, audit pod #0); javni signup → sandbox sa demo podacima; paket podataka
+  `/onboarding/<token>` (staged fajlovi, 10 pitanja → predlog politike); tracker sa SLA 72 h;
+  Biblioteke (4 politike kao nacrti, generički šablon uvoza, config pack bez tajni).
+- **6.5** — `docs/staging.md`, `docs/performance.md`, `scripts/release.sh`, `CHANGELOG.md`,
+  `scripts/pseudonymize.ts`, `scripts/perf.ts`; 1.000 kupaca / 20.000 faktura: svih 17 ekrana
+  < 1 s (dashboard 1.541 → 794 ms). Migracija 031 (view pažnje, vidi ispod).
+
+### Bugovi nađeni usput (svaki ima regresioni test koji pada na starom kodu)
+
+- **Pažnja „bez aktivnosti" množila dug brojem aktivnosti** (view iz 016) → 031.
+- **Backfill 029 dao je sistemski dashboard samo prvom tenantu** (provera bez `tenant_id` pre
+  uključivanja RLS-a) → ispravljeno u 029 (još nije primenjena na dev).
+- **Sink trigger iz 030 je izgubio prečicu iz 007** → worker ne bi mogao da označi mejl poslat.
+- **Worker je obrađivao jedan događaj na 2 s** → paketi od 5, ishod po poslu, burst.
+
+### Pretpostavke (najkonzervativnija opcija)
+
+- `platform.manage` je u matrici kod owner-a (golden „owner ima sve"), ali važi samo u tenantu
+  #0 (`is_platform_operator`) — i u kodu (`requirePlatform`) i u meniju.
+- Opomena pred utuženje u šablonima politika ide samo pravnim licima (pravilo 19).
+- ERP-specifični šabloni uvoza nisu izmišljani (BACKLOG); generički šablon prepoznaje sam uvoz.
+- Pipedrive lead: događaj i potpisani endpoint postoje; n8n workflow i flag ostaju za staging.
+- Platformske stranice (tenant #0) su pokrivene golden testovima servisa; e2e pokriva da klijentski
+  tenant ne vidi Platformu (e2e korisnik nije operator).
 
 ## Poslednja sesija — Sprint 5 (5.1–5.4, 2026-10-13)
 
@@ -67,10 +112,8 @@ repou** — rađeno iz teksta zadatka; pretpostavke ispod.
 - **Pretraga i bulk preview pišu audit** (withTenant traži audit za svaki uspešan POST): pretraga
   beleži ko je tražio i broj pogodaka, nikad upit.
 
-### Čeka Uroša
+### Čeka Uroša (Sprint 5 — urađeno 2026-10-13, ostaje za staging)
 
-- `!` komanda: commit zaštićenih (024–026, docker-compose.yml), merge → develop, push, migracije
-  (ops profil), `docker compose up -d --build app worker renderer`.
 - Azure aplikacija (runbook „Povezivanje sandučeta kroz formu") → `MS_CLIENT_ID`,
   `MS_CLIENT_SECRET` u `.env` van sesije.
 - Dev: `MAILBOX_ALLOW_PRIVATE_HOSTS=1` u `.env` ako forma treba lokalni relay (172.17.0.1).

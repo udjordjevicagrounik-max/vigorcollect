@@ -382,7 +382,9 @@ Posle deploya: smoke (`/health` 200 + `X-App-Version` = očekivani tag).
 - [ ] `scripts/smoke.sh` posle deploya zelen (exit 0).
 - [ ] Sentry DSN, kanal za alarme i off-site storage podešeni (Admin → Status sistema: sve „povezan”).
 - [ ] Prvi backup (worker) + restore test (`docker compose --profile ops run --rm restore-test`) zeleni (Admin → Status sistema).
-- [ ] Release notes + rollback korak zapisani.
+- [ ] Release notes + rollback korak zapisani (`scripts/release.sh changelog <x.y.z>`, pa `check` i `tag`).
+- [ ] Performanse: `npx tsx scripts/perf.ts measure` — svi ekrani < 1 s (docs/performance.md).
+- [ ] Staging po `docs/staging.md` (servisne role → migracije → aplikacija → smoke).
 
 ## Backup / restore (pravilo 28, zadatak 1.7)
 

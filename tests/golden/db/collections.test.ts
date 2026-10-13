@@ -39,7 +39,11 @@ beforeAll(async () => {
 });
 afterAll(closePools);
 
-function ctxFor(db: PoolClient, userId: string = FX.userA, scope: Scope = 'ORGANIZATION'): TenantContext {
+function ctxFor(
+  db: PoolClient,
+  userId: string = FX.userA,
+  scope: Scope = 'ORGANIZATION',
+): TenantContext {
   const requestId = randomUUID();
   return {
     db,
@@ -66,7 +70,12 @@ async function customer(db: PoolClient, owner: string | null = null): Promise<st
   return rows[0]?.id ?? '';
 }
 
-async function invoice(db: PoolClient, customerId: string, dueOffsetDays: number, total: string): Promise<string> {
+async function invoice(
+  db: PoolClient,
+  customerId: string,
+  dueOffsetDays: number,
+  total: string,
+): Promise<string> {
   const { rows } = await db.query<{ id: string }>(
     `INSERT INTO invoices (tenant_id, company_id, customer_id, source_id, external_id, number, issue_date,
                            due_date, currency, amount_total, amount_open)
@@ -79,10 +88,36 @@ async function invoice(db: PoolClient, customerId: string, dueOffsetDays: number
 }
 
 const open = (db: PoolClient, id: string) =>
-  db.query<{ amount_open: string }>('SELECT amount_open FROM invoices WHERE id = $1', [id]).then((r) => r.rows[0]?.amount_open);
+  db
+    .query<{ amount_open: string }>('SELECT amount_open FROM invoices WHERE id = $1', [id])
+    .then((r) => r.rows[0]?.amount_open);
 const events = (db: PoolClient, type: string) =>
   db.query('SELECT 1 FROM domain_events WHERE event_type = $1', [type]).then((r) => r.rowCount);
 const today = `(now() AT TIME ZONE 'UTC')::date`;
+
+// Regression (6.5, migration 031): "no activity" joined activities before grouping, so the
+// customer's overdue amount was multiplied by the number of their (old) activities.
+describe('golden/db: needs attention — no activity', () => {
+  it('the overdue amount is counted once, however many old activities the customer has', async () => {
+    const out = await inTenant(appPool, FX.tenantA, async (db) => {
+      const c = await customer(db);
+      await invoice(db, c, -40, '100.00');
+      await invoice(db, c, -20, '50.00');
+      for (const days of [60, 45, 30])
+        await db.query(
+          `INSERT INTO activities (tenant_id, customer_id, kind, actor_user_id, note_enc, note_key_version, occurred_at)
+           VALUES ($1, $2, 'note', $3, '\\x01', 1, now() - make_interval(days => $4))`,
+          [FX.tenantA, c, FX.userA, days],
+        );
+      const { rows } = await db.query<{ amount: string }>(
+        `SELECT amount::text FROM attention_customer_items WHERE kind = 'no_activity' AND customer_id = $1`,
+        [c],
+      );
+      return rows.map((r) => r.amount);
+    });
+    expect(out).toEqual(['150.00']);
+  });
+});
 
 describe('golden/db: collection cases', () => {
   it('a case takes only the customer’s own open invoices and emits case.opened', async () => {
@@ -92,13 +127,19 @@ describe('golden/db: collection cases', () => {
       const ia = await invoice(db, a, -10, '100.00');
       const ib = await invoice(db, b, -10, '100.00');
       const ctx = ctxFor(db);
-      const foreign = await createCase(ctx, { customerId: a, invoiceIds: [ia, ib] }).catch((e: unknown) => e);
+      const foreign = await createCase(ctx, { customerId: a, invoiceIds: [ia, ib] }).catch(
+        (e: unknown) => e,
+      );
       const { id } = await createCase(ctx, { customerId: a, invoiceIds: [ia] });
       const detail = await getCase(ctx, id);
       return { foreign, detail, opened: await events(db, 'case.opened') };
     });
     expect(out.foreign).toBeInstanceOf(ConflictError);
-    expect(out.detail).toMatchObject({ stage: 'new', status: 'open', invoices: [expect.objectContaining({ amountOpen: '100.00' })] });
+    expect(out.detail).toMatchObject({
+      stage: 'new',
+      status: 'open',
+      invoices: [expect.objectContaining({ amountOpen: '100.00' })],
+    });
     expect(out.detail.timeline.map((t) => t.type)).toContain('case.opened');
     expect(out.opened).toBe(1);
   });
@@ -110,7 +151,9 @@ describe('golden/db: collection cases', () => {
       const { id } = await createCase(ctxFor(db), { customerId: theirs, invoiceIds: [inv] });
       const own = ctxFor(db, FX.userA2, 'OWN');
       return {
-        create: await createCase(own, { customerId: theirs, invoiceIds: [inv] }).catch((e: unknown) => e),
+        create: await createCase(own, { customerId: theirs, invoiceIds: [inv] }).catch(
+          (e: unknown) => e,
+        ),
         read: await getCase(own, id).catch((e: unknown) => e),
       };
     });
@@ -121,12 +164,26 @@ describe('golden/db: collection cases', () => {
   it('the legal stage is never set directly — only an approved handover by another person', async () => {
     const out = await inTenant(appPool, FX.tenantA, async (db) => {
       const c = await customer(db);
-      const { id } = await createCase(ctxFor(db), { customerId: c, invoiceIds: [await invoice(db, c, -40, '9.00')] });
-      const direct = await updateCase(ctxFor(db), id, { stageCode: 'legal' }).catch((e: unknown) => e);
-      const { approvalId } = await requestLegalHandover(ctxFor(db), id, { reason: 'Bez odgovora 60 dana' });
-      const self = await decideLegalHandover(ctxFor(db), approvalId, { decision: 'approve' }).catch((e: unknown) => e);
-      const decided = await decideLegalHandover(ctxFor(db, FX.userA2), approvalId, { decision: 'approve' });
-      const k = await db.query('SELECT stage_code, legal_approval_id FROM collection_cases WHERE id = $1', [id]);
+      const { id } = await createCase(ctxFor(db), {
+        customerId: c,
+        invoiceIds: [await invoice(db, c, -40, '9.00')],
+      });
+      const direct = await updateCase(ctxFor(db), id, { stageCode: 'legal' }).catch(
+        (e: unknown) => e,
+      );
+      const { approvalId } = await requestLegalHandover(ctxFor(db), id, {
+        reason: 'Bez odgovora 60 dana',
+      });
+      const self = await decideLegalHandover(ctxFor(db), approvalId, { decision: 'approve' }).catch(
+        (e: unknown) => e,
+      );
+      const decided = await decideLegalHandover(ctxFor(db, FX.userA2), approvalId, {
+        decision: 'approve',
+      });
+      const k = await db.query(
+        'SELECT stage_code, legal_approval_id FROM collection_cases WHERE id = $1',
+        [id],
+      );
       return { direct, self, decided, k: k.rows[0], approvalId };
     });
     expect(out.direct).toBeInstanceOf(ConflictError);
@@ -138,11 +195,22 @@ describe('golden/db: collection cases', () => {
   it('a natural person’s handover is a human decision approved by someone else (rule 19)', async () => {
     const out = await inTenant(appPool, FX.tenantA, async (db) => {
       const person = await createConsumer(db, keyring, { displayName: 'Golden Person' });
-      const { id } = await createCase(ctxFor(db), { customerId: person.id, invoiceIds: [await invoice(db, person.id, -50, '3.00')] });
-      const { approvalId } = await requestLegalHandover(ctxFor(db), id, { reason: 'Opomena bez odgovora' });
-      const proposed = await db.query('SELECT status, source, has_legal_effect FROM decisions WHERE approval_request_id = $1', [approvalId]);
+      const { id } = await createCase(ctxFor(db), {
+        customerId: person.id,
+        invoiceIds: [await invoice(db, person.id, -50, '3.00')],
+      });
+      const { approvalId } = await requestLegalHandover(ctxFor(db), id, {
+        reason: 'Opomena bez odgovora',
+      });
+      const proposed = await db.query(
+        'SELECT status, source, has_legal_effect FROM decisions WHERE approval_request_id = $1',
+        [approvalId],
+      );
       await decideLegalHandover(ctxFor(db, FX.userA2), approvalId, { decision: 'approve' });
-      const approved = await db.query('SELECT status, approved_by FROM decisions WHERE approval_request_id = $1', [approvalId]);
+      const approved = await db.query(
+        'SELECT status, approved_by FROM decisions WHERE approval_request_id = $1',
+        [approvalId],
+      );
       return { proposed: proposed.rows[0], approved: approved.rows[0] };
     });
     expect(out.proposed).toEqual({ status: 'proposed', source: 'human', has_legal_effect: true });
@@ -162,11 +230,20 @@ describe('golden/db: payments and promises', () => {
         customerId: c,
         amount: '180.00',
         currency: 'EUR',
-        promisedOn: (await db.query<{ d: string }>(`SELECT (${today} + 3)::text AS d`)).rows[0]?.d ?? '',
+        promisedOn:
+          (await db.query<{ d: string }>(`SELECT (${today} + 3)::text AS d`)).rows[0]?.d ?? '',
       });
       const paidOn = (await db.query<{ d: string }>(`SELECT ${today}::text AS d`)).rows[0]?.d ?? '';
-      const pay = await recordPayment(ctx, { customerId: c, amount: '200.00', currency: 'EUR', paidOn, invoiceId: named });
-      const promise = await db.query('SELECT status, paid_amount FROM promises WHERE id = $1', [promiseId]);
+      const pay = await recordPayment(ctx, {
+        customerId: c,
+        amount: '200.00',
+        currency: 'EUR',
+        paidOn,
+        invoiceId: named,
+      });
+      const promise = await db.query('SELECT status, paid_amount FROM promises WHERE id = $1', [
+        promiseId,
+      ]);
       return {
         pay,
         opens: [await open(db, named), await open(db, older), await open(db, newer)],
@@ -177,7 +254,11 @@ describe('golden/db: payments and promises', () => {
       };
     });
     expect(out.opens).toEqual(['0.00', '0.00', '50.00']);
-    expect(out.pay).toMatchObject({ allocated: '200.00', unallocated: '0.00', fulfilled: [out.promiseId] });
+    expect(out.pay).toMatchObject({
+      allocated: '200.00',
+      unallocated: '0.00',
+      fulfilled: [out.promiseId],
+    });
     expect(out.promise).toEqual({ status: 'fulfilled', paid_amount: '200.00' });
     expect([out.received, out.fulfilledEvents]).toEqual([1, 1]);
   });
@@ -186,11 +267,25 @@ describe('golden/db: payments and promises', () => {
     const out = await inTenant(appPool, FX.tenantA, async (db) => {
       const c = await customer(db);
       await invoice(db, c, -3, '10.00');
-      const d = (await db.query<{ t: string; f: string }>(`SELECT ${today}::text AS t, (${today} + 1)::text AS f`)).rows[0];
+      const d = (
+        await db.query<{ t: string; f: string }>(
+          `SELECT ${today}::text AS t, (${today} + 1)::text AS f`,
+        )
+      ).rows[0];
       const ctx = ctxFor(db);
       return {
-        over: await recordPayment(ctx, { customerId: c, amount: '15.50', currency: 'EUR', paidOn: d?.t ?? '' }),
-        future: await recordPayment(ctx, { customerId: c, amount: '1.00', currency: 'EUR', paidOn: d?.f ?? '' }).catch((e: unknown) => e),
+        over: await recordPayment(ctx, {
+          customerId: c,
+          amount: '15.50',
+          currency: 'EUR',
+          paidOn: d?.t ?? '',
+        }),
+        future: await recordPayment(ctx, {
+          customerId: c,
+          amount: '1.00',
+          currency: 'EUR',
+          paidOn: d?.f ?? '',
+        }).catch((e: unknown) => e),
       };
     });
     expect(out.over).toMatchObject({ allocated: '10.00', unallocated: '5.50' });
@@ -200,10 +295,24 @@ describe('golden/db: payments and promises', () => {
   it('a promise is edited or cancelled only while pending; never dated in the past', async () => {
     const out = await inTenant(appPool, FX.tenantA, async (db) => {
       const c = await customer(db);
-      const d = (await db.query<{ t: string; y: string }>(`SELECT ${today}::text AS t, (${today} - 1)::text AS y`)).rows[0];
+      const d = (
+        await db.query<{ t: string; y: string }>(
+          `SELECT ${today}::text AS t, (${today} - 1)::text AS y`,
+        )
+      ).rows[0];
       const ctx = ctxFor(db);
-      const past = await createPromise(ctx, { customerId: c, amount: '1.00', currency: 'EUR', promisedOn: d?.y ?? '' }).catch((e: unknown) => e);
-      const { id } = await createPromise(ctx, { customerId: c, amount: '1.00', currency: 'EUR', promisedOn: d?.t ?? '' });
+      const past = await createPromise(ctx, {
+        customerId: c,
+        amount: '1.00',
+        currency: 'EUR',
+        promisedOn: d?.y ?? '',
+      }).catch((e: unknown) => e);
+      const { id } = await createPromise(ctx, {
+        customerId: c,
+        amount: '1.00',
+        currency: 'EUR',
+        promisedOn: d?.t ?? '',
+      });
       await updatePromise(ctx, id, { amount: '2.00' });
       await updatePromise(ctx, id, { cancel: true });
       const again = await updatePromise(ctx, id, { amount: '3.00' }).catch((e: unknown) => e);
@@ -236,7 +345,8 @@ describe('golden/db: payments and promises', () => {
          SELECT $1, $2, s.id, ${today} - 3, '30.00', 'EUR' FROM data_sources s WHERE s.name = 'file-import'`,
         [FX.tenantA, c],
       );
-      const audit = (entry: Parameters<TenantContext['audit']>[0]) => writeAudit(db, { type: 'job', id: null }, entry, null);
+      const audit = (entry: Parameters<TenantContext['audit']>[0]) =>
+        writeAudit(db, { type: 'job', id: null }, entry, null);
       const first = await runDailyCollections(db, audit);
       const second = await runDailyCollections(db, audit);
       const st = await db.query<{ id: string; status: string; paid_amount: string }>(
@@ -246,7 +356,9 @@ describe('golden/db: payments and promises', () => {
       return {
         first,
         second,
-        statuses: Object.fromEntries(st.rows.map((r) => [r.id === big ? 'big' : 'small', [r.status, r.paid_amount]])),
+        statuses: Object.fromEntries(
+          st.rows.map((r) => [r.id === big ? 'big' : 'small', [r.status, r.paid_amount]]),
+        ),
         partialEvents: await events(db, 'promise.partial'),
       };
     });
@@ -264,7 +376,9 @@ describe('golden/db: payments and promises', () => {
          VALUES ($1, $2, $3, '10.00', 'EUR', ${today} - 1, ${today} - 2)`,
         [FX.tenantA, c, FX.companyA],
       );
-      const result = await runDailyCollections(db, (e) => writeAudit(db, { type: 'job', id: null }, e, null));
+      const result = await runDailyCollections(db, (e) =>
+        writeAudit(db, { type: 'job', id: null }, e, null),
+      );
       return { result, events: await events(db, 'promise.broken') };
     });
     expect(out.result.broken).toBe(1);
@@ -279,24 +393,44 @@ describe('golden/db: activities', () => {
       const ctx = ctxFor(db);
       const { id } = await createActivity(
         ctx,
-        { customerId: c, kind: 'call', outcomeCode: 'promise_given', nextActionCode: 'check_payment', nextActionOn: '2030-01-01', note: 'Direktor obećao uplatu u petak' },
+        {
+          customerId: c,
+          kind: 'call',
+          outcomeCode: 'promise_given',
+          nextActionCode: 'check_payment',
+          nextActionOn: '2030-01-01',
+          note: 'Direktor obećao uplatu u petak',
+        },
         keyring,
       );
-      const raw = await db.query<{ note_enc: Buffer }>('SELECT note_enc FROM activities WHERE id = $1', [id]);
+      const raw = await db.query<{ note_enc: Buffer }>(
+        'SELECT note_enc FROM activities WHERE id = $1',
+        [id],
+      );
       const list = await customerActivities(ctx, c, keyring);
-      return { raw: raw.rows[0]?.note_enc.toString('latin1') ?? '', list, logged: await events(db, 'activity.logged') };
+      return {
+        raw: raw.rows[0]?.note_enc.toString('latin1') ?? '',
+        list,
+        logged: await events(db, 'activity.logged'),
+      };
     });
     expect(out.raw).not.toContain('obećao');
-    expect(out.list[0]).toMatchObject({ kind: 'call', outcome: 'promise_given', note: 'Direktor obećao uplatu u petak' });
+    expect(out.list[0]).toMatchObject({
+      kind: 'call',
+      outcome: 'promise_given',
+      note: 'Direktor obećao uplatu u petak',
+    });
     expect(out.logged).toBe(1);
   });
 
   it('an unknown outcome code fails the code list FK', async () => {
     const state = await inTenant(appPool, FX.tenantA, async (db) => {
       const c = await customer(db);
-      return createActivity(ctxFor(db), { customerId: c, kind: 'note', outcomeCode: 'nope' }, keyring).catch(
-        (e: unknown) => (e as { code?: string }).code,
-      );
+      return createActivity(
+        ctxFor(db),
+        { customerId: c, kind: 'note', outcomeCode: 'nope' },
+        keyring,
+      ).catch((e: unknown) => (e as { code?: string }).code);
     });
     expect(state).toBe('23503');
   });

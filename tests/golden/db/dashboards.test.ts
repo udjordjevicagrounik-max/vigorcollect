@@ -56,6 +56,30 @@ function ctxFor(
 }
 
 describe('golden/db: dashboards (6.3)', () => {
+  // Regression (6.5): the 029 backfill ran before RLS on dashboards and its "already there?" check
+  // had no tenant — only the first tenant got the system dashboard.
+  it('every provisioned tenant has the system dashboard after the migration', async () => {
+    const c = await migratePool.connect();
+    try {
+      await c.query('BEGIN');
+      await c.query("SELECT set_config('app.tenant_clock', 'on', true)");
+      const { rows } = await c.query<{ id: string }>('SELECT id FROM tenants');
+      const missing: string[] = [];
+      for (const t of rows) {
+        await c.query("SELECT set_config('app.tenant_id', $1, true)", [t.id]);
+        const r = await c.query<{ provisioned: boolean; dash: boolean }>(
+          `SELECT EXISTS (SELECT 1 FROM code_lists WHERE list_key = 'aging_bucket') AS provisioned,
+                  EXISTS (SELECT 1 FROM dashboards WHERE is_system AND system_key = 'collections_overview') AS dash`,
+        );
+        if (r.rows[0]?.provisioned && !r.rows[0].dash) missing.push(t.id);
+      }
+      expect(missing).toEqual([]);
+    } finally {
+      await c.query('ROLLBACK');
+      c.release();
+    }
+  });
+
   it('the system dashboard is the home by default, holds the 2.3 widgets and is read-only', async () => {
     const out = await inTenant(appPool, FX.tenantA, async (db) => {
       const ctx = ctxFor(db);
