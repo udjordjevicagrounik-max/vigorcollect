@@ -1,7 +1,9 @@
 import { PgBoss } from 'pg-boss';
 import { Pool, type PoolClient } from 'pg';
 import { logEvent } from '@/lib/log';
+import { getMasterKeyring } from '@/server/crypto/keyring';
 import { fxRatesJob } from '@/server/fx/rates-job';
+import { dispatchDue } from '@/server/integrations/outbound';
 import { DAILY_QUEUE, runTenantDaily, tenantClockTick, type DailyJob } from './clock';
 import { EVENT_HANDLERS } from './handlers';
 import { dispatchMail } from './mail-dispatch';
@@ -14,6 +16,7 @@ import {
   type EventHandlers,
 } from './outbox';
 import { runRetention } from './retention';
+import { withTenantJob } from './tenant-job';
 
 /**
  * The worker process (task 1.3): same image as the app, PROCESS_ROLE=worker (src/instrumentation.ts).
@@ -52,7 +55,15 @@ export async function startWorker(
     .catch(() => logEvent('worker.health_grant_failed', { level: 'warn' }));
 
   for (const name of [EVENT_QUEUE, DAILY_QUEUE, 'retention']) await boss.createQueue(name, RETRY);
-  for (const name of ['tenant-clock', 'mail-dispatch', 'backup', 'restore-test', 'alerts-check', 'fx-rates']) {
+  for (const name of [
+    'tenant-clock',
+    'mail-dispatch',
+    'integrations-dispatch',
+    'backup',
+    'restore-test',
+    'alerts-check',
+    'fx-rates',
+  ]) {
     await boss.createQueue(name);
   }
 
@@ -79,6 +90,10 @@ export async function startWorker(
   await boss.work('mail-dispatch', async () => {
     await dispatchMail(workerPool);
   });
+  // 4.1/4.2: outbound deliveries (and integration mail) per tenant, inside withTenantJob.
+  await boss.work('integrations-dispatch', async (jobs) => {
+    await dispatchIntegrations(workerPool, appPool, jobs[0]?.id ?? 'integrations-dispatch');
+  });
   await boss.work('retention', async () => runRetention({ workerPool, appPool }));
   // Ops (task 1.7): scripts need pg_dump + superuser credentials; without them they log why.
   await boss.work('backup', async () => {
@@ -98,6 +113,7 @@ export async function startWorker(
   // Schedules in UTC; tenant-local times are resolved by tenant-clock (rule 26).
   await boss.schedule('tenant-clock', '*/15 * * * *');
   await boss.schedule('mail-dispatch', '* * * * *');
+  await boss.schedule('integrations-dispatch', '* * * * *');
   await boss.schedule('retention', '30 2 * * *');
   await boss.schedule('backup', '0 2 * * *');
   await boss.schedule('restore-test', '0 3 * * 0');
@@ -140,6 +156,30 @@ export async function startWorker(
       logEvent('worker.stopped', {});
     },
   };
+}
+
+/** Every tenant (tenant_clock(): the worker's only tenant list) — its due outbound work. */
+export async function dispatchIntegrations(
+  workerPool: Pool,
+  appPool: Pool,
+  jobId: string,
+): Promise<void> {
+  const { rows } = await workerPool.query<{ tenant_id: string }>(
+    'SELECT DISTINCT tenant_id FROM tenant_clock()',
+  );
+  for (const r of rows) {
+    try {
+      await withTenantJob(appPool, r.tenant_id, jobId, async (ctx) => {
+        await dispatchDue(ctx.db, getMasterKeyring());
+      });
+    } catch (error) {
+      logEvent('integrations.dispatch_error', {
+        level: 'error',
+        tenantId: r.tenant_id,
+        name: error instanceof Error ? error.name : 'unknown',
+      });
+    }
+  }
 }
 
 /** Entry for PROCESS_ROLE=worker. Fails fast without its database URLs (no secret printed). */

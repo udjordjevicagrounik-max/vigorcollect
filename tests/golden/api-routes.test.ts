@@ -89,12 +89,24 @@ export function zodViolations(source: string): string[] {
   return problems;
 }
 
+/**
+ * Signed webhooks (4.1) must read the RAW body: the HMAC is over the exact bytes received, so a
+ * re-encoded JSON would not verify. The route passes the text to receiveInbound(), which checks
+ * the signature first and then parses the envelope with Zod (src/server/integrations/inbound.ts).
+ */
+const RAW_BODY_ROUTES = new Set(['/api/integrations/[id]/inbound']);
+
 describe('golden: every API route parses its input with Zod (1.4)', () => {
   const files = routeFiles(API_DIR).filter((f) => !routePath(f).startsWith('/api/auth'));
 
   it('body, params and query of every route go through a schema', () => {
     const violations = files
-      .map((f) => ({ route: routePath(f), problems: zodViolations(readFileSync(f, 'utf8')) }))
+      .map((f) => ({
+        route: routePath(f),
+        problems: zodViolations(readFileSync(f, 'utf8')).filter(
+          (p) => !(RAW_BODY_ROUTES.has(routePath(f)) && p === 'non-JSON body is not allowed'),
+        ),
+      }))
       .filter((v) => v.problems.length > 0);
     expect(files.length).toBeGreaterThanOrEqual(4);
     expect(violations).toEqual([]);
