@@ -133,3 +133,20 @@ Poruke naplate koriste isti ključ izveden po tenantu (HKDF `mail_outbox`) kao i
 telo je `{subject, text, html}` šifrovano, primalac šifrovan. Novi stubovi `customer_id`,
 `template_id`, `source_run_id` su samo id-jevi (P0). Pravilo 24 važi i dalje: demo tenant šalje
 samo u sink (trigger iz 006/007).
+
+## Sprint 4 (2026-10-13): još zamena CHECK-a po istom obrascu
+
+Po istom pravilu (nadskup / ublažavanje, isto ime constraint-a, bez izmene redova, down vraća
+staro kao `NOT VALID`):
+
+- **018** `audit_log_actor_type_check` + `api_key` (zadatak 4.1 traži actor `api_key` u audit-u).
+- **019** `mail_outbox`: `kind` + `reply`, `transport` + `integration`, `status` + `bounced`;
+  `mail_outbox_sent_at` ublažen (`sent ⇒ sent_at`, `sent_at` samo za `sent`/`bounced`), jer
+  vraćena poruka je prethodno poslata. Status isporuke menja samo `mail_outbox_delivery()`
+  (SECURITY DEFINER, samo dozvoljeni prelazi) — `vigor_app` i dalje nema UPDATE na `mail_outbox`.
+
+Novi šifrovani podaci (isti HKDF obrazac po tenantu, AAD tabela|kolona|red): tajne integracija
+(`integration_credentials.secret_enc`), tela webhook-ova (`webhook_events.body_enc`) i primljena
+pošta (`mail_inbox.from_enc` / `subject_enc` / `body_enc`). Pošiljalac se uparuje preko blind
+indexa tenanta (`customer_contacts.email` ključ) — drugi tenant se ne može upariti. Rotacija
+master ključa mora pokriti i ove tabele (kao `mail_outbox`).

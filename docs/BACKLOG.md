@@ -180,6 +180,23 @@ Ideje i tehnički dug zapisani usred zadatka (protokol: ne predlaže se usred za
 - [ ] Prilog uz mail (PDF opomene) — `mail_outbox.kind` `document` postoji, slanje priloga ne.
 - [ ] `listRuleProposals`: paginacija kad ih bude više od 20 po članu.
 
+## Iz Sprinta 4 (4.1–4.3)
+
+- [ ] Rotacija tajne integracije (nova tajna uz staru, prelazni period) — sada nova integracija.
+- [ ] API ključevi: istek (`expires_at`) i ograničenje po IP-u; ključ ne može ništa što traži
+      osobu u FK (aktivnost, zahtev za odobrenje) — namerno.
+- [ ] Prilozi primljene pošte: sada samo metapodaci u `mail_inbox.attachments`; sadržaj u
+      `documents` traži proširenje `documents.kind` i skladište (S3).
+- [ ] Retencija `mail_inbox` i `webhook_events` (tela) — politika po tenantu.
+- [ ] Više mailbox integracija po tenantu (sada jedna aktivna, unique indeks).
+- [ ] CheckPoint adapter kad stigne API referenca; APR/NBS: ugovoreni servis ili uvoz otvorenih
+      podataka (docs/integrations/apr.md, nbs.md).
+- [ ] Kreditni limit kupca: unos / uvoz kroz maker-checker (`approval.credit_limit`); signal
+      izloženosti se do tada ne računa.
+- [ ] Ekran za podešavanje pondera i pragova rizika (sada kolone u `tenant_settings`).
+- [ ] Domenske sekcije 18–23 (integracije, import, reconciliation, RiskProvider) nisu u repou —
+      uneti dokument ili link da sledeće sesije mogu da ga čitaju.
+
 ## Roadmap
 
 ### Marketing sajt — paralelan tok uz Sprint 1

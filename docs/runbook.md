@@ -77,6 +77,27 @@ kompaniju (zona UTC); podaci uvoza ostaju između pokretanja (uvoz je idempotent
 - PDF golden test: `npm run test:pdf` (pokreće naš `pdf.ts` u worker image-u `collect-worker`;
   u `test:db` se preskače dok image nema Chromium).
 
+## Integracije, pošta, rizik (Sprint 4)
+
+- **n8n** (pošta Google Workspace / Microsoft 365 / IMAP-SMTP): postupak u
+  `docs/integrations/n8n.md`; šabloni workflow-a u `docs/integrations/n8n/`. Tajna integracije i
+  API ključ se prikazuju **jednom** (Administracija → Integracije); u n8n-u idu u env
+  (`COLLECT_INBOUND_URL`, `COLLECT_SIGNING_SECRET`, `NODE_FUNCTION_ALLOW_BUILTIN=crypto`).
+- Prijem: `POST /api/integrations/{id}/inbound` (potpis + ±5 min). Neuspelo → Administracija →
+  Integracije → „Neuspele poruke" → „Pokušaj ponovo". Dnevnik: „Dnevnik sinhronizacije".
+- Slanje: pošta naplate tenanta koji nije demo, sa aktivnom integracijom vrste „Pošta" i
+  adresom n8n webhook-a, ide kroz n8n (posao `integrations-dispatch`, svaki minut, backoff do
+  12 h); demo tenant uvek sink. Vraćena poruka → „Zahteva pažnju".
+- Nepovezana primljena pošta: Administracija → Integracije → „Nepovezane poruke" (poveži / zanemari).
+- **Rizik:** dnevni posao (06:00 lokalno, i „Pokreni dnevni posao sada") računa ocenu; Customer
+  360 → Rizik → „Osveži sada" (`customer.update`). Boja je samo predlog: „Zahteva pažnju" →
+  „Podnesi na odobrenje" → druga osoba (`decision.approve` za fizičko lice,
+  `approval.risk_override` za pravno lice). Ponderi/pragovi: `tenant_settings.risk_weights`,
+  `risk_band_yellow`, `risk_band_red`.
+- **CheckPoint:** `CHECKPOINT_API_KEY` u `.env` (dev) / Elestio env panel (staging, prod) za
+  servise `app` i `worker`, pa `docker compose up -d app worker`. Do API specifikacije adapter
+  vraća `unsupported` (`docs/integrations/checkpoint.md`).
+
 ## PII master ključ (`PII_MASTER_KEYS`)
 
 Šifruje ključeve podataka u `subject_keys` (ADR 0003). Bez njega seed i svaki rad sa

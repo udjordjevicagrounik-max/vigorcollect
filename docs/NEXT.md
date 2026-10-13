@@ -14,67 +14,66 @@ istorijom) i sve lokalne backup kopije. Redom:
 
 ## Aktivan zadatak
 
-**Sprint 3 zatvoren (3.3, `feature/sprint-3-close` → `develop`).** Sledeće, redom:
+**Sprint 4 zatvoren (4.1 → 4.2 → 4.3, `feature/sprint-4` → `develop`).** Sledeće:
 
-1. **Security review Sprint 1–3** (`docs/security-review-checklist.md`, ulaz
-   `docs/security-review-input.md`): posebno renderer PDF-a (Chromium `--no-sandbox` u kontejneru
-   bez capability-ja), parser XLSX, exportService linkovi, šabloni (bela lista), collection mail.
-2. **P1 GitHub** (gore): remote + push, kopija backup-a van kontejnera.
-3. **Sprint 4 — integracije:** email sync (prijem/odgovori), SEF/ERP adapter (fakture i uplate
-   umesto fajla), CheckPoint `RiskProvider` (kreditni rizik kao predlog, pravilo 19).
+1. **AI sloj predloga** (pravilo 22): `ai_suggestion` sa statusom, `src/server/ai/adapter`,
+   `ai_runs` (tokeni, cena), `redaction_level` po tenantu; ulazi su i primljena pošta (nepouzdan
+   ulaz — zaseban blok, nikad instrukcija) i objašnjenja rizika; upis samo kroz iste servise kao
+   ručna akcija (maker-checker, pravilo 19).
+2. **Izveštaji:** naplata, DSO trend, aging po vremenu, efikasnost pravila, isporučivost pošte;
+   izvoz samo kroz exportService.
+3. Iz ranijih: security review Sprint 1–4, P1 GitHub (gore).
 
-## Poslednja sesija — 3.3 zatvaranje Sprinta 3 (2026-10-13)
+## Poslednja sesija — lanac Sprint 4 (2026-10-13)
 
-Odluke Uroša (2026-10-13): PDF = `puppeteer-core` (odobren) + Debian `chromium` samo u worker
-stage-u; `mail_outbox.kind` CHECK se proširuje (DROP + ADD, ADR 0003 „Zamena CHECK-a"); 
-`export_log.format` ostaje bez `html`, preuzima se samo PDF.
+Odluke Uroša: pošta preko n8n-a (Google Workspace, Microsoft 365, IMAP/SMTP) — n8n poziva naš API
+i webhook-ove, UI je kod nas; SEF ostaje CSV iz ERP-a; CheckPoint probni ključ (env, Uroš
+upisuje); APR i NBS javni podaci kao dodatni izvori; bez novih npm paketa.
 
-### Urađeno (`8240d00` kod + testovi; ovaj commit docs)
+### Urađeno
 
-- **Testovi:** unit 142, DB 264 + 2 preskočena (PDF golden dok image `collect-worker` nema
-  Chromium — posle build-a `npm run test:pdf`; prošao 2/2 na probnom image-u), e2e 35 + 4 namerno
-  preskočena (novo: D+90 → predlog → podnesi → checker odobrava). Migracija 017 up → down → up
-  na `collect_test`.
-- **Migracija 017** (predlog, Uroš commit-uje): `mail_outbox.kind` + `reminder` / `dunning` /
-  `statement` / `document`; `mail_outbox.customer_id` / `template_id` / `source_run_id`;
-  `document_renditions` (PDF uz HTML, jedan po dokumentu); indeks predloga pravila.
-- **`queue_email` end-to-end:** šablon → primarni kontakt kupca → `mail_outbox` (sink; demo uvek).
-- **PDF u worker-u:** posao `document.render_pdf` (handler `document.generated` /
-  `document.render_requested`), isti HTML, stabilan checksum, preuzimanje samo PDF kroz
-  exportService (`export_log` format `pdf`); „Napravi PDF" za starije dokumente.
-- **Compose / Dockerfile** (predlog): volume `documents` za app i worker, `DOCUMENTS_DIR`,
-  Chromium 155 + DejaVu fontovi pinovani u worker stage-u, worker `cap_drop: ALL`,
-  `no-new-privileges`, `shm_size`. `.env.example` dopunjen.
-- **Predlozi pravila → čovek:** „Zahteva pažnju" → „Podnesi na odobrenje" → predaja pravnoj
-  (`case.legal_handover`) ili `decision.approve` → druga osoba odobrava (pravila 11, 19).
-- **Administracija → Status sistema:** „Pokreni dnevni posao sada" (`settings.manage`, audit,
-  idempotentno, kroz outbox).
+- **4.1 `c8263ec`** (+ predlog 018, `auth/with-tenant.ts`, `auth/audit.ts`): integracije, šifrovane
+  tajne (prikaz jednom), `external_records`, `sync_runs`; inbound webhook (HMAC nad sirovim
+  telom, ±5 min, exactly-once, 202 + worker, dead letter + „pokušaj ponovo"); outbound događaji
+  (potpisan POST, backoff 1 min → 12 h, demo = sink); API ključevi (heš, scope = dozvole kreatora
+  bez checker dozvola, rate limit, opoziv, actor `api_key`); Administracija → Integracije;
+  `docs/integrations` + n8n šabloni.
+- **4.2 `c3849b4`** (+ predlog 019): primljena pošta (šifrovano, nepouzdan ulaz), uparivanje
+  (Message-ID → case, blind index → kupac, inače „Nepovezane poruke"), bounce → „Zahteva
+  pažnju", slanje kroz n8n sa Message-ID provajdera, Customer 360 → Komunikacija (neaktivni
+  linkovi, odgovor iz šablona ili slobodan tekst → aktivnost), pošta u hronologiji case-a.
+- **4.3 `9644373`** (+ predlog 020, compose): signali (interni + provajderi po zemlji), ocena sa
+  objašnjenjem, ponderi/pragovi u `tenant_settings`, provajderi checkpoint/apr/nbs (stub), predlog
+  kreditnog statusa → `decision.approve` (fizičko) / `customer.risk_override` (pravno), Customer
+  360 → Rizik, kolona Rizik, „Zahteva pažnju" za nov crveni, dnevni posao.
 
 ### Pretpostavke (najkonzervativnija opcija)
 
-1. **Chromium radi sa `--no-sandbox`.** Sopstveni sandbox traži user namespace ili setuid helper;
-   podrazumevani Docker seccomp (i AppArmor hosta) ih blokira za ne-root proces. Nisam dodao
-   `SYS_ADMIN`, `privileged` ni poseban seccomp. Granica je kontejner: `node`, bez capability-ja,
-   `no-new-privileges`, JS isključen, svaki mrežni zahtev se odbija, samo naš HTML. U NEXT 3.2 sam
-   napisao da `--no-sandbox` nije potreban — to je bilo pogrešno; proverio sam u image-u.
-2. PDF je u `document_renditions`, a ne kao nov red u `documents`: `documents_version` je UNIQUE
-   po (kupac, vrsta, verzija), pa bi drugi red iste verzije tražio DROP tog constraint-a.
-3. Checksum je stabilan jer se `CreationDate` / `ModDate` u PDF-u postavljaju na datum dokumenta
-   (ista dužina bajtova); sve ostalo Chromium daje isto za isti HTML.
-4. Primalac collection mail-a je primarni aktivni kontakt sa email-om, inače najstariji aktivni.
-   Bez njega akcija je `skipped` (`no_recipient`). Run čuva samo id-jeve (mail, kontakt, šablon).
-5. Vrsta poruke: šablon sa pravnim dejstvom = `dunning`, ostalo `reminder`.
-6. Predlog predaje pravnoj ide kroz postojeći tok `case.legal_handover` (za fizičko lice taj tok
-   i dalje upisuje ljudsku odluku); predlog pravila se veže za isti zahtev i prati njegov ishod.
-   Ostale odluke: `decision.approve` (maker `decision.create`, checker `decision.approve` — ključevi
-   već postoje u katalogu).
-7. Odbijanje odluke traži napomenu (kao predaja pravnoj).
-8. Dnevni posao na zahtev ide kroz outbox (`tenant.daily_requested`), ne direktno iz app-a: app
-   nema pristup pg-boss-u, a tenant se tako uzima iz reda događaja.
-9. PDF golden test pokreće naš `pdf.ts` u worker image-u (`docker run -i`, Node uklanja tipove),
-   jer host nema Chromium i Docker daemon ne vidi lokalne putanje. U `test:db` se preskače dok
-   image nema Chromium (prvi build 3.3); `npm run test:pdf` tada pada umesto da preskoči.
-10. Font: `fonts-dejavu-core` (latinica sa dijakriticima i ćirilica), pinovan.
+1. **Zamene CHECK-a (nadskup, isto ime)** po obrascu 017/ADR 0003: `audit_log.actor_type` +
+   `api_key` (018); `mail_outbox` kind + `reply`, transport + `integration`, status + `bounced`,
+   `sent_at` ublažen za `bounced` (019). Zadatak ih eksplicitno traži; bez izmene redova.
+2. API ključ nije član: `ctx.userId` = id ključa; radnje koje traže osobu (aktivnost, zahtev za
+   odobrenje) ga odbijaju preko FK. Ključ dobija samo dozvole koje kreator ima, nikad checker.
+3. Webhook bez važećeg potpisa se **ne čuva** (inače bi zauzeo `external_event_id`);
+   `signature_ok` je zato uvek `true` (CHECK), a odbijanja su u logu.
+4. Jedna potpisna tajna po integraciji za oba smera; jedna aktivna mailbox integracija po tenantu.
+5. Naslov primljene pošte je **šifrovan** (zadatak kaže `subject`), jer može sadržati lične podatke.
+6. Prilozi: samo metapodaci (`mail_inbox.attachments`); `documents` ne prima druge vrste bez
+   proširenja CHECK-a — BACKLOG.
+7. Bounce: pošiljalac mailer-daemon/postmaster + citiran naš Message-ID; ili `mail.status` iz n8n-a.
+8. Adresa pošiljaoca i primaoca vidi se samo uz `contact.read`; admin (bez PII kontakata) u
+   „Nepovezanim porukama" vidi samo domen.
+9. **CheckPoint / APR / NBS su stub-ovi** (`unsupported`): API reference nisu dostupne; endpointi
+   nisu izmišljeni. Ocena radi na internim signalima; spoljni signal je „nema podatka".
+10. Prava izvora (pravilo 35): sva tri `may_redistribute = false`; CheckPoint retencija 365 dana
+    je pretpostavka do ugovora.
+11. Provajderi se pitaju samo za pravna lica (potrošač se ne proverava u registrima).
+12. Score: celobrojni poeni po pragovima, ponderisani prosek, zaokruživanje naviše od pola;
+    `inactivity_days` važi samo dok postoji dospeo dug; nikad kontaktiran = > 60 dana.
+13. `customers.credit_limit` je nov i prazan — signal izloženosti se ne računa dok se limit ne
+    unese (BACKLOG: maker-checker `approval.credit_limit`).
+14. Predlog kreditnog statusa: jedan otvoren po kupcu; `has_legal_effect` samo za crveni.
+15. Domenske sekcije 18–23 nisu pronađene u repou ni na disku — rađeno po tekstu zadatka.
 
 ## Trajne odluke iz Sprinta 0–1
 
@@ -174,6 +173,9 @@ postoji samo šifrovano na `customers`. Ulazi u migraciju 003, aditivno.
 - `npm audit` u hook-u zavisi od mreže — offline commit neće proći.
 
 ## Istorija
+
+- **3.3 zatvaranje Sprinta 3** (2026-10-13): `8240d00`, `420f9cd`; `eed9198` migracija 017 +
+  compose/Dockerfile (Uroš); merge `c5f1970`. 10 pretpostavki: `git show 420f9cd:docs/NEXT.md`.
 
 - **Noćni lanac 2.5 → 3.1 → 3.2** (2026-10-12/13): `a4c4ee6`, `f740953`, `4dc2420`, `9c9d44f`;
   `82e9148` migracije 015–016 (Uroš); merge `59a77e6`. Demo uvoz: 40 faktura, 8 kupaca, dospelo
