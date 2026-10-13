@@ -8,7 +8,7 @@ import { getMasterKeyring, type MasterKeyring } from '@/server/crypto/keyring';
 import { currentTenantId, type Queryable } from '@/server/crypto/subject-keys';
 import { emitEvent } from '@/server/events';
 import { renderForCustomer } from '@/server/templates/service';
-import { renderPdf, type PdfResult } from './pdf';
+import type { PdfResult } from './pdf';
 import { getDocument, putDocument } from './storage';
 
 /**
@@ -246,7 +246,13 @@ export async function renderDocumentPdf(
   audit: (entry: AuditEntry) => Promise<void>,
   keyring: MasterKeyring,
   documentId: string,
-  render: (html: string, at: Date) => Promise<PdfResult> = renderPdf,
+  // Review S-10: never Chromium in this process — the worker passes queuedRender() (renderer
+  // service), tests their own renderer.
+  render: (
+    html: string,
+    at: Date,
+    job: { tenantId: string; documentId: string },
+  ) => Promise<PdfResult>,
 ): Promise<RenderOutcome> {
   const tenantId = await currentTenantId(db);
   const { rows } = await db.query<{
@@ -274,7 +280,10 @@ export async function renderDocumentPdf(
   if (!createHash('sha256').update(html).digest().equals(d.checksum))
     throw new Error('document checksum mismatch');
   const started = Date.now();
-  const { pdf, renderer } = await render(html.toString('utf8'), d.created_at);
+  const { pdf, renderer } = await render(html.toString('utf8'), d.created_at, {
+    tenantId,
+    documentId,
+  });
   const id = randomUUID();
   const stored = putDocument(keyring, tenantId, id, pdf);
   const checksum = createHash('sha256').update(pdf).digest();

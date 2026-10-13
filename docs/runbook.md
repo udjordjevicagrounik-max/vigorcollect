@@ -18,7 +18,7 @@ komanda za repo počinje sa `cd /srv/vigor-collect &&`**, npr.:
 cd /srv/vigor-collect
 ./scripts/setup-tools.sh        # 1. psql 16, gitleaks, semgrep + test baza collect_test
 docker compose up -d db         # 2. baza (ako nije podignuta)
-./scripts/migrate.sh status     # 3. stanje migracija
+./scripts/migrate.sh status     # 3. stanje migracija (kroz servis `migrate`, gradi image)
 cat docs/NEXT.md                # 4. aktivan zadatak
 ```
 
@@ -34,6 +34,20 @@ porukom „pokreni db (runbook korak 2)" ako baza ne radi. Fixture podaci (fiksn
 u test bazi trajno — `audit_log` je INSERT-only.
 
 Reset test baze: `MIGRATE_DATABASE_URL=<test url> ./scripts/migrate.sh down NNN` pa `up`.
+
+## Migracije (pravilo 4; security review S-04)
+
+`vigor_migrate` (vlasnik svih tabela) postoji samo u one-shot compose servisu `migrate` (profil
+`ops`) — nikad u `app`, `worker` ni `renderer`. `./scripts/migrate.sh [up|status|down NNN]` bez
+`MIGRATE_DATABASE_URL` u okruženju (iz `.env` se više ne čita) poziva:
+
+```bash
+docker compose --profile ops run --rm --build migrate up
+```
+
+`--build` pakuje trenutne `db/migrations` u image (worker stage, `ops/migrate.sh`). Direktan
+`psql` mod ostaje samo kad je URL eksplicitno u okruženju: unutar servisa i za test bazu
+(`scripts/test-db.sh`).
 
 E2E (`npm run test:e2e`, Playwright) diže dva procesa iz istog production build-a, oba na
 `collect_test`: app na `E2E_PORT` (podrazumevano 3100) i job worker na `E2E_WORKER_PORT`
@@ -200,15 +214,16 @@ SQL
 
 ## Servisne role (ADR 0005)
 
-Tri role se prave **jednom po klasteru, kao superuser, PRE migracija 007 i 011** (migracije bez
-njih odbijaju rad) — `scripts/create-service-roles.sh` (ranije `create-worker-role.sh`; poruka u
-migraciji 007 još pominje staro ime):
+Četiri role se prave **jednom po klasteru, kao superuser, PRE migracija 007, 011 i 021**
+(migracije bez njih odbijaju rad) — `scripts/create-service-roles.sh` (ranije
+`create-worker-role.sh`; poruka u migraciji 007 još pominje staro ime):
 
-| rola            | lozinka (env)         | namena                                                                                   |
-| --------------- | --------------------- | ---------------------------------------------------------------------------------------- |
-| `vigor_worker`  | `WORKER_DB_PASSWORD`  | poslovi; politike samo na `domain_events` i `mail_outbox`                                |
-| `vigor_backup`  | `BACKUP_DB_PASSWORD`  | `pg_dump`: `pg_read_all_data` + BYPASSRLS, ne piše (osim svog reda u `ops_runs`)         |
-| `vigor_restore` | `RESTORE_DB_PASSWORD` | restore test: CREATEDB + BYPASSRLS za SVOJU privremenu bazu; podatke glavne baze ne vidi |
+| rola             | lozinka (env)          | namena                                                                                   |
+| ---------------- | ---------------------- | ---------------------------------------------------------------------------------------- |
+| `vigor_worker`   | `WORKER_DB_PASSWORD`   | poslovi; politike samo na `domain_events` i `mail_outbox`                                |
+| `vigor_backup`   | `BACKUP_DB_PASSWORD`   | `pg_dump`: `pg_read_all_data` + BYPASSRLS, ne piše (osim svog reda u `ops_runs`)         |
+| `vigor_restore`  | `RESTORE_DB_PASSWORD`  | restore test: CREATEDB + BYPASSRLS za SVOJU privremenu bazu; podatke glavne baze ne vidi |
+| `vigor_renderer` | `RENDERER_DB_PASSWORD` | renderer (S-10): SELECT/UPDATE samo na `render_jobs`; nijedna druga tabela               |
 
 Dev: lozinke i `WORKER_/BACKUP_/RESTORE_DATABASE_URL` u `.env` (generisani, nikad u chat), pa:
 
@@ -221,8 +236,12 @@ sesije), isti skript (`POSTGRES_USER`/`POSTGRES_PASSWORD` = superuser — samo o
 `SELECT rolname, rolsuper, rolbypassrls FROM pg_roles WHERE rolname LIKE 'vigor%';` → nijedna
 `rolsuper`; `rolbypassrls` samo `vigor_backup` i `vigor_restore`.
 
+Renderer (S-10): servis `renderer` — isti image kao worker, `node renderer.mjs`, jedina rola
+`vigor_renderer` (`RENDERER_DB_PASSWORD`), bez volume-a, read-only fajl sistem, `/health` na 3002
+unutar mreže. Jedini kontejner u kome se pokreće Chromium.
+
 Pokretanje: servis `worker` u `docker-compose.yml` — Dockerfile stage `worker` (app image +
-`postgresql-client-16` + `rclone`, pinovane verzije), `node worker.mjs`, port nije objavljen,
+`postgresql-client-16` + `rclone` + `age`, pinovane verzije), `node worker.mjs`, port nije objavljen,
 `/health` na 3001 unutar mreže, volume `backups` → `/srv/backups`. `app` je stage `app` (od 1.5
 traži `PII_MASTER_KEYS`, `BETTER_AUTH_*`, `TURNSTILE_*`; lokalno rade Cloudflare-ovi test ključevi).
 **Worker image:** kad PGDG objavi noviji 16.x, stari nestaje iz glavnog repoa i build pada —
@@ -270,14 +289,16 @@ Posle deploya: smoke (`/health` 200 + `X-App-Version` = očekivani tag).
 ### Release checklist (pravilo 23; dopunjuje se kroz 1.7)
 
 - [ ] Testovi zeleni (`npm test`, `npm run test:db`), migracije probane na kopiji prod baze.
-- [ ] **BLOKIRAJUĆE:** `scripts/create-service-roles.sh` kao superuser **PRE** migracija 007 i 011 (`vigor_worker`, `vigor_backup`, `vigor_restore`; bez njih migracije odbijaju rad; runbook „Servisne role").
+- [ ] **BLOKIRAJUĆE:** `scripts/create-service-roles.sh` kao superuser **PRE** migracija 007, 011 i 021 (`vigor_worker`, `vigor_backup`, `vigor_restore`, `vigor_renderer`; bez njih migracije odbijaju rad; runbook „Servisne role").
+- [ ] **BLOKIRAJUĆE (S-11):** age par za backup generisan van chata (runbook „Šifrovanje backup-a"): `BACKUP_AGE_RECIPIENT` u env-u worker-a, `BACKUP_AGE_IDENTITY` samo u vault-u i env-u servisa `restore-test`.
+- [ ] Servis `renderer` zdrav (`docker compose ps renderer`); PDF dokumenta se generiše (S-10).
 - [ ] **Pre prvog staging deploya:** `ALTER TABLE users VALIDATE CONSTRAINT users_auth_user;`
       (kao `vigor_migrate`). Ako padne — postoje viseći `auth_user_id`: očistiti, pa ponoviti.
 - [ ] `BETTER_AUTH_URL` je `https://…`; Secure kolačić se ne isključuje nikakvim env flagom.
 - [ ] **Turnstile ključevi** (`TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET`) u vault-u i env-u — bez njih production ne startuje (ADR 0006).
 - [ ] `scripts/smoke.sh` posle deploya zelen (exit 0).
 - [ ] Sentry DSN, kanal za alarme i off-site storage podešeni (Admin → Status sistema: sve „povezan”).
-- [ ] Prvi backup + restore test iz worker-a zeleni (Admin → Status sistema); host cron samo kao fallback.
+- [ ] Prvi backup (worker) + restore test (`docker compose --profile ops run --rm restore-test`) zeleni (Admin → Status sistema).
 - [ ] Release notes + rollback korak zapisani.
 
 ## Backup / restore (pravilo 28, zadatak 1.7)
@@ -287,14 +308,35 @@ Posle deploya: smoke (`/health` 200 + `X-App-Version` = očekivani tag).
   `git bundle` (u worker image-u nema git-a → bez bundle-a; repo je na GitHub-u); `$BACKUP_DIR/daily/YYYY-MM-DD` (30) i
   `monthly/YYYY-MM` (12). `.env` i ključevi nikad (skripta staje ako je `.env` ili ključ u git-u).
   Rezultat → `ops_runs` (Admin → Status sistema, alarmi).
-- **Gde radi:** worker (02:00 UTC backup, nedelja 03:00 UTC restore test), sa
-  `BACKUP_DATABASE_URL` / `RESTORE_DATABASE_URL`. **Fallback** (worker ne radi): host cron na
-  Elestio-u, isti env:
+- **Šifrovanje (S-11):** svaki fajl backup-a (`db-*.dump.age`, `globals.sql.age`,
+  `repo.bundle.age`) je šifrovan sa `age` na javni ključ `BACKUP_AGE_RECIPIENT`; `manifest.json`
+  nosi samo heševe. Podaci `auth.session` i `auth.verification` (živi tokeni) se ne dump-uju —
+  tabele da, prazne. Bez recipient-a backup ne radi (alarm „backup missing").
+- **Gde radi:** backup u worker-u (02:00 UTC, `BACKUP_DATABASE_URL` + `BACKUP_AGE_RECIPIENT`).
+  **Restore test NIKAD u worker-u** — jedini ima ključ za dešifrovanje: one-shot servis
+  `restore-test` (profil `ops`, `RESTORE_DATABASE_URL` + `BACKUP_AGE_IDENTITY`, backups samo za
+  čitanje), host cron na Elestio-u nedeljom 03:00 UTC:
 
   ```bash
-  0 2 * * *  cd /srv/vigor-collect && ./scripts/backup.sh >>/var/log/backup.log 2>&1
-  0 3 * * 0  cd /srv/vigor-collect && ./scripts/restore-test.sh >>/var/log/backup.log 2>&1
+  0 3 * * 0  cd /srv/vigor-collect && docker compose --profile ops run --rm restore-test >>/var/log/backup.log 2>&1
   ```
+
+  **Fallback za backup** (worker ne radi): `0 2 * * * cd /srv/vigor-collect && ./scripts/backup.sh`
+  sa istim env-om (bez identity-ja).
+
+- **Šifrovanje backup-a — generisanje para** (jednom po okruženju, **van Claude sesije**, na
+  admin mašini ili u Elestio terminalu; ključ se nikad ne lepi u chat):
+
+  ```bash
+  age-keygen -o backup-age.key            # privatni ključ (AGE-SECRET-KEY-1…)
+  age-keygen -y backup-age.key            # javni ključ (age1…) → BACKUP_AGE_RECIPIENT
+  ```
+
+  Sadržaj `backup-age.key` (linija `AGE-SECRET-KEY-1…`) ide u vault kao `BACKUP_AGE_IDENTITY` i
+  u env servisa `restore-test`; fajl se zatim briše (`shred -u backup-age.key`). Gubitak ključa =
+  backup-i su nečitljivi: čuvati ga kao `PII_MASTER_KEYS` (vault, nikad u backup-u). Rotacija:
+  nov par → novi `BACKUP_AGE_RECIPIENT`; stari ključ ostaje u vault-u dok postoje backup-i
+  šifrovani njim (30 dnevnih / 12 mesečnih).
 
 - **Off-site:** `BACKUP_S3_*` → `rclone sync` iz worker-a; bez `BACKUP_S3_BUCKET` →
   `offsite: not_configured` u `ops_runs` (blokada za staging).
@@ -304,10 +346,15 @@ Posle deploya: smoke (`/health` 200 + `X-App-Version` = očekivani tag).
   rekreiranje kontejnera. Crontab je na hostu, nije u repou: proveriti ga posle izmene servera
   (`crontab -l` na hostu) i da `/opt/app/backups` dobija nov dnevni direktorijum. Ovo **nije**
   off-site kopija (isti server) — off-site i dalje ide kroz `BACKUP_S3_*`.
-- **Restore test:** `scripts/restore-test.sh` (kao `vigor_restore`) vraća poslednji dump glavne
-  baze u `<db>_restore_test` (`--no-owner`), poredi broj redova svake tabele sa dump-om, briše kopiju, upisuje rezultat.
-- **Pravi restore (incident):** `createdb collect_new && pg_restore -d collect_new <dump>`, pa
-  `PII_MASTER_KEYS` iz vault-a (bez ključa šifrovani podaci su izgubljeni), promena `DATABASE_URL`.
+- **Restore test:** `scripts/restore-test.sh` (kao `vigor_restore`) dešifruje poslednji dump glavne
+  baze u privremeni fajl (briše se na izlazu), vraća ga u `<db>_restore_test` (`--no-owner`),
+  poredi broj redova svake tabele sa dump-om (`auth.session` / `auth.verification` moraju biti
+  prazne), briše kopiju, upisuje rezultat. U worker-u odbija da radi (exit 2).
+- **Pravi restore (incident):** ključ iz vault-a u fajl van repoa, pa
+  `age -d -i <ključ> -o collect.dump db-collect.dump.age && createdb collect_new && pg_restore -d collect_new collect.dump`,
+  `shred -u` za ključ i dump; zatim `PII_MASTER_KEYS` iz vault-a (bez ključa šifrovani podaci su
+  izgubljeni), promena `DATABASE_URL`. Posle restore-a svi moraju ponovo da se prijave (sesije se
+  ne čuvaju u backup-u).
 
 ## Preview (dev)
 

@@ -1,7 +1,8 @@
 import { logEvent } from '@/lib/log';
 import { runDailyCollections } from '@/server/collections/service';
 import { getMasterKeyring } from '@/server/crypto/keyring';
-import { chromiumPath } from '@/server/documents/pdf';
+import { getAppPool } from '@/db/client';
+import { queuedRender } from '@/server/documents/render-queue';
 import { renderDocumentPdf } from '@/server/documents/service';
 import { applyImport } from '@/server/imports/process';
 import { runDailyRisk } from '@/server/risk/service';
@@ -28,20 +29,18 @@ const WORKFLOW_HANDLERS: EventHandlers = Object.fromEntries(
   ]),
 );
 
-// 3.3: job document.render_pdf — the PDF of a generated document, in this (worker) process only.
-// Without Chromium (a host without the worker image) the event is acknowledged and logged; the
-// document can be re-requested later (document.render_requested).
+// 3.3: job document.render_pdf — the PDF of a generated document. Review S-10: the worker never
+// starts Chromium; the renderer service renders (render_jobs), the worker encrypts and stores.
+// No renderer answer within the timeout → the handler throws and the event retries with backoff.
 const renderPdfHandler: EventHandlers[string] = async (ctx, event) => {
   if (!event.aggregateId) return;
-  if (!chromiumPath()) {
-    logEvent('document.pdf_unavailable', {
-      level: 'warn',
-      tenantId: ctx.tenantId,
-      documentId: event.aggregateId,
-    });
-    return;
-  }
-  const outcome = await renderDocumentPdf(ctx.db, ctx.audit, getMasterKeyring(), event.aggregateId);
+  const outcome = await renderDocumentPdf(
+    ctx.db,
+    ctx.audit,
+    getMasterKeyring(),
+    event.aggregateId,
+    queuedRender(getAppPool()),
+  );
   logEvent('document.render_pdf.handled', { tenantId: ctx.tenantId, eventId: event.id, outcome });
 };
 

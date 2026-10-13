@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Installs the system tools the git hooks and scripts need: gitleaks, semgrep, psql 16,
+# Installs the system tools the git hooks and scripts need: gitleaks, semgrep, psql 16, age,
 # then ensures the golden-test database exists (scripts/setup-test-db.sh).
 # Idempotent: installs only what is missing. Run at the start of EVERY session — the dev
 # container is ephemeral and tools installed outside the repo can disappear.
@@ -44,6 +44,15 @@ else
   APT_UPDATED=0
   apt_install postgresql-client-16
   log "psql installed: $(psql --version)"
+fi
+
+# --- age (backup encryption, review S-11) — the same Debian package as the worker image ------
+if command -v age >/dev/null; then
+  log "age ok: $(age --version)"
+else
+  log "installing age"
+  apt_install age
+  log "age installed: $(age --version)"
 fi
 
 # --- semgrep (pipx) + symlink so git hooks find it without the interactive PATH ----------------

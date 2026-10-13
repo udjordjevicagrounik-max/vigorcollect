@@ -5,12 +5,15 @@ import { join } from 'node:path';
 
 /**
  * HTML → PDF (task 3.3) with the system Chromium of the worker image (Debian package, pinned in
- * the Dockerfile) driven by puppeteer-core. Only the worker renders; the web app never starts a
- * browser. The input is a document we generated ourselves (whitelisted tags, escaped values,
- * no scripts), and the page is locked down anyway:
+ * the Dockerfile) driven by puppeteer-core. Only the RENDERER service calls this (review S-10,
+ * src/server/documents/renderer.ts) — a container with one database credential (render_jobs) and
+ * no other secret; neither the web app nor the worker ever starts a browser. The input is a
+ * document we generated ourselves (whitelisted tags, escaped values, no scripts), and the page
+ * is locked down anyway:
  *   - JavaScript off, every network request aborted (nothing is fetched — no SSRF, no tracking);
- *   - nothing that needs root: the worker runs as the unprivileged `node` user, no capabilities
- *     (compose cap_drop ALL, no-new-privileges), Docker's default seccomp/AppArmor unchanged.
+ *   - nothing that needs root: the renderer runs as the unprivileged `node` user, no capabilities
+ *     (compose cap_drop ALL, no-new-privileges, read-only filesystem), Docker's default
+ *     seccomp/AppArmor unchanged.
  *     Chromium's own sandbox needs user namespaces or a setuid helper, which exactly those
  *     defaults forbid — so it runs with --no-sandbox INSIDE that container boundary instead of
  *     loosening the container (SYS_ADMIN / privileged / custom seccomp were rejected, NEXT.md);

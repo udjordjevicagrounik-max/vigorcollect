@@ -2,6 +2,10 @@
 # Nightly backup (rule 28; task 1.7) — run as cron on the host or by the worker (02:00 UTC).
 #   - pg_dump -Fc of EVERY database the backup role may connect to (not templates, not restore
 #     copies) as vigor_backup (pg_read_all_data + BYPASSRLS, no writes), roles WITHOUT passwords;
+#   - review S-11: every file is ENCRYPTED with age to BACKUP_AGE_RECIPIENT (a public key — the
+#     identity that decrypts never exists where the backup runs; only the restore test / a real
+#     restore has it). No recipient → no backup. The data of auth.session (live bearer tokens)
+#     and auth.verification (reset tokens) is never dumped — the tables are, empty;
 #   - the repository as a git bundle (committed files only — .env and keys are never committed;
 #     checked below);
 #   - layout: $BACKUP_DIR/daily/YYYY-MM-DD (30 kept) and monthly/YYYY-MM (12 kept, hardlinks);
@@ -17,6 +21,8 @@ DAY="$(date -u +%F)"
 MONTH="$(date -u +%Y-%m)"
 WORK="$BACKUP_DIR/daily/$DAY.partial"
 step="start"
+# auth.session / auth.verification hold live tokens: schema yes, data never (review S-11).
+EXCLUDE_DATA=(--exclude-table-data=auth.session --exclude-table-data=auth.verification)
 
 fail() {
   record_ops_run backup failed "$STARTED" "{\"step\":\"$step\",\"day\":\"$DAY\"}"
@@ -25,6 +31,11 @@ fail() {
   exit 1
 }
 trap fail ERR
+
+step="encryption:recipient"
+command -v age >/dev/null
+[[ "${BACKUP_AGE_RECIPIENT:-}" =~ ^age1[0-9a-z]{58}$ ]]
+encrypt() { age -r "$BACKUP_AGE_RECIPIENT" -o "$1"; } # stdin → $1
 
 umask 077
 rm -rf "$WORK"
@@ -42,10 +53,10 @@ step="databases:main-missing"
 printf '%s\n' "${DBS[@]}" | grep -qx "$MAIN_DB"
 for db in "${DBS[@]}"; do
   step="dump:$db"
-  pg_dump -Fc --no-password -d "$db" -f "$WORK/db-$db.dump"
+  pg_dump -Fc --no-password -d "$db" "${EXCLUDE_DATA[@]}" | encrypt "$WORK/db-$db.dump.age"
 done
 step="globals"
-pg_dumpall --globals-only --no-role-passwords --no-password -f "$WORK/globals.sql"
+pg_dumpall --globals-only --no-role-passwords --no-password | encrypt "$WORK/globals.sql.age"
 
 step="repo"
 if git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1; then
@@ -55,14 +66,14 @@ if git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1; then
     step="repo:secret-tracked"
     false
   fi
-  git -C "$ROOT" bundle create "$WORK/repo.bundle" --all >/dev/null 2>&1
+  git -C "$ROOT" bundle create - --all 2>/dev/null | encrypt "$WORK/repo.bundle.age"
   HEAD="$(git -C "$ROOT" rev-parse --short HEAD)"
 else
   HEAD="none"
 fi
 
 step="manifest"
-WORK="$WORK" HEAD="$HEAD" node -e '
+WORK="$WORK" HEAD="$HEAD" BACKUP_AGE_RECIPIENT="$BACKUP_AGE_RECIPIENT" node -e '
   const fs = require("fs"), path = require("path"), crypto = require("crypto");
   const dir = process.env.WORK;
   const files = fs.readdirSync(dir).filter((f) => !f.startsWith(".")).sort().map((name) => {
@@ -70,7 +81,8 @@ WORK="$WORK" HEAD="$HEAD" node -e '
     return { name, bytes: buf.length, sha256: crypto.createHash("sha256").update(buf).digest("hex") };
   });
   fs.writeFileSync(path.join(dir, "manifest.json"),
-    JSON.stringify({ created: new Date().toISOString(), git: process.env.HEAD, files }, null, 2));'
+    JSON.stringify({ created: new Date().toISOString(), git: process.env.HEAD, encryption: "age",
+      recipient: process.env.BACKUP_AGE_RECIPIENT, files }, null, 2));'
 
 step="publish"
 rm -rf "$BACKUP_DIR/daily/$DAY"

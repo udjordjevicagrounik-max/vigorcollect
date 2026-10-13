@@ -44,8 +44,9 @@ export function createProxy(limiter: RateLimiter) {
     // Resolved once from the trusted end of X-Forwarded-For (review S-07); never the client's own.
     const ip = forwardedClientIp(request.headers);
 
-    // The worker process (PROCESS_ROLE=worker) serves nothing but its own /health.
-    if (process.env.PROCESS_ROLE === 'worker' && path !== '/health') {
+    // The worker and renderer processes serve nothing but their own /health.
+    const role = process.env.PROCESS_ROLE;
+    if ((role === 'worker' || role === 'renderer') && path !== '/health') {
       return finish(new NextResponse(null, { status: 404 }), requestId, csp);
     }
 

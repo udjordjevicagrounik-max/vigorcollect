@@ -4,7 +4,7 @@ import { logEvent } from '@/lib/log';
 /**
  * Daily retention. What may be deleted is decided by the database, not by this code: the
  * worker's DELETE policies allow only mail_outbox rows older than 7 days and processed
- * domain_events older than 90 days (migration 007). Expired Better Auth sessions and
+ * domain_events older than 90 days (migration 007), expired render jobs (021). Expired Better Auth sessions and
  * verification tokens and old API rate-limit windows are removed as vigor_app (no tenant data).
  */
 export type RetentionCounts = {
@@ -13,6 +13,7 @@ export type RetentionCounts = {
   authSessions: number;
   authVerifications: number;
   rateLimitWindows: number;
+  renderJobs: number;
 };
 
 export async function runRetention(deps: {
@@ -25,6 +26,10 @@ export async function runRetention(deps: {
   const events = await deps.workerPool.query(
     `DELETE FROM domain_events
      WHERE status = 'processed' AND processed_at < now() - interval '90 days'`,
+  );
+  // Render jobs live at most an hour (migration 021); a worker that died leaves its row behind.
+  const renderJobs = await deps.workerPool.query(
+    `DELETE FROM render_jobs WHERE expires_at < now()`,
   );
   const sessions = await deps.appPool.query(`DELETE FROM auth."session" WHERE "expiresAt" < now()`);
   const verifications = await deps.appPool.query(
@@ -40,6 +45,7 @@ export async function runRetention(deps: {
     authSessions: sessions.rowCount ?? 0,
     authVerifications: verifications.rowCount ?? 0,
     rateLimitWindows: windows.rowCount ?? 0,
+    renderJobs: renderJobs.rowCount ?? 0,
   };
   logEvent('retention.completed', counts);
   return counts;

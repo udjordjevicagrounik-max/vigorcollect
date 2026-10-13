@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Creates (or re-passwords) the service roles — ONCE per Postgres cluster, as the superuser,
-# BEFORE migrations 007 / 011 (vigor_migrate is NOCREATEROLE). Passwords come from env / .env
+# BEFORE migrations 007 / 011 / 021 (vigor_migrate is NOCREATEROLE). Passwords come from env / .env
 # and are never printed. A role whose password variable is empty is skipped.
 #
 #   vigor_worker   WORKER_DB_PASSWORD   jobs (ADR 0005): NOSUPERUSER NOBYPASSRLS
@@ -9,6 +9,9 @@
 #                                       own ops_runs row, kind 'backup')
 #   vigor_restore  RESTORE_DB_PASSWORD  restore test: CREATEDB + BYPASSRLS for its OWN scratch
 #                                       database; no access to the data of the main database
+#   vigor_renderer RENDERER_DB_PASSWORD renderer service (review S-10): NOSUPERUSER NOBYPASSRLS,
+#                                       migration 021 grants it ONE table (render_jobs) and nothing
+#                                       else — run this BEFORE migration 021
 #
 # Dev:   ./scripts/create-service-roles.sh   (POSTGRES_USER / POSTGRES_PASSWORD from .env)
 # Prod:  on the Elestio host with the vault values exported; docs/runbook.md "Servisne role".
@@ -48,6 +51,10 @@ if [[ -n "${BACKUP_DB_PASSWORD:-}" ]]; then
   ensure_role vigor_backup "$BACKUP_DB_PASSWORD" \
     'NOSUPERUSER BYPASSRLS NOCREATEDB NOCREATEROLE NOREPLICATION INHERIT'
   psql -X -q -v ON_ERROR_STOP=1 --no-psqlrc -c 'GRANT pg_read_all_data TO vigor_backup' >/dev/null
+fi
+if [[ -n "${RENDERER_DB_PASSWORD:-}" ]]; then
+  ensure_role vigor_renderer "$RENDERER_DB_PASSWORD" \
+    'NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE NOREPLICATION NOINHERIT'
 fi
 if [[ -n "${RESTORE_DB_PASSWORD:-}" ]]; then
   ensure_role vigor_restore "$RESTORE_DB_PASSWORD" \

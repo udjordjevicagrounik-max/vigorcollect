@@ -7,16 +7,22 @@
 #   up      (default) apply all pending migrations
 #   status  list applied / pending
 #   down N  run NNN_<name>_down.sql for the LAST applied version only (dev databases)
+#
+# Review S-04: the vigor_migrate credentials live ONLY in the one-shot compose service `migrate`
+# (profile ops). Without MIGRATE_DATABASE_URL in the ENVIRONMENT (it is never read from .env
+# here) this script hands over to that service, built from the current tree:
+#   docker compose --profile ops run --rm --build migrate <args>
+# Inside the service (and for the golden test database, scripts/test-db.sh) the URL is set and
+# psql runs directly.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DIR="$ROOT/db/migrations"
 
-if [[ -f "$ROOT/.env" && -z "${MIGRATE_DATABASE_URL:-}" ]]; then
-  # shellcheck disable=SC1091
-  set -a && source "$ROOT/.env" && set +a
+if [[ -z "${MIGRATE_DATABASE_URL:-}" ]]; then
+  cd "$ROOT"
+  exec docker compose --profile ops run --rm --build migrate "${@:-up}"
 fi
-: "${MIGRATE_DATABASE_URL:?MIGRATE_DATABASE_URL is not set (vigor_migrate connection string)}"
 command -v psql >/dev/null || { echo "psql not found (install postgresql-client-16)" >&2; exit 1; }
 
 PSQL=(psql "$MIGRATE_DATABASE_URL" -X -q -v ON_ERROR_STOP=1 --no-psqlrc)
