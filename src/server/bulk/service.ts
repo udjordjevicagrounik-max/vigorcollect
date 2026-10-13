@@ -454,7 +454,8 @@ export type BulkReport = {
   itemCount: number;
   okCount: number;
   failedCount: number;
-  hasFile: boolean;
+  /** Export runs: the ready export file (download through exportService). */
+  exportFileId: string | null;
   createdAt: string;
   finishedAt: string | null;
   items: { id: string; label: string | null; status: string; error: string | null }[];
@@ -507,7 +508,7 @@ export async function getBulkReport(ctx: TenantContext, runId: string): Promise<
     itemCount: r.item_count,
     okCount: r.ok_count,
     failedCount: r.failed_count,
-    hasFile: r.result_ref !== null,
+    exportFileId: r.result_ref?.startsWith('export:') ? r.result_ref.slice('export:'.length) : null,
     createdAt: r.created_at.toISOString(),
     finishedAt: r.finished_at?.toISOString() ?? null,
     items: items.rows.map((i) => ({

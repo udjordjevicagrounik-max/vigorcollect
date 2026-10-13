@@ -58,9 +58,9 @@ export default async function BulkReportPage({ params }: { params: Promise<{ id:
             skipped: running ? 0 : skipped,
           })}
         </p>
-        {report.hasFile ? (
+        {report.exportFileId ? (
           <a
-            href={`/api/bulk/${report.id}/file`}
+            href={`/api/exports/${report.exportFileId}/download`}
             className="mt-3 inline-flex min-h-11 items-center rounded-md bg-brand-green px-4 font-medium text-surface"
             data-bulk-file
           >

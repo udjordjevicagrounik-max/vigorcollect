@@ -24,7 +24,9 @@
       "templates": "Šabloni",
       "approvals": "Odobrenja",
       "integrations": "Integracije",
-      "invoices": "Fakture"
+      "invoices": "Fakture",
+      "reports": "Izveštaji",
+      "notifications": "Obaveštenja"
     },
     "tenant": "Organizacija",
     "switchTenant": "Promeni organizaciju",
@@ -54,6 +56,24 @@
     "test": {
       "subject": "Test poruka — {tenant}",
       "text": "Ovo je test poruka iz organizacije {tenant}.\n\nAko ste je primili, slanje pošte kroz integraciju Pošta radi. Odgovor nije potreban."
+    },
+    "digest": {
+      "daily": {
+        "subject": "Moj dan — naplata",
+        "attention": "Stavki koje traže pažnju: {n}",
+        "promises": "Obećanja za danas (ili ranije, još na čekanju): {n}",
+        "tasks": "Zadataka za danas: {n}",
+        "mail": "Nove pošte od kupaca: {n}",
+        "top": "Prvi na redu:"
+      },
+      "weekly": {
+        "subject": "Nedeljni pregled naplate",
+        "overdue": "Dospelo sada: {amount}",
+        "collected": "Naplaćeno poslednjih 30 dana: {amount}",
+        "broken": "Prekršenih obećanja (30 dana): {n}",
+        "top": "Top 5 kupaca po dospelom iznosu:"
+      },
+      "footer": "Uključeni su samo kupci koje vidite. Isključite pregled u Nalog → Obaveštenja."
     }
   },
   "auth": {
@@ -538,6 +558,56 @@
       "invite": "Pozivnica za {user} kao {role}",
       "teamLead": "Vođa tima {team}: {user}",
       "apiKeyScope": "API ključ „{name}“ sa obimom: {scope}"
+    },
+    "configuration": {
+      "saved": "Sačuvano. Promena je upisana u audit log.",
+      "save": "Sačuvaj",
+      "add": "Dodaj",
+      "inUse": "u upotrebi",
+      "labelSr": "Naziv (srpski)",
+      "labelEn": "Naziv (engleski)",
+      "order": "Redosled",
+      "active": "aktivan",
+      "newCode": "Nova šifra (a-z, 0-9, _)",
+      "neverDeleted": "Šifre se nikad ne brišu — neaktivna šifra nestaje iz izbora, a ostaje važeća na postojećim zapisima.",
+      "lists": {
+        "collection_policy": "Politike naplate",
+        "case_stage": "Faze case-a",
+        "dispute_reason": "Razlozi spora",
+        "payment_behaviour": "Ponašanje pri plaćanju"
+      },
+      "aging": "Aging razredi",
+      "minDays": "Od dana",
+      "maxDays": "Do dana (prazno = bez granice)",
+      "agingHint": "Razredi počinju od 0, nastavljaju se bez praznina i preklapanja, a poslednji nema gornju granicu.",
+      "thresholds": "Pažnja, rizik i limiti",
+      "noActivityDays": "Bez aktivnosti posle (dana)",
+      "largeOverdue": "Velika dospela faktura od (prazno = top 5)",
+      "defaultPolicy": "Podrazumevana politika naplate",
+      "bulkMax": "Limit grupne akcije (stavki)",
+      "riskWeights": "Ponderi rizika (0–100)",
+      "bandYellow": "Žuto od skora",
+      "bandRed": "Crveno od skora",
+      "riskFactors": {
+        "days_overdue": "Dana kašnjenja",
+        "exposure_vs_limit": "Izloženost prema limitu",
+        "broken_promises_90d": "Prekršena obećanja (90 d)",
+        "disputes_90d": "Sporovi (90 d)",
+        "inactivity_days": "Neaktivnost",
+        "external_blocked": "Blokiran račun (spoljni izvor)"
+      },
+      "calendar": "Radni dani i praznici po kompaniji",
+      "workingDays": "Radni dani",
+      "holidays": "Praznici — jedan po redu: GGGG-MM-DD naziv",
+      "days": {
+        "1": "pon",
+        "2": "uto",
+        "3": "sre",
+        "4": "čet",
+        "5": "pet",
+        "6": "sub",
+        "7": "ned"
+      }
     }
   },
   "pwa": {
@@ -1382,5 +1452,124 @@
       "conflict": "nema e-mail kontakta ili konflikt",
       "internal": "interna greška"
     }
+  },
+  "exports": {
+    "columns": {
+      "customer": "Kupac",
+      "taxId": "PIB",
+      "externalId": "Spoljni ID",
+      "status": "Status",
+      "owner": "Vlasnik",
+      "currency": "Valuta",
+      "exposure": "Otvoreno",
+      "overdue": "Dospelo",
+      "disputed": "Sporno",
+      "oldestDays": "Najstarije kašnjenje (dana)",
+      "risk": "Rizik",
+      "behaviour": "Ponašanje pri plaćanju",
+      "invoice": "Faktura",
+      "issueDate": "Datum izdavanja",
+      "dueDate": "Datum dospeća",
+      "total": "Ukupno",
+      "open": "Otvoreno",
+      "daysOverdue": "Dana kašnjenja",
+      "bucket": "Aging razred",
+      "naturalPerson": "Fizičko lice",
+      "yes": "da",
+      "no": "ne"
+    },
+    "button": "Izvoz",
+    "queued": "Izvoz je veliki i priprema se — naći ćete ga u Izveštaji → Moji izvozi.",
+    "done": "Preuzeto (redova: {n}).",
+    "mine": "Moji izvozi",
+    "mineEmpty": "Nema pripremljenih izvoza u poslednjih 7 dana.",
+    "download": "Preuzmi",
+    "fileLine": "{type} · {format} · redova {rows} · do {date}",
+    "status": {
+      "queued": "čeka",
+      "running": "priprema se",
+      "ready": "spremno",
+      "failed": "neuspelo"
+    }
+  },
+  "reports": {
+    "title": "Izveštaji",
+    "description": "Šest osnovnih izveštaja u {currency}, ograničeni na kupce koje vidite. Definicije: u napomeni svakog izveštaja.",
+    "choose": "Izveštaj",
+    "names": {
+      "aging_by_customer": "Aging po kupcu",
+      "aging_by_collector": "Aging po naplataru / timu",
+      "collected_by_period": "Naplaćeno po periodu",
+      "promises": "Obećanja (ispunjena / prekršena)",
+      "cases_by_stage": "Case-ovi po fazi",
+      "disputes": "Sporovi"
+    },
+    "definitions": {
+      "aging_by_customer": "Otvoreni iznosi po kupcu i aging razredu (izveštajna valuta); dospelo i sporno zasebno. Kupci bez otvorenih faktura nisu prikazani.",
+      "aging_by_collector": "Otvoreni iznosi po aging razredu po vlasniku kupca (ili timu); broj kupaca sa otvorenim fakturama.",
+      "collected_by_period": "Primljen novac (samo uplate — korekcije nikad nisu naplata) po danu / nedelji / mesecu u periodu, preračunat na dan uplate.",
+      "promises": "Obećanja čiji je datum u periodu, po statusu: broj, obećani i plaćeni iznos (otkazana nisu uključena).",
+      "cases_by_stage": "Otvoreni case-ovi po fazi: broj, otvoren iznos njihovih faktura, prosečna starost u danima.",
+      "disputes": "Sporovi otvoreni u periodu po razlogu i statusu: broj, otvoren iznos spornih faktura, prosečno dana otvoreno."
+    },
+    "from": "Od",
+    "to": "Do",
+    "onlyMine": "Samo moji kupci",
+    "groupBy": "Grupiši po",
+    "groupByOwner": "naplataru",
+    "groupByTeam": "timu",
+    "period": "Period",
+    "periods": {
+      "day": "dan",
+      "week": "nedelja",
+      "month": "mesec"
+    },
+    "apply": "Prikaži",
+    "empty": "Nema podataka za ove filtere.",
+    "saved": "Sačuvani izveštaji",
+    "saveAs": "Sačuvaj kao",
+    "share": "podeli sa organizacijom",
+    "save": "Sačuvaj",
+    "savedOk": "Izveštaj je sačuvan.",
+    "deleted": "Sačuvani izveštaj je obrisan.",
+    "delete": "Obriši",
+    "sharedMark": "deljen",
+    "sortBy": "Sortiraj po",
+    "sortDefault": "podrazumevano",
+    "columns": {
+      "customer": "Kupac",
+      "owner": "Naplatar",
+      "team": "Tim",
+      "open_total": "Otvoreno",
+      "overdue_total": "Dospelo",
+      "disputed": "Sporno",
+      "customers": "Kupaca",
+      "period": "Period",
+      "collected": "Naplaćeno",
+      "payments": "Uplata",
+      "status": "Status",
+      "promises": "Obećanja",
+      "amount": "Iznos",
+      "paid": "Plaćeno",
+      "stage": "Faza",
+      "cases": "Case-ova",
+      "open_amount": "Otvoren iznos",
+      "avg_age_days": "Prosečna starost (dana)",
+      "reason": "Razlog",
+      "disputes": "Sporova",
+      "avg_days_open": "Prosečno dana otvoreno"
+    },
+    "noOwner": "bez vlasnika",
+    "naturalPerson": "Fizičko lice"
+  },
+  "notifications": {
+    "title": "Obaveštenja",
+    "description": "Koje e-mail preglede primate i šta vam aplikacija prikazuje. Pregledi stižu na vašu adresu za prijavu u 07:00 po vašoj vremenskoj zoni.",
+    "dailyDigest": "Dnevni e-mail „Moj dan“",
+    "weeklyDigest": "Nedeljni menadžerski pregled (ponedeljak; samo uz pristup izveštajima)",
+    "inAppAttention": "Prikaži „Zahteva pažnju“ na dashboard-u",
+    "inAppMail": "Prikaži stavke o neisporučenoj i novoj pošti u aplikaciji",
+    "save": "Sačuvaj",
+    "saved": "Podešavanja su sačuvana."
   }
 }

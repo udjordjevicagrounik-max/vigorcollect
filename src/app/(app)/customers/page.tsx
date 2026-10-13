@@ -3,11 +3,12 @@ import { getLocale, getTranslations } from 'next-intl/server';
 import { ForbiddenState } from '@/components/admin/forbidden-state';
 import { PageHeader } from '@/components/admin/page-header';
 import { BulkBar } from '@/components/receivables/bulk-bar';
+import { ExportButton } from '@/components/reports/export-button';
 import { SavedFilters } from '@/components/receivables/saved-filters';
 import { RiskBadge } from '@/components/risk/risk-badge';
 import { Screen } from '@/components/shell/screen';
 import { formatAmount, isZeroAmount } from '@/lib/format-amount';
-import { PermissionDeniedError } from '@/server/auth/permissions';
+import { PermissionDeniedError, permissionKeys } from '@/server/auth/permissions';
 import { withTenantPage } from '@/server/auth/with-tenant';
 import { bulkOptions } from '@/server/bulk/service';
 import {
@@ -47,6 +48,7 @@ export default async function CustomersPage({
       behaviours: await codeLabels(ctx, 'payment_behaviour', locale),
       bulk: await bulkOptions(ctx, 'customers'),
       policies: await codeLabels(ctx, 'collection_policy', locale),
+      canExport: (await permissionKeys(ctx.db, ctx.userId)).has('customer.export'),
     }));
   } catch (error) {
     if (error instanceof PermissionDeniedError) return <ForbiddenState />;
@@ -57,6 +59,11 @@ export default async function CustomersPage({
   return (
     <Screen mobileClass="mobile-compact">
       <PageHeader title={t('title')} description={t('description')} />
+      {data.canExport ? (
+        <div className="mb-3">
+          <ExportButton type={ENTITY} filters={query} />
+        </div>
+      ) : null}
       <form
         method="get"
         className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4 md:flex-row md:flex-wrap md:items-end"

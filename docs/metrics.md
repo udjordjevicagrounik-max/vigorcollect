@@ -74,3 +74,30 @@ Jedan spisak (dashboard), svaka stavka sa sledećim korakom. Stavke o kupcima su
 | **Ispravno / sa greškom**            | Redovi koji su prošli / nisu prošli Zod validaciju; red sa greškom se preskače.                                                                                    |
 | **Novih / ažuriranih / bez promene** | Po (izvor, `external_id`): nova faktura; postojeća sa nižim saldom ili promenjenim datumom dospeća / referencama; postojeća bez razlike.                           |
 | **Za odluku**                        | Reconciliation exception: promena iznosa, valute ili kupca, viši saldo nego ranije, bilo kakva promena plaćene fakture, ili rollback koji nije mogao da se izvrši. |
+
+## Izveštaji (5.2)
+
+Šest osnovnih izveštaja (`src/server/reports/service.ts`), ekran Izveštaji i izvoz (CSV / XLSX)
+koriste isti rezultat. Sve u izveštajnoj valuti, ograničeno scope-om korisnika (pravila gore).
+Filtri: period od–do (podrazumevano poslednjih 90 dana, zona tenanta), „samo moji kupci", tim.
+
+| Izveštaj                           | Dimenzija             | Mere                                                                                        |
+| ---------------------------------- | --------------------- | ------------------------------------------------------------------------------------------- |
+| **Aging po kupcu**                 | kupac (vlasnik)       | otvoreno po aging razredu, otvoreno ukupno, dospelo, sporno; kupci bez otvorenih faktura ne |
+| **Aging po naplataru / timu**      | vlasnik kupca ili tim | otvoreno po aging razredu, otvoreno ukupno, broj kupaca sa otvorenim fakturama              |
+| **Naplaćeno po periodu**           | dan / nedelja / mesec | zbir uplata (`payment_kind = payment`, korekcije nikad), preračunat na dan uplate; broj     |
+| **Obećanja (ispunjena/prekršena)** | status                | broj, obećani iznos, plaćeni iznos — obećanja čiji je datum u periodu, bez `cancelled`      |
+| **Case-ovi po fazi**               | faza (`case_stage`)   | broj otvorenih case-ova, otvoren iznos njihovih faktura, prosečna starost (dana)            |
+| **Sporovi**                        | razlog × status       | broj sporova otvorenih u periodu, otvoren iznos spornih faktura, prosečno dana otvoreno     |
+
+**Izvoz** (pravilo 12): do 5.000 redova odmah, iznad — posao u worker-u (`export_files`, šifrovano,
+važi 7 dana), najviše 100.000 redova. Svako preuzimanje upisuje `export_log` (ko, šta, filteri,
+broj redova, sha256). Iznosi u CSV-u i XLSX-u su decimalni string iz baze (bez float-a).
+
+## Digest (5.2)
+
+- **Moj dan** (dnevno, 07:00 po zoni korisnika): stavke pažnje (bez zadataka), obećanja `pending`
+  sa datumom danas ili ranije, zadaci za danas, nova pošta kupaca (`mail_inbox.status = new`) —
+  sve u scope-u korisnika. Bez ijedne stavke mail se ne šalje.
+- **Nedeljni menadžerski pregled** (ponedeljak 07:00, samo uz `report.read`): dospelo sada,
+  naplaćeno poslednjih 30 dana, prekršena obećanja (30 dana), top 5 kupaca po dospelom.

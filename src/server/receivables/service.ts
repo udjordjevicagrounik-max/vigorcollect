@@ -54,10 +54,16 @@ export async function listReceivableCustomers(
   ctx: TenantContext,
   query: CustomerListQuery,
   limit = 200,
+  /** 5.2: only these customers (bulk export of a selection). */
+  ids?: string[],
 ): Promise<CustomerRow[]> {
   const { scope } = await ctx.requirePermission('customer.read');
   const params: unknown[] = [limit];
   const where: string[] = [];
+  if (ids) {
+    params.push(ids);
+    where.push(`c.id = ANY($${params.length}::uuid[])`);
+  }
   if (query.q) {
     params.push(likeContains(query.q));
     const p = `$${params.length}`;
@@ -815,10 +821,16 @@ export async function listOpenInvoices(
   ctx: TenantContext,
   query: InvoiceListQuery,
   limit = 500,
+  /** 5.2: only these invoices (bulk export of a selection). */
+  ids?: string[],
 ): Promise<InvoiceListRow[]> {
   const { scope } = await ctx.requirePermission('invoice.read');
   const params: unknown[] = [limit];
   const where: string[] = ['p.is_open'];
+  if (ids) {
+    params.push(ids);
+    where.push(`p.invoice_id = ANY($${params.length}::uuid[])`);
+  }
   if (query.q) {
     params.push(likeContains(query.q));
     const p = `$${params.length}`;

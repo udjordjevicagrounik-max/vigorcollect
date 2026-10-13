@@ -24,7 +24,9 @@
       "templates": "Templates",
       "approvals": "Approvals",
       "integrations": "Integrations",
-      "invoices": "Invoices"
+      "invoices": "Invoices",
+      "reports": "Reports",
+      "notifications": "Notifications"
     },
     "tenant": "Organization",
     "switchTenant": "Switch organization",
@@ -54,6 +56,24 @@
     "test": {
       "subject": "Test message — {tenant}",
       "text": "This is a test message from {tenant}.\n\nIf you received it, outgoing mail through your mailbox integration works. No reply is needed."
+    },
+    "digest": {
+      "daily": {
+        "subject": "My day — collections",
+        "attention": "Items needing attention: {n}",
+        "promises": "Promises due today (or earlier, still pending): {n}",
+        "tasks": "Tasks due: {n}",
+        "mail": "New customer mail: {n}",
+        "top": "First in line:"
+      },
+      "weekly": {
+        "subject": "Weekly collections summary",
+        "overdue": "Overdue now: {amount}",
+        "collected": "Collected in the last 30 days: {amount}",
+        "broken": "Broken promises (30 days): {n}",
+        "top": "Top 5 customers by overdue amount:"
+      },
+      "footer": "Only customers you can see are included. Turn digests off under Account → Notifications."
     }
   },
   "auth": {
@@ -538,6 +558,56 @@
       "invite": "Invitation of {user} as {role}",
       "teamLead": "Team lead of {team}: {user}",
       "apiKeyScope": "API key „{name}“ with scope: {scope}"
+    },
+    "configuration": {
+      "saved": "Saved. The change is recorded in the audit log.",
+      "save": "Save",
+      "add": "Add",
+      "inUse": "in use",
+      "labelSr": "Name (Serbian)",
+      "labelEn": "Name (English)",
+      "order": "Order",
+      "active": "active",
+      "newCode": "New code (a-z, 0-9, _)",
+      "neverDeleted": "Codes are never deleted — an inactive code disappears from choices but stays valid on existing records.",
+      "lists": {
+        "collection_policy": "Collection policies",
+        "case_stage": "Case stages",
+        "dispute_reason": "Dispute reasons",
+        "payment_behaviour": "Payment behaviour"
+      },
+      "aging": "Aging buckets",
+      "minDays": "From day",
+      "maxDays": "To day (empty = no limit)",
+      "agingHint": "Buckets must start at 0, follow each other without gaps or overlaps, and the last one has no upper limit.",
+      "thresholds": "Attention, risk and limits",
+      "noActivityDays": "No activity after (days)",
+      "largeOverdue": "Large overdue invoice from (empty = top 5)",
+      "defaultPolicy": "Default collection policy",
+      "bulkMax": "Bulk action limit (items)",
+      "riskWeights": "Risk weights (0–100)",
+      "bandYellow": "Yellow from score",
+      "bandRed": "Red from score",
+      "riskFactors": {
+        "days_overdue": "Days overdue",
+        "exposure_vs_limit": "Exposure vs. limit",
+        "broken_promises_90d": "Broken promises (90 d)",
+        "disputes_90d": "Disputes (90 d)",
+        "inactivity_days": "Inactivity",
+        "external_blocked": "Blocked account (external)"
+      },
+      "calendar": "Working days and holidays per company",
+      "workingDays": "Working days",
+      "holidays": "Holidays — one per line: YYYY-MM-DD name",
+      "days": {
+        "1": "Mon",
+        "2": "Tue",
+        "3": "Wed",
+        "4": "Thu",
+        "5": "Fri",
+        "6": "Sat",
+        "7": "Sun"
+      }
     }
   },
   "pwa": {
@@ -1382,5 +1452,124 @@
       "conflict": "no e-mail contact or a conflict",
       "internal": "internal error"
     }
+  },
+  "exports": {
+    "columns": {
+      "customer": "Customer",
+      "taxId": "Tax ID",
+      "externalId": "External ID",
+      "status": "Status",
+      "owner": "Owner",
+      "currency": "Currency",
+      "exposure": "Open",
+      "overdue": "Overdue",
+      "disputed": "Disputed",
+      "oldestDays": "Oldest overdue (days)",
+      "risk": "Risk",
+      "behaviour": "Payment behaviour",
+      "invoice": "Invoice",
+      "issueDate": "Issue date",
+      "dueDate": "Due date",
+      "total": "Total",
+      "open": "Open",
+      "daysOverdue": "Days overdue",
+      "bucket": "Aging bucket",
+      "naturalPerson": "Natural person",
+      "yes": "yes",
+      "no": "no"
+    },
+    "button": "Export",
+    "queued": "The export is large and is being prepared — find it under Reports → My exports.",
+    "done": "Downloaded ({n} rows).",
+    "mine": "My exports",
+    "mineEmpty": "No prepared exports in the last 7 days.",
+    "download": "Download",
+    "fileLine": "{type} · {format} · {rows} rows · until {date}",
+    "status": {
+      "queued": "waiting",
+      "running": "preparing",
+      "ready": "ready",
+      "failed": "failed"
+    }
+  },
+  "reports": {
+    "title": "Reports",
+    "description": "Six base reports in {currency}, limited to the customers you can see. Definitions: in each report's note.",
+    "choose": "Report",
+    "names": {
+      "aging_by_customer": "Aging by customer",
+      "aging_by_collector": "Aging by collector / team",
+      "collected_by_period": "Collected by period",
+      "promises": "Promises (kept / broken)",
+      "cases_by_stage": "Cases by stage",
+      "disputes": "Disputes"
+    },
+    "definitions": {
+      "aging_by_customer": "Open amounts per customer by aging bucket (reporting currency); overdue and disputed shown separately. Customers without open invoices are left out.",
+      "aging_by_collector": "Open amounts by aging bucket per customer owner (or owner team); number of customers with open invoices.",
+      "collected_by_period": "Money received (payments only — adjustments are never collection) per day / week / month in the period, converted on the payment date.",
+      "promises": "Promises whose promise date falls in the period, by status: count, promised and paid amount (cancelled left out).",
+      "cases_by_stage": "Open cases per stage: count, open amount of their invoices, average age in days.",
+      "disputes": "Disputes opened in the period by reason and status: count, open amount of the disputed invoices, average days open."
+    },
+    "from": "From",
+    "to": "To",
+    "onlyMine": "Only my customers",
+    "groupBy": "Group by",
+    "groupByOwner": "collector",
+    "groupByTeam": "team",
+    "period": "Period",
+    "periods": {
+      "day": "day",
+      "week": "week",
+      "month": "month"
+    },
+    "apply": "Show",
+    "empty": "No data for these filters.",
+    "saved": "Saved reports",
+    "saveAs": "Save as",
+    "share": "share with the organization",
+    "save": "Save",
+    "savedOk": "Report saved.",
+    "deleted": "Saved report deleted.",
+    "delete": "Delete",
+    "sharedMark": "shared",
+    "sortBy": "Sort by",
+    "sortDefault": "default",
+    "columns": {
+      "customer": "Customer",
+      "owner": "Collector",
+      "team": "Team",
+      "open_total": "Open",
+      "overdue_total": "Overdue",
+      "disputed": "Disputed",
+      "customers": "Customers",
+      "period": "Period",
+      "collected": "Collected",
+      "payments": "Payments",
+      "status": "Status",
+      "promises": "Promises",
+      "amount": "Amount",
+      "paid": "Paid",
+      "stage": "Stage",
+      "cases": "Cases",
+      "open_amount": "Open amount",
+      "avg_age_days": "Average age (days)",
+      "reason": "Reason",
+      "disputes": "Disputes",
+      "avg_days_open": "Average days open"
+    },
+    "noOwner": "no owner",
+    "naturalPerson": "Natural person"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "description": "Which e-mail digests you receive and what the app shows you. Digests go to your sign-in address at 07:00 in your time zone.",
+    "dailyDigest": "Daily “My day” e-mail",
+    "weeklyDigest": "Weekly manager summary (Monday; only with report access)",
+    "inAppAttention": "Show “Needs attention” on the dashboard",
+    "inAppMail": "Show undelivered and new mail items in the app",
+    "save": "Save",
+    "saved": "Preferences saved."
   }
 }

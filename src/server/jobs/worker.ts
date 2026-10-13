@@ -5,6 +5,7 @@ import { getMasterKeyring } from '@/server/crypto/keyring';
 import { fxRatesJob } from '@/server/fx/rates-job';
 import { dispatchDue } from '@/server/integrations/outbound';
 import { dispatchIntegrationMail } from '@/server/mail/dispatch-integration';
+import { digestTick } from '@/server/notifications/digest';
 import { DAILY_QUEUE, runTenantDaily, tenantClockTick, type DailyJob } from './clock';
 import { EVENT_HANDLERS } from './handlers';
 import { dispatchMail } from './mail-dispatch';
@@ -88,6 +89,7 @@ export async function startWorker(
     'backup',
     'alerts-check',
     'fx-rates',
+    'digest-dispatch',
   ]) {
     await boss.createQueue(name);
   }
@@ -136,6 +138,11 @@ export async function startWorker(
     await fxRatesJob({ workerPool, appPool });
   });
 
+  // 5.2: digests at 07:00 in each MEMBER's zone — the tick finds who is due (digest_runs = once).
+  await boss.work('digest-dispatch', async (jobs) => {
+    await digestTick(workerPool, appPool, new Date(), jobs[0]?.id ?? 'digest-dispatch');
+  });
+
   // Schedules in UTC; tenant-local times are resolved by tenant-clock (rule 26).
   await boss.schedule('tenant-clock', '*/15 * * * *');
   await boss.schedule('mail-dispatch', '* * * * *');
@@ -146,6 +153,7 @@ export async function startWorker(
   await boss.unschedule('restore-test').catch(() => undefined);
   await boss.schedule('alerts-check', '*/5 * * * *');
   await boss.schedule('fx-rates', '30 16 * * 1-5');
+  await boss.schedule('digest-dispatch', '*/15 * * * *');
 
   const enqueue = (client: PoolClient, event: { id: string; tenantId: string }) =>
     boss

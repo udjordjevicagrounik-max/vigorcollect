@@ -3,9 +3,10 @@ import { getLocale, getTranslations } from 'next-intl/server';
 import { ForbiddenState } from '@/components/admin/forbidden-state';
 import { PageHeader } from '@/components/admin/page-header';
 import { BulkBar } from '@/components/receivables/bulk-bar';
+import { ExportButton } from '@/components/reports/export-button';
 import { Screen } from '@/components/shell/screen';
 import { formatAmount } from '@/lib/format-amount';
-import { PermissionDeniedError } from '@/server/auth/permissions';
+import { PermissionDeniedError, permissionKeys } from '@/server/auth/permissions';
 import { withTenantPage } from '@/server/auth/with-tenant';
 import { bulkOptions } from '@/server/bulk/service';
 import { codeLabels, invoiceListQuery, listOpenInvoices } from '@/server/receivables/service';
@@ -39,6 +40,7 @@ export default async function InvoicesPage({
       buckets: await codeLabels(ctx, 'aging_bucket', locale),
       bulk: await bulkOptions(ctx, 'invoices'),
       policies: await codeLabels(ctx, 'collection_policy', locale),
+      canExport: (await permissionKeys(ctx.db, ctx.userId)).has('invoice.export'),
     }));
   } catch (error) {
     if (error instanceof PermissionDeniedError) return <ForbiddenState />;
@@ -49,6 +51,11 @@ export default async function InvoicesPage({
   return (
     <Screen mobileClass="mobile-compact">
       <PageHeader title={t('title')} description={t('description')} />
+      {data.canExport ? (
+        <div className="mb-3">
+          <ExportButton type={ENTITY} filters={query} />
+        </div>
+      ) : null}
       <form
         method="get"
         role="search"

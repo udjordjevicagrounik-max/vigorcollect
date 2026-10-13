@@ -57,6 +57,12 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           >
             {t('items.settingsPassword')}
           </Link>
+          <Link
+            href="/settings/notifications"
+            className="flex min-h-11 items-center rounded-md px-3 text-text hover:bg-brand-purple-soft"
+          >
+            {t('items.notifications')}
+          </Link>
           <InstallPrompt />
           <SignOutButton />
         </div>
